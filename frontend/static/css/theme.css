@@ -1,0 +1,19 @@
+/*
+    Variables should be named using Github's Primer style guide:
+    https://primer.style/foundations/primitives/token-names
+    https://primer.style/primitives/storybook/?path=/story/color-base-display-scales--all-scales
+*/
+:root, :root[data-theme="dark"]{
+    --background-0: #202020;
+    --background-1: #303030;
+    --background-2: #404040;
+    --background-3: #505050;
+    --background-4: #606060;
+
+    --foreground-0: #fafafa;
+    --foreground-5: #8a8a8a;
+}
+
+:root[data-theme="light"] {
+ /* TODO */
+}
