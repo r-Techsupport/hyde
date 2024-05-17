@@ -6,12 +6,24 @@
     let editorText = "";
     let previewWindow: InnerHTML;
     /**
+     * The time in milliseconds that must pass after a keypress
+     * before markdown is rendered
+     */
+    const DEBOUNCE_TIME: number = 500;
+    let lastKeyPressedTime = Date.now();
+    
+    /**
      * This function is called whenever a key is pressed.
      * 
      * @see https://svelte.dev/repl/162005fa12cc4feb9f668e09260595a7?version=3.24.1
      */
-    function onKeyDown() {
-        renderMarkdown(editorText, previewWindow);
+    async function onKeyDown() {
+        lastKeyPressedTime = Date.now();
+        setTimeout(() => {
+            if (lastKeyPressedTime + DEBOUNCE_TIME >= Date.now()) {
+                renderMarkdown(editorText, previewWindow);
+            }
+        }, DEBOUNCE_TIME);
     }
 </script>
 

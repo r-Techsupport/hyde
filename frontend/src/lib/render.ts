@@ -13,8 +13,6 @@ import { marked } from "marked";
 export async function renderMarkdown(input: string, output: InnerHTML): Promise<undefined> {
     // while this might seem redundant now, there's some pipeline stuff that'll
     // need to happen later
-    // TODO: figure out a more elegant way, maybe wait for certain num of characters typed,
-    // or a notable delay since last keypress
     // https://marked.js.org/#demo
     output.innerHTML = await marked.parse(input);
 
