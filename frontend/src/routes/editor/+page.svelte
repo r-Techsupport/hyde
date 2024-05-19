@@ -119,8 +119,4 @@
 			'Helvetica Neue',
 			sans-serif;
 	}
-
-	.preview-pane p {
-		font-size: x-small;
-	}
 </style>
