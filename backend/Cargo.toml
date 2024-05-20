@@ -1,0 +1,15 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7.5"
+clap = "4.5.4"
+color-eyre = "0.6.3"
+env_logger = "0.11.3"
+log = "0.4.21"
+sqlx = { version = "0.7.4", features = ["sqlite"] }
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
+tower = "0.4.13"
+tower-http = { version = "0.5.2", features = ["normalize-path"] }
