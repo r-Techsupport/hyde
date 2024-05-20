@@ -5,7 +5,7 @@ for permitted users to modify the wiki from a website.
 It is composed of a frontend written in Svelte, and a backend written in Rust.
 
 ## Building
-TODO
+Run `build.sh` to build the front and and backend. The output will be assembled into `./target`, run `rts-cms` to start the binary.
 
 ## Testing
 TODO
