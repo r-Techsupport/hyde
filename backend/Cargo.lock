@@ -176,21 +176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "backend"
-version = "0.1.0"
-dependencies = [
- "axum",
- "clap",
- "color-eyre",
- "env_logger",
- "log",
- "sqlx",
- "tokio",
- "tower",
- "tower-http",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1240,6 +1225,21 @@ dependencies = [
  "spki",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rts-cms-backend"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "clap",
+ "color-eyre",
+ "env_logger",
+ "log",
+ "sqlx",
+ "tokio",
+ "tower",
+ "tower-http",
 ]
 
 [[package]]
