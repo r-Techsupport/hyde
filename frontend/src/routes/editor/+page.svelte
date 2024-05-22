@@ -2,6 +2,8 @@
 	import SideBar from './nav/SideBar.svelte';
 	import TopBar from './nav/TopBar.svelte';
 	import { renderMarkdown } from '$lib/render';
+	import { apiAddress } from '$lib/net';
+	import { cache } from '$lib/cache';
 
 	let editorText = '';
 	let previewWindow: InnerHTML;
@@ -27,18 +29,19 @@
 	}
 
 	async function fileSelectionHandler(e: CustomEvent) {
-		console.log("path: ", e.detail.path)
-		const response = await fetch(`http://127.0.0.1:8080/api/doc?path=${encodeURIComponent(e.detail.path)}`);
+		// const response = await fetch(`${apiAddress}/api/doc?path=${encodeURIComponent(e.detail.path)}`);
 		// console.log(await response.text());
-		const data = await response.json();
-		editorText = data.contents;
+		// const data = await response.json();
+
+		editorText =
+			(await cache.get(e.detail.path)) ??
+			'Something went wrong, the file tree reported by the backend is wrong.';
 		renderMarkdown(editorText, previewWindow);
 	}
-
 </script>
 
 <div class="container">
-	<SideBar on:fileselect={fileSelectionHandler}/>
+	<SideBar on:fileselect={fileSelectionHandler} />
 	<div style="display: flex;flex-direction: column; height: 100vh;">
 		<TopBar />
 		<div class="editor-controls">
@@ -141,6 +144,6 @@
 	}
 
 	.preview-pane :global(a) {
-		color: var(--foreground-0),
+		color: var(--foreground-0);
 	}
 </style>

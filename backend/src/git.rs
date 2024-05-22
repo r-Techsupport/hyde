@@ -78,7 +78,7 @@ impl GitInterface {
     /// Read the document folder into a tree-style structure.
     pub fn get_doc_tree(&self) -> Result<INode> {
         let mut root_node = INode {
-            name: String::from("Documents"),
+            name: String::from("documents"),
             children: Vec::new(),
         };
 
