@@ -1,5 +1,7 @@
 <!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
 <script lang="ts">
+	import { createEventDispatcher } from "svelte";
+
     interface INode {
         name: string,
         children: INode[],
@@ -9,9 +11,10 @@
 	export let children: INode[] = [];
 	export let indent = 1;
     // so that the root is included
-    export let path = name + "/";
-	
-	let open = true;
+    export let path = name + "";
+	let open = false;
+
+    const dispatch = createEventDispatcher();
 	
 	function clickHandler() {
         // If it's a directory, hide and show children
@@ -20,6 +23,9 @@
             // console.log(`Clicked directory with path: "${path}"`);
         }
         else {
+            dispatch("fileselect", {
+                path: path,
+            });
             // console.log(`Clicked file with path: "${path}"`);
         }
 	}
@@ -41,10 +47,10 @@
     {#each children as child}
         {#if child.children.length === 0}
             <!-- Treat path like file -->
-            <svelte:self {...child} indent={indent + 1.5} path={path + child.name}/>
+            <svelte:self on:fileselect {...child} indent={indent + 1.5} path={path + child.name}/>
         {:else}
             <!-- Treat path like directory -->
-            <svelte:self {...child} indent={indent + 1} path={path + child.name + "/"}/>
+            <svelte:self on:fileselect {...child} indent={indent + 1} path={path + child.name + "/"}/>
         {/if}
     {/each}
 {/if}
@@ -61,8 +67,8 @@
         width: 98%;
         border-radius: 5px;
         margin-left: 1%;
-        padding-top: 0.1rem;
-        padding-bottom: 0.1rem;
+        padding-top: 0.4rem;
+        padding-bottom: 0.4rem;
     }
 
     button:hover {

@@ -3,50 +3,62 @@
     import DOMPurify from "dompurify";
     import { onMount } from "svelte";
 
-    const MOCK_DIRECTORY = {
-        name: "Root",
-        children: [
-            {
-                name: "File 1",
-                children: [],
-            },
-            {
-                name: "File 2",
-                children: [],
-            },
-            {
-                name: "Directory 1",
-                children: [
-                    {
-                        name: "File1 in dir 1",
-                        children: [],
-                    }
-                ]
-            },
-            {
-                name: "Directory 2",
-                children: [
-                    {
-                        name: "file 1 in dir 2",
-                        children: [],
+    let rootNode = {
+        name: "",
+        children: []
+    };
+    $: rootNode;
+    // const MOCK_DIRECTORY = {
+    //     name: "Root",
+    //     children: [
+    //         {
+    //             name: "File 1",
+    //             children: [],
+    //         },
+    //         {
+    //             name: "File 2",
+    //             children: [],
+    //         },
+    //         {
+    //             name: "Directory 1",
+    //             children: [
+    //                 {
+    //                     name: "File1 in dir 1",
+    //                     children: [],
+    //                 }
+    //             ]
+    //         },
+    //         {
+    //             name: "Directory 2",
+    //             children: [
+    //                 {
+    //                     name: "file 1 in dir 2",
+    //                     children: [],
 
-                    }
-                ]
-            }
-        ],
-    }
+    //                 }
+    //             ]
+    //         }
+    //     ],
+    // }
+
+    onMount(async () => {
+        // TODO: Dynamically determine whether to refer to local dev url
+        // or to relative route
+        const response = await fetch("http://127.0.0.1:8080/api/tree");
+        rootNode = await response.json();
+    });
 </script>
 
 <div class="side-bar">
     <!-- Because FileNavigation renders recursively, -->
     <!-- any "outside" css needs to be done in a separate div -->
     <div class="directory-nav">
-        <FileNavigation {...MOCK_DIRECTORY}/>
+        <FileNavigation on:fileselect {...rootNode}/>
     </div>
 </div>
 
 <style>
-	@import '/css/theme.css';
+    /* TODO: Resizeable sidebar, make file nav rendering more elegant */
 	.side-bar {
 		background-color: var(--background-1);
 		width: var(--sidebar-width);
@@ -66,19 +78,8 @@
 			sans-serif;
 	}
 
-    .side-bar :global(.i-node) {
-        /* padding-left: 1rem; */
-        padding-left: 0.5rem;
-        border-left: 1px solid var(--foreground-5);
-        margin-left: 0;
-        list-style-type: none;
-        padding-bottom: 0.1rem;
-        padding-top: 0.1rem;
-        font-size: large;
-        cursor: pointer;
-    }
-
     .directory-nav {
         margin-top: 2rem;
+        overflow-x: scroll;
     }
 </style>

@@ -25,11 +25,21 @@
 			}
 		}, DEBOUNCE_TIME);
 	}
+
+	async function fileSelectionHandler(e: CustomEvent) {
+		console.log("path: ", e.detail.path)
+		const response = await fetch(`http://127.0.0.1:8080/api/doc?path=${encodeURIComponent(e.detail.path)}`);
+		// console.log(await response.text());
+		const data = await response.json();
+		editorText = data.contents;
+		renderMarkdown(editorText, previewWindow);
+	}
+
 </script>
 
 <div class="container">
-	<SideBar />
-	<div style="display: flex;flex-direction: column;">
+	<SideBar on:fileselect={fileSelectionHandler}/>
+	<div style="display: flex;flex-direction: column; height: 100vh;">
 		<TopBar />
 		<div class="editor-controls">
 			<!-- Cancel -->
@@ -55,7 +65,6 @@
 <svelte:window on:keydown={onKeyDown} />
 
 <style>
-	@import '/css/theme.css';
 	.container {
 		--sidebar-width: 14rem;
 		background-color: var(--background-0);
@@ -76,9 +85,14 @@
 		margin: 0.3rem;
 	}
 
+	/* div containing both the preview pane and the editor pane */
 	.editor-panes {
-		flex-direction: row;
-		flex-grow: 1;
+		height: 100%;
+		/* flex-direction: row;
+		flex-grow: 1; */
+		/* max-height: 80%;
+		height: 80%; */
+		overflow-y: scroll;
 	}
 
 	.editor-pane {
@@ -91,6 +105,11 @@
 		font-size: larger;
 		background-color: var(--background-0);
 		color: var(--foreground-0);
+		/* overflow-y: scroll; */
+	}
+
+	.editor-pane:focus {
+		border: 0px;
 	}
 
 	.preview-pane {
@@ -118,5 +137,10 @@
 			'Open Sans',
 			'Helvetica Neue',
 			sans-serif;
+		overflow-y: scroll;
+	}
+
+	.preview-pane :global(a) {
+		color: var(--foreground-0),
 	}
 </style>

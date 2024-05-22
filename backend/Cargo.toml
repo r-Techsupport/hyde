@@ -4,12 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = "0.7.5"
+axum = { version = "0.7.5", features = ["macros"] }
 clap = { version = "4.5.4", features = ["derive"] }
 color-eyre = "0.6.3"
+dotenvy = "0.15.7"
 env_logger = "0.11.3"
+git2 = "0.18.3"
 log = "0.4.21"
+serde = { version = "1.0.202", features = ["derive"] }
 sqlx = { version = "0.7.4", features = ["sqlite"] }
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
 tower = "0.4.13"
-tower-http = { version = "0.5.2", features = ["normalize-path", "fs"] }
+tower-http = { version = "0.5.2", features = ["normalize-path", "fs", "cors"] }
