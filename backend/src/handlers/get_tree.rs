@@ -1,11 +1,9 @@
 use axum::{
-    extract::{Query, State},
+    extract::State,
     http::StatusCode,
     Json,
 };
 use log::error;
-use serde::{Deserialize, Serialize};
-
 use crate::git::INode;
 use crate::AppState;
 

@@ -65,18 +65,7 @@
 		width: var(--sidebar-width);
 		height: 100vh;
 		color: var(--foreground-0);
-		font-family:
-			system-ui,
-			-apple-system,
-			BlinkMacSystemFont,
-			'Segoe UI',
-			Roboto,
-			Oxygen,
-			Ubuntu,
-			Cantarell,
-			'Open Sans',
-			'Helvetica Neue',
-			sans-serif;
+		font-family: var(--font-family);
 	}
 
 	.directory-nav {

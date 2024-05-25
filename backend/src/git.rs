@@ -47,8 +47,9 @@ impl GitInterface {
         }
 
         let repository_url = env::var("REPO_URL").context("Repo url not set in env")?;
-        info!("No repo detected, cloning {repository_url:?}...");
-        let repo = Repository::clone(&repository_url, "./repo")?;
+        let ouput_path = Path::new("./repo");
+        info!("No repo detected, cloning {repository_url:?} into {:?}...", ouput_path.display());
+        let repo = Repository::clone(&repository_url, "./repo").unwrap();
         info!("Successfully cloned repo");
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),

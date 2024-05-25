@@ -1,11 +1,16 @@
 <script lang="ts">
 	import SideBar from './nav/SideBar.svelte';
 	import TopBar from './nav/TopBar.svelte';
+	import ChangeDialogue from './nav/ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { apiAddress } from '$lib/net';
 	import { cache } from '$lib/cache';
 
+	/** The text currently displayed in the editing window */
 	let editorText = '';
+	/** The path to the file currently being displayed by the window */
+	let currentFile = '';
+	/** A reference to the div where markdown is rendered to */
 	let previewWindow: InnerHTML;
 	/**
 	 * The time in milliseconds that must pass after a keypress
@@ -28,15 +33,19 @@
 		}, DEBOUNCE_TIME);
 	}
 
-	async function fileSelectionHandler(e: CustomEvent) {
-		// const response = await fetch(`${apiAddress}/api/doc?path=${encodeURIComponent(e.detail.path)}`);
-		// console.log(await response.text());
-		// const data = await response.json();
+	let showChangeDialogue: boolean;
 
-		editorText =
-			(await cache.get(e.detail.path)) ??
-			'Something went wrong, the file tree reported by the backend is wrong.';
-		renderMarkdown(editorText, previewWindow);
+	async function fileSelectionHandler(e: CustomEvent) {
+		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
+		if ((await cache.get(currentFile)) === editorText || currentFile === '') {
+			currentFile = e.detail.path;
+			editorText =
+				(await cache.get(e.detail.path)) ??
+				'Something went wrong, the file tree reported by the backend references a nonexistent file.';
+			renderMarkdown(editorText, previewWindow);
+		} else {
+			showChangeDialogue = true;
+		}
 	}
 </script>
 
@@ -63,6 +72,7 @@
 			<div bind:this={previewWindow} class="preview-pane"></div>
 		</div>
 	</div>
+	<ChangeDialogue bind:visible={showChangeDialogue} />
 </div>
 
 <svelte:window on:keydown={onKeyDown} />
@@ -128,18 +138,7 @@
 
 		/* styling of rendered text */
 		color: var(--foreground-0);
-		font-family:
-			system-ui,
-			-apple-system,
-			BlinkMacSystemFont,
-			'Segoe UI',
-			Roboto,
-			Oxygen,
-			Ubuntu,
-			Cantarell,
-			'Open Sans',
-			'Helvetica Neue',
-			sans-serif;
+		font-family: var(--font-family);
 		overflow-y: scroll;
 	}
 
