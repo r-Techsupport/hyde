@@ -1,3 +1,27 @@
+@import url("theme.css");
+
 body {
 	margin: 0;
+}
+
+/* How I hate the massive variances in scrollbar appearance between browsers and UAs */
+::-webkit-scrollbar{
+	width: 0.2rem;
+	opacity: 30%;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--background-0);
+	opacity: 30%;
+}
+
+::-webkit-scrollbar-thumb {
+	border-radius: 10%;
+	background: var(--foreground-5);
+	opacity: 5%;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	cursor: pointer;
+	opacity: 100%;
 }

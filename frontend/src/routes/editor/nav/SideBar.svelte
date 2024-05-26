@@ -66,10 +66,12 @@
 		height: 100vh;
 		color: var(--foreground-0);
 		font-family: var(--font-family);
+		overflow-y: scroll;
 	}
 
 	.directory-nav {
 		margin-top: 2rem;
-		overflow-x: scroll;
+		overflow-x: hidden;
+		/* overflow-y: scroll; */
 	}
 </style>

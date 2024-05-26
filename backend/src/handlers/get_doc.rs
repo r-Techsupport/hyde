@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use log::error;
+use log::warn;
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
@@ -34,9 +34,10 @@ pub async fn get_doc_handler(
             }
         },
         Err(e) => {
-            error!(
-                "Failed to fetch doc with path: {}; error: {:?}",
-                query.path, e
+            warn!(
+                "Failed to fetch doc with path: {:?}; error: {:?}",
+                query.path,
+                e
             );
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,

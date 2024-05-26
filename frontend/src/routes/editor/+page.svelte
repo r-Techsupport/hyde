@@ -105,11 +105,12 @@
 		flex-grow: 1; */
 		/* max-height: 80%;
 		height: 80%; */
-		overflow-y: scroll;
+		overflow-y: hidden;
 	}
 
 	.editor-pane {
 		resize: none;
+		float: left;
 		box-sizing: border-box;
 		width: calc((100vw - var(--sidebar-width)) / 2);
 		height: 98%;
@@ -118,28 +119,30 @@
 		font-size: larger;
 		background-color: var(--background-0);
 		color: var(--foreground-0);
-		/* overflow-y: scroll; */
 	}
 
 	.editor-pane:focus {
-		border: 0px;
+		outline-width: 0px;
 	}
 
 	.preview-pane {
 		/* sizing and spacing */
-		float: right;
+		float: left;
 		box-sizing: border-box;
-		width: calc((100vw - var(--sidebar-width)) / 2 - 5px);
+		width: calc((100vw - var(--sidebar-width)) / 2);
 		height: 100%;
 		padding-left: 1rem;
 		padding-right: 1rem;
-		/* inn */
 		border-left: 0.07rem solid var(--foreground-5);
 
 		/* styling of rendered text */
 		color: var(--foreground-0);
 		font-family: var(--font-family);
 		overflow-y: scroll;
+	}
+
+	.preview-pane :global(*) {
+		word-break: normal;
 	}
 
 	.preview-pane :global(a) {
