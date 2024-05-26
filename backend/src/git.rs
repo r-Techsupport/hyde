@@ -15,6 +15,7 @@ use std::{
 
 #[derive(Clone)]
 pub struct GitInterface {
+    #[allow(dead_code)] // Will be used later
     repo: Arc<Mutex<Repository>>,
     doc_path: PathBuf,
 }
@@ -31,7 +32,7 @@ impl GitInterface {
     /// was detected
     pub fn lazy_init() -> Result<GitInterface> {
         let mut doc_path = PathBuf::from("./repo");
-        doc_path.push(env::var("DOC_PATH").context("The DOC_PATH env var was not set")?);
+        doc_path.push(env::var("DOC_PATH").wrap_err("The DOC_PATH env var was not set")?);
         if let Ok(repo) = Repository::open("./repo") {
             info!("Existing repository detected, fetching latest changes...");
             let mut remote = repo.find_remote("origin")?;
@@ -46,7 +47,7 @@ impl GitInterface {
             });
         }
 
-        let repository_url = env::var("REPO_URL").context("Repo url not set in env")?;
+        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
         let ouput_path = Path::new("./repo");
         info!(
             "No repo detected, cloning {repository_url:?} into {:?}...",
@@ -109,7 +110,7 @@ impl GitInterface {
             }
             Ok(())
         }
-        recurse_tree(&Path::new(&self.doc_path), &mut root_node)?;
+        recurse_tree(Path::new(&self.doc_path), &mut root_node)?;
         Ok(root_node)
     }
 }

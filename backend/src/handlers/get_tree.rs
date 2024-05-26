@@ -9,14 +9,14 @@ pub async fn get_tree_handler(
     State(state): State<AppState>,
 ) -> Result<Json<INode>, (StatusCode, &'static str)> {
     match state.git.get_doc_tree() {
-        Ok(t) => return Ok(Json(t)),
+        Ok(t) => Ok(Json(t)),
         Err(e) => {
             error!("An error was encountered fetching the document tree: {e:?}");
-            return Err((
+            Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An internal error was encountered fetching the doc tree, \
                     check server logs for more info",
-            ));
+            ))
         }
     }
 }

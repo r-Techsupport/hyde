@@ -1,18 +1,20 @@
-pub mod auth;
 pub mod git;
 mod handlers;
 
-use auth::OAathClient;
 use axum::{http::HeaderValue, routing::get, Router};
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
     Parser,
 };
 use color_eyre::eyre::Context;
+use color_eyre::Result;
 use git::GitInterface;
 use handlers::*;
 use log::{info, LevelFilter};
-use std::env::current_exe;
+use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
+use reqwest::Client;
+use std::env::{self, current_exe};
+use tokio::task;
 use tower_http::cors::CorsLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
@@ -20,7 +22,8 @@ use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 #[derive(Clone)]
 struct AppState {
     git: GitInterface,
-    oauth: OAathClient,
+    oauth: BasicClient,
+    reqwest_client: Client,
 }
 
 #[derive(Parser)]
@@ -38,22 +41,20 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> color_eyre::Result<()> {
+async fn main() -> Result<()> {
     // Parse command line arguments
     let cli_args = Args::parse();
     // Read environment variables from dotenv file
-    dotenvy::dotenv().context("No dotenv file found, or failed to read from it")?;
+    dotenvy::dotenv().wrap_err("No dotenv file found, or failed to read from it")?;
     // Initialize logging
     env_logger::builder()
         .filter(None, log::LevelFilter::Info)
         .init();
     // Initialize app state
-    let state: AppState = AppState {
-        git: GitInterface::lazy_init()?,
-        oauth: OAathClient::new()?,
-    };
+    let state: AppState = init_state()
+        .await
+        .wrap_err("Failed to initialize app state")?;
 
-    println!("{:?}", state.oauth.get_auth_url().0.as_str());
     // files are served relative to the location of the executable, not where the
     // executable was run from
     let mut frontend_dir = current_exe()?;
@@ -66,6 +67,7 @@ async fn main() -> color_eyre::Result<()> {
         .route("/api/doc", get(get_doc_handler))
         .route("/api/tree", get(get_tree_handler))
         .route("/api/oauth", get(get_oauth2_handler))
+        .route("/api/oauth/url", get(get_oauth2_url))
         .layer(CorsLayer::new().allow_origin("*".parse::<HeaderValue>().unwrap()))
         .with_state(state)
         // Serve the frontend files
@@ -78,4 +80,26 @@ async fn main() -> color_eyre::Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+async fn init_state() -> Result<AppState> {
+    let git = task::spawn(async { GitInterface::lazy_init() });
+    let oauth = {
+        let client_id = env::var("OAUTH_CLIENT_ID").wrap_err("OAUTH_CLIENT_ID not set in env")?;
+        let client_secret = env::var("OAUTH_SECRET").wrap_err("OAUTH_SECRET not sent in env")?;
+        let auth_url = env::var("OAUTH_URL").wrap_err("OAUTH_URL not set in env")?;
+        let token_url = env::var("OAUTH_TOKEN_URL").wrap_err("OAUTH_TOKEN_URL not set in env")?;
+        BasicClient::new(
+            ClientId::new(client_id),
+            Some(ClientSecret::new(client_secret)),
+            AuthUrl::new(auth_url)?,
+            Some(TokenUrl::new(token_url)?),
+        )
+    };
+    let reqwest_client = Client::new();
+    Ok(AppState {
+        git: git.await??,
+        oauth,
+        reqwest_client,
+    })
 }
