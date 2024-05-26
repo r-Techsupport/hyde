@@ -1,6 +1,8 @@
+pub mod auth;
 pub mod git;
 mod handlers;
 
+use auth::OAathClient;
 use axum::{http::HeaderValue, routing::get, Router};
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
@@ -11,13 +13,14 @@ use git::GitInterface;
 use handlers::*;
 use log::{info, LevelFilter};
 use std::env::current_exe;
-use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 use tower_http::cors::CorsLayer;
+use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
 /// Global app state passed to handlers by axum
 #[derive(Clone)]
 struct AppState {
     git: GitInterface,
+    oauth: OAathClient,
 }
 
 #[derive(Parser)]
@@ -47,7 +50,10 @@ async fn main() -> color_eyre::Result<()> {
     // Initialize app state
     let state: AppState = AppState {
         git: GitInterface::lazy_init()?,
+        oauth: OAathClient::new()?,
     };
+
+    println!("{:?}", state.oauth.get_auth_url().0.as_str());
     // files are served relative to the location of the executable, not where the
     // executable was run from
     let mut frontend_dir = current_exe()?;
@@ -59,6 +65,7 @@ async fn main() -> color_eyre::Result<()> {
         .route("/api/hello", get(|| async { "Hello world" }))
         .route("/api/doc", get(get_doc_handler))
         .route("/api/tree", get(get_tree_handler))
+        .route("/api/oauth", get(get_oauth2_handler))
         .layer(CorsLayer::new().allow_origin("*".parse::<HeaderValue>().unwrap()))
         .with_state(state)
         // Serve the frontend files

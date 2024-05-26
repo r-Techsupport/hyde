@@ -36,8 +36,7 @@ pub async fn get_doc_handler(
         Err(e) => {
             warn!(
                 "Failed to fetch doc with path: {:?}; error: {:?}",
-                query.path,
-                e
+                query.path, e
             );
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,

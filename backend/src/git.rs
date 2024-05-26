@@ -48,7 +48,10 @@ impl GitInterface {
 
         let repository_url = env::var("REPO_URL").context("Repo url not set in env")?;
         let ouput_path = Path::new("./repo");
-        info!("No repo detected, cloning {repository_url:?} into {:?}...", ouput_path.display());
+        info!(
+            "No repo detected, cloning {repository_url:?} into {:?}...",
+            ouput_path.display()
+        );
         let repo = Repository::clone(&repository_url, "./repo").unwrap();
         info!("Successfully cloned repo");
         Ok(Self {
@@ -94,10 +97,7 @@ impl GitInterface {
                         name: entry_name,
                         children: Vec::new(),
                     };
-                    recurse_tree(
-                        &path,
-                            &mut inner_node
-                    )?;
+                    recurse_tree(&path, &mut inner_node)?;
                     node.children.push(inner_node);
                 } else {
                     // path is a file, add to children

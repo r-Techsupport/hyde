@@ -1,11 +1,7 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
-use log::error;
 use crate::git::INode;
 use crate::AppState;
+use axum::{extract::State, http::StatusCode, Json};
+use log::error;
 
 /// This handler reads the document folder and builds a tree style object
 /// representing the state of the tree. This is used in the viewer for directory navigation.
