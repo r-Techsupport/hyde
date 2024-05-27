@@ -5,7 +5,7 @@ use git2::Repository;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::{
     env,
@@ -66,7 +66,7 @@ impl GitInterface {
     ///
     /// The return type is a little bit messy, but I needed to differentiate between
     /// "file not found", and "failed to read file"
-    pub fn get_doc(&self, path: &str) -> Result<Option<String>> {
+    pub fn get_doc<P: AsRef<Path>>(&self, path: P) -> Result<Option<String>> {
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
@@ -112,5 +112,20 @@ impl GitInterface {
         }
         recurse_tree(Path::new(&self.doc_path), &mut root_node)?;
         Ok(root_node)
+    }
+
+    /// Replace the document at the provided path
+    /// (relative to the root of the documents folder) with a new document
+    pub fn put_doc<P: AsRef<Path> + Copy>(&self, path: P, new_doc: String) -> Result<()> {
+        let mut path_to_doc: PathBuf = PathBuf::from(".");
+        path_to_doc.push(&self.doc_path);
+        path_to_doc.push(path);
+        // wipe the file
+        let mut file = fs::File::create(path_to_doc).wrap_err_with(|| format!("Failed to wipe requested file for rewrite: {:?}", path.as_ref()))?;
+        // write the new contents in
+        file.write_all(new_doc.as_bytes()).wrap_err_with(|| format!("Failed to write new contents into file: {:?}", path.as_ref()))?;
+        info!("Successfully updated document at {:?}", path.as_ref());
+        // fs::File::set_len(&self, size)
+        Ok(())
     }
 }

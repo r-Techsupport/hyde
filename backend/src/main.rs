@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
     let state: AppState = init_state()
         .await
         .wrap_err("Failed to initialize app state")?;
-
+    state.git.put_doc("backups/backups.md", "Hi mom!".to_string())?;
     // files are served relative to the location of the executable, not where the
     // executable was run from
     let mut frontend_dir = current_exe()?;

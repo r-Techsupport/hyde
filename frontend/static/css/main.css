@@ -10,11 +10,6 @@ body {
 	opacity: 30%;
 }
 
-::-webkit-scrollbar-track {
-	background: var(--background-0);
-	opacity: 30%;
-}
-
 ::-webkit-scrollbar-thumb {
 	border-radius: 10%;
 	background: var(--foreground-5);
