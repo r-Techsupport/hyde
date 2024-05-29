@@ -5,11 +5,13 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.7.5", features = ["macros"] }
+chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive"] }
 color-eyre = "0.6.3"
 dotenvy = "0.15.7"
 env_logger = "0.11.3"
 git2 = "0.18.3"
+jsonwebtoken = "9.3.0"
 log = "0.4.21"
 oauth2 = "4.4.2"
 reqwest = { version = "0.12.4", features = ["stream"] }

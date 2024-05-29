@@ -1,3 +1,4 @@
+mod gh;
 pub mod git;
 mod handlers;
 
@@ -8,6 +9,7 @@ use clap::{
 };
 use color_eyre::eyre::Context;
 use color_eyre::Result;
+use gh::GithubAccessToken;
 use git::GitInterface;
 use handlers::*;
 use log::{info, LevelFilter};
@@ -24,6 +26,7 @@ struct AppState {
     git: GitInterface,
     oauth: BasicClient,
     reqwest_client: Client,
+    gh_credentials: GithubAccessToken,
 }
 
 #[derive(Parser)]
@@ -45,16 +48,17 @@ async fn main() -> Result<()> {
     // Parse command line arguments
     let cli_args = Args::parse();
     // Read environment variables from dotenv file
-    dotenvy::dotenv().wrap_err("No dotenv file found, or failed to read from it")?;
+    dotenvy::from_path("cms-data/.env")
+        .context("No .env file was found in `cms-data/`, or failed to read from it.")?;
     // Initialize logging
     env_logger::builder()
         .filter(None, log::LevelFilter::Info)
         .init();
     // Initialize app state
-    let state: AppState = init_state()
+    let mut state: AppState = init_state()
         .await
         .wrap_err("Failed to initialize app state")?;
-    state.git.put_doc("backups/backups.md", "Hi mom!".to_string())?;
+    state.git.put_doc("backups/backups.md", "Hey mammi!".to_string(), "Git is weird".to_string(), state.gh_credentials.get(&state.reqwest_client).await?)?;
     // files are served relative to the location of the executable, not where the
     // executable was run from
     let mut frontend_dir = current_exe()?;
@@ -101,5 +105,6 @@ async fn init_state() -> Result<AppState> {
         git: git.await??,
         oauth,
         reqwest_client,
+        gh_credentials: GithubAccessToken::new()
     })
 }

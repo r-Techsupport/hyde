@@ -1,8 +1,8 @@
 //! Abstractions and interfaces over the git repository
 
 use color_eyre::{eyre::Context, Result};
-use git2::Repository;
-use log::info;
+use git2::{Repository, Signature};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -36,7 +36,7 @@ impl GitInterface {
         if let Ok(repo) = Repository::open("./repo") {
             info!("Existing repository detected, fetching latest changes...");
             let mut remote = repo.find_remote("origin")?;
-            remote.fetch(&["main"], None, None)?;
+            remote.fetch(&["master"], None, None)?;
             // Stuff with C bindings will sometimes require manual dropping if
             // there's references and stuff
             drop(remote);
@@ -48,11 +48,13 @@ impl GitInterface {
         }
 
         let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
-        let ouput_path = Path::new("./repo");
+        let output_path = Path::new("./repo");
         info!(
             "No repo detected, cloning {repository_url:?} into {:?}...",
-            ouput_path.display()
+            output_path.display()
         );
+        // https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#about-authentication-as-a-github-app-installation
+        // TODO
         let repo = Repository::clone(&repository_url, "./repo").unwrap();
         info!("Successfully cloned repo");
         Ok(Self {
@@ -116,16 +118,72 @@ impl GitInterface {
 
     /// Replace the document at the provided path
     /// (relative to the root of the documents folder) with a new document
-    pub fn put_doc<P: AsRef<Path> + Copy>(&self, path: P, new_doc: String) -> Result<()> {
+    pub fn put_doc<P: AsRef<Path> + Copy>(
+        &self,
+        path: P,
+        new_doc: String,
+        message: String,
+        token: String
+    ) -> Result<()> {
+        let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
         // wipe the file
-        let mut file = fs::File::create(path_to_doc).wrap_err_with(|| format!("Failed to wipe requested file for rewrite: {:?}", path.as_ref()))?;
+        let mut file = fs::File::create(path_to_doc).wrap_err_with(|| {
+            format!(
+                "Failed to wipe requested file for rewrite: {:?}",
+                path.as_ref()
+            )
+        })?;
         // write the new contents in
-        file.write_all(new_doc.as_bytes()).wrap_err_with(|| format!("Failed to write new contents into file: {:?}", path.as_ref()))?;
-        info!("Successfully updated document at {:?}", path.as_ref());
+        file.write_all(new_doc.as_bytes()).wrap_err_with(|| {
+            format!(
+                "Failed to write new contents into file: {:?}",
+                path.as_ref()
+            )
+        })?;
+        let sig = Signature::now("rts-cms", "rts-cms")?;
+        let msg = format!("[CMS]: {:?}", message);
+        // adapted from https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html
+        let mut index = repo.index()?;
+        // File paths are relative to the root of the repository for `add_path`
+        let mut relative_path = PathBuf::from(env::var("DOC_PATH")?);
+        let tree = {
+            // Standard practice is to stage commits by adding them to an index.
+            relative_path.push(path);
+            index.add_path(&relative_path)?;
+            let oid = index.write_tree()?;
+            repo.find_tree(oid)?
+        };
+        let parent_commit = find_last_commit(&repo)?;
+        // TODO: parent commit, staging?
+        let commit_id = repo.commit(Some("HEAD"), &sig, &sig, &msg, &tree, &[&parent_commit])?;
+        debug!("New commit made with ID: {:?}", commit_id);
+        // assuming github
+        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
+        let authenticated_url = repository_url.replace("https://", &format!("https://x-access-token:{}@", token));
+        repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
+        let mut remote = repo.find_remote("origin")?;
+        // repo.find_remote("origin")?.push::<&str>(&[], None)?;
+        remote.connect(git2::Direction::Push)?;
+        // Push master here, to master there
+        remote.push(&["refs/heads/master:refs/heads/master"], None)?;
+        info!("Document {:?} edited and pushed to GitHub", path.as_ref());
+        remote.disconnect()?;
+        index.remove_path(&relative_path)?;
+        index.write()?;
+        debug!("Commit cleanup completed");
         // fs::File::set_len(&self, size)
         Ok(())
     }
+}
+
+/// This function is needed because a lot of git functionality (adding new commits, et cetera) requires knowing the latest commit.
+///
+/// <https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html>
+fn find_last_commit(repo: &Repository) -> Result<git2::Commit, git2::Error> {
+    let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
+    obj.into_commit()
+        .map_err(|_| git2::Error::from_str("Couldn't find commit"))
 }
