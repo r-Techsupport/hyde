@@ -5,5 +5,5 @@ import { dev } from '$app/environment';
 // dev environments
 if (dev) {
 	console.log('Development environment detected, switching to local server');
-	apiAddress = 'http://127.0.0.1:8080';
+	apiAddress = 'http://localhost:8080';
 }

@@ -11,5 +11,12 @@ Run `build.sh` to build the front and and backend. The output will be assembled 
 The executable requires a few environment variables be set, see `default.env` for a full list. You may set them on the system or copy `default.env` to `.env`
 and place it in a folder named `cms-data/` and customize as needed. This directory is used to store configs, the sqlite database, and the Github App private key.
 
+## Developing
+The frontend and backend can also operate in development mode.
+
+You can run the backend with `cargo run` from the `backend` folder (note: you'll need to make an `cms-data` folder in `backend` and populate it with the required contents).
+
+Once the backend is running, run `npm run dev` from the `frontend` folder to start the frontend.
+
 ## Testing
 TODO

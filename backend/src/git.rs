@@ -123,7 +123,7 @@ impl GitInterface {
         path: P,
         new_doc: String,
         message: String,
-        token: String
+        token: String,
     ) -> Result<()> {
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(".");
@@ -162,7 +162,8 @@ impl GitInterface {
         debug!("New commit made with ID: {:?}", commit_id);
         // assuming github
         let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
-        let authenticated_url = repository_url.replace("https://", &format!("https://x-access-token:{}@", token));
+        let authenticated_url =
+            repository_url.replace("https://", &format!("https://x-access-token:{}@", token));
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
         let mut remote = repo.find_remote("origin")?;
         // repo.find_remote("origin")?.push::<&str>(&[], None)?;

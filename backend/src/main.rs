@@ -54,11 +54,15 @@ async fn main() -> Result<()> {
     env_logger::builder()
         .filter(None, log::LevelFilter::Info)
         .init();
+    if cfg!(debug_assertions) {
+        info!("Server running in development mode");
+    } else {
+        info!("Server running in release mode");
+    }
     // Initialize app state
-    let mut state: AppState = init_state()
+    let state: AppState = init_state()
         .await
         .wrap_err("Failed to initialize app state")?;
-    state.git.put_doc("backups/backups.md", "Hey mammi!".to_string(), "Git is weird".to_string(), state.gh_credentials.get(&state.reqwest_client).await?)?;
     // files are served relative to the location of the executable, not where the
     // executable was run from
     let mut frontend_dir = current_exe()?;
@@ -105,6 +109,6 @@ async fn init_state() -> Result<AppState> {
         git: git.await??,
         oauth,
         reqwest_client,
-        gh_credentials: GithubAccessToken::new()
+        gh_credentials: GithubAccessToken::new(),
     })
 }

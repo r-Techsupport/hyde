@@ -1,4 +1,4 @@
-//! All Axum handlers are exported from here
+//! All Axum handlers are exported from this module
 
 mod get_doc;
 pub use get_doc::*;

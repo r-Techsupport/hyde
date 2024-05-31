@@ -1,8 +1,8 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
+use chrono::DateTime;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use chrono::DateTime;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -64,7 +64,7 @@ pub struct GithubAccessToken {
 }
 
 impl GithubAccessToken {
-    /// Initialize, but don't fetch a token yet. 
+    /// Initialize, but don't fetch a token yet.
     pub fn new() -> Self {
         Self {
             expires_at: UNIX_EPOCH,
@@ -108,8 +108,12 @@ async fn get_access_token(req_client: &Client) -> Result<(String, SystemTime)> {
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await?;
-    let deserialized_response: AccessTokenResponse = serde_json::from_slice(&response.bytes().await?)?;
-    Ok((deserialized_response.token, DateTime::parse_from_rfc3339(&deserialized_response.expires_at)?.into()))
+    let deserialized_response: AccessTokenResponse =
+        serde_json::from_slice(&response.bytes().await?)?;
+    Ok((
+        deserialized_response.token,
+        DateTime::parse_from_rfc3339(&deserialized_response.expires_at)?.into(),
+    ))
 }
 
 #[derive(Deserialize)]

@@ -1,9 +1,11 @@
 use axum::{
-    extract::{Query, State},
-    http::StatusCode,
+    debug_handler,
+    extract::{Query, Request, State},
+    http::{uri::Scheme, HeaderMap, StatusCode},
     response::Redirect,
 };
-use log::info;
+use color_eyre::eyre::Context;
+use log::{error, info};
 use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl};
 use oauth2::{CsrfToken, TokenResponse};
 use serde::{Deserialize, Serialize};
@@ -17,15 +19,20 @@ pub struct GetOAuthQuery {
     pub state: String,
 }
 
+#[debug_handler]
 /// This endpoint is used for authentication, and it's required to implement oauth2. Users
 /// are sent here by discord after they authenticate, then they're redirected to the homepage
 pub async fn get_oauth2_handler(
     State(state): State<AppState>,
     Query(query): Query<GetOAuthQuery>,
-) -> Result<Redirect, (StatusCode, String)> {
-    match get_oath_processor(&state, query).await {
+    req: Request,
+) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
+    match get_oath_processor(&state, query, req).await {
         Ok(redirect) => Ok(redirect),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+        Err(e) => {
+            error!("An error was encountered during oauth processing: {:?}", e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, format!("An error was encountered during oauth processing: {:?}", e.to_string())))
+        }
     }
 }
 
@@ -42,28 +49,41 @@ pub async fn get_oauth2_url(State(state): State<AppState>) -> String {
 async fn get_oath_processor(
     state: &AppState,
     query: GetOAuthQuery,
-) -> color_eyre::Result<Redirect> {
+    req: Request,
+) -> color_eyre::Result<(HeaderMap, Redirect)> {
     // Support for dev and local environments, where discord sends the user
     // after the first step of the handshake
     let redirect_url = if cfg!(debug_assertions) {
-        "http://127.0.0.1:8080/api/oauth".to_string()
+        "http://localhost:8080/api/oauth".to_string()
     } else {
-        "/api/oauth".to_string()
+        let scheme = if let Some(s) = req.uri().scheme_str() {
+            println!("{}", s);
+            s
+        } else {
+            "http"
+        };
+        format!(
+            "{}://{}/api/oauth",
+            scheme,
+            req.headers().get("host").unwrap().to_str()?
+        )
     };
 
     // The obtained token after they authenticate
-    let token_result = state
+    let token_data: oauth2::StandardTokenResponse<_, _> = state
         .oauth
         .exchange_code(AuthorizationCode::new(query.code))
         .set_redirect_uri(std::borrow::Cow::Owned(RedirectUrl::new(redirect_url)?))
         .request_async(async_http_client)
-        .await?;
+        .await
+        .wrap_err("OAuth token request failed")?;
 
+    let token = token_data.access_token().secret();
     // Use that token to request user data
     let response = state
         .reqwest_client
         .get("https://discord.com/api/v10/users/@me")
-        .bearer_auth(token_result.access_token().secret())
+        .bearer_auth(token_data.access_token().secret())
         .header(
             "User-Agent",
             "DiscordBot (https://github.com/r-Techsupport/rts-crm, 0)",
@@ -80,10 +100,30 @@ async fn get_oath_processor(
         );
     };
 
-    // redirect the user to localhost:5173 if they're running from a dev environment
-    #[cfg(debug_assertions)]
-    return color_eyre::Result::Ok(Redirect::temporary("http://localhost:5173/"));
-    // This is reachable, but the above macro evaluates to return when the linter is linting
-    #[allow(unreachable_code)]
-    color_eyre::Result::Ok(Redirect::temporary("/"))
+    let redirect = if cfg!(debug_assertions) {
+        Redirect::to("http://localhost:5173/")
+    } else {
+        Redirect::to("/")
+    };
+
+    let mut headers = HeaderMap::new();
+    // headers.append("Set-Cookie", format!("test=test; SameSite=None; Max-Age={}; Domain=localhost; Path=/", token_result.expires_in().unwrap().as_secs()).parse()?);
+    // let the cookie be read from the vite build
+    if cfg!(debug_assertions) {
+        headers.append(
+            "Set-Cookie",
+            format!("access-token={}; Secure; HttpOnly; Path=/;", token).parse()?,
+        );
+    } else {
+        headers.append(
+            "Set-Cookie",
+            format!(
+                "access-token={}; Secure; HttpOnly; Path=/; Max-Age={}",
+                token,
+                token_data.expires_in().unwrap().as_secs()
+            )
+            .parse()?,
+        );
+    }
+    return color_eyre::Result::Ok((headers, redirect));
 }
