@@ -14,7 +14,7 @@ use std::{
 };
 
 #[derive(Clone)]
-pub struct GitInterface {
+pub struct Interface {
     #[allow(dead_code)] // Will be used later
     repo: Arc<Mutex<Repository>>,
     doc_path: PathBuf,
@@ -27,10 +27,14 @@ pub struct INode {
     children: Vec<INode>,
 }
 
-impl GitInterface {
+impl Interface {
     /// Clone the repository into `./repo`, or run `fetch` if an existing repo
     /// was detected
-    pub fn lazy_init() -> Result<GitInterface> {
+    /// 
+    /// # Errors
+    /// This function will return an error if any of the git initialization steps fail, or if 
+    /// the required environment variables are not set.
+    pub fn lazy_init() -> Result<Interface> {
         let mut doc_path = PathBuf::from("./repo");
         doc_path.push(env::var("DOC_PATH").wrap_err("The DOC_PATH env var was not set")?);
         if let Ok(repo) = Repository::open("./repo") {
@@ -55,7 +59,7 @@ impl GitInterface {
         );
         // https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#about-authentication-as-a-github-app-installation
         // TODO
-        let repo = Repository::clone(&repository_url, "./repo").unwrap();
+        let repo = Repository::clone(&repository_url, "./repo")?;
         info!("Successfully cloned repo");
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
@@ -68,6 +72,9 @@ impl GitInterface {
     ///
     /// The return type is a little bit messy, but I needed to differentiate between
     /// "file not found", and "failed to read file"
+    /// 
+    /// # Errors
+    /// This function will return an error if filesystem operations fail.
     pub fn get_doc<P: AsRef<Path>>(&self, path: P) -> Result<Option<String>> {
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
@@ -83,12 +90,10 @@ impl GitInterface {
     }
 
     /// Read the document folder into a tree-style structure.
+    /// 
+    /// # Errors
+    /// This function fails if filesystem ops fail (reading file, reading directory)
     pub fn get_doc_tree(&self) -> Result<INode> {
-        let mut root_node = INode {
-            name: String::from("documents"),
-            children: Vec::new(),
-        };
-
         fn recurse_tree(dir: &Path, node: &mut INode) -> Result<()> {
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
@@ -107,23 +112,34 @@ impl GitInterface {
                     node.children.push(INode {
                         name: entry_name,
                         children: Vec::new(),
-                    })
+                    });
                 }
             }
             Ok(())
         }
+
+        let mut root_node = INode {
+            name: String::from("documents"),
+            children: Vec::new(),
+        };
+
         recurse_tree(Path::new(&self.doc_path), &mut root_node)?;
         Ok(root_node)
     }
 
     /// Replace the document at the provided path
     /// (relative to the root of the documents folder) with a new document
+    /// # Panics
+    /// This function will panic if it's called when the repo mutex is already held by the current thread
+    /// 
+    /// # Errors
+    /// This function will return an error if filesystem operations fail, or if any of the git operations fail
     pub fn put_doc<P: AsRef<Path> + Copy>(
         &self,
         path: P,
-        new_doc: String,
-        message: String,
-        token: String,
+        new_doc: &str,
+        message: &str,
+        token: &str,
     ) -> Result<()> {
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(".");
@@ -144,7 +160,7 @@ impl GitInterface {
             )
         })?;
         let sig = Signature::now("rts-cms", "rts-cms")?;
-        let msg = format!("[CMS]: {:?}", message);
+        let msg = format!("[CMS]: {message:?}");
         // adapted from https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html
         let mut index = repo.index()?;
         // File paths are relative to the root of the repository for `add_path`
@@ -163,7 +179,7 @@ impl GitInterface {
         // assuming github
         let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
         let authenticated_url =
-            repository_url.replace("https://", &format!("https://x-access-token:{}@", token));
+            repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
         let mut remote = repo.find_remote("origin")?;
         // repo.find_remote("origin")?.push::<&str>(&[], None)?;
@@ -175,7 +191,6 @@ impl GitInterface {
         index.remove_path(&relative_path)?;
         index.write()?;
         debug!("Commit cleanup completed");
-        // fs::File::set_len(&self, size)
         Ok(())
     }
 }

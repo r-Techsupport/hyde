@@ -2,7 +2,7 @@
 mod db;
 mod gh;
 pub mod git;
-mod handlers;
+mod handlers_prelude;
 
 use axum::{http::HeaderValue, routing::get, Router};
 use clap::{
@@ -11,10 +11,9 @@ use clap::{
 };
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use db::{init_db, DATABASE_URL};
+use db::DATABASE_URL;
 use gh::GithubAccessToken;
-use git::GitInterface;
-use handlers::*;
+use handlers_prelude::*;
 use log::{info, LevelFilter};
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::Client;
@@ -27,7 +26,7 @@ use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 /// Global app state passed to handlers by axum
 #[derive(Clone)]
 struct AppState {
-    git: GitInterface,
+    git: git::Interface,
     oauth: BasicClient,
     reqwest_client: Client,
     gh_credentials: GithubAccessToken,
@@ -96,7 +95,7 @@ async fn main() -> Result<()> {
 }
 
 async fn init_state() -> Result<AppState> {
-    let git = task::spawn(async { GitInterface::lazy_init() });
+    let git = task::spawn(async { git::Interface::lazy_init() });
     let oauth = {
         let client_id = env::var("OAUTH_CLIENT_ID").wrap_err("OAUTH_CLIENT_ID not set in env")?;
         let client_secret = env::var("OAUTH_SECRET").wrap_err("OAUTH_SECRET not sent in env")?;
@@ -115,6 +114,6 @@ async fn init_state() -> Result<AppState> {
         oauth,
         reqwest_client,
         gh_credentials: GithubAccessToken::new(),
-        db_connection_pool: init_db(DATABASE_URL).await?,
+        db_connection_pool: db::init(DATABASE_URL).await?,
     })
 }

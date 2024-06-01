@@ -25,7 +25,7 @@ struct Group {
 
 /// Initialize a new database at the provided URL. Not hardcoded in so that a memory db can be used
 /// for testing
-pub async fn init_db(url: &str) -> Result<sqlx::Pool<Sqlite>> {
+pub async fn init(url: &str) -> Result<sqlx::Pool<Sqlite>> {
     let pool = SqlitePool::connect(url).await?;
     // to handle scheme stuff, the version of the schema currently in use is stored a user_version
     // variable. If it's set to 0, assume the table hasn't been populated yet. Then each schema change should increment by 1, allowing migrations to take place
@@ -41,20 +41,20 @@ pub async fn init_db(url: &str) -> Result<sqlx::Pool<Sqlite>> {
                 // Apparently SQLite doesn't have great support for u64s, so it's stored as a string here
                 // https://github.com/launchbadge/sqlx/issues/499
                 sqlx::query(
-                    r#"
+                    r"
                     CREATE TABLE user 
                     (id TEXT PRIMARY KEY, username TEXT, token TEXT, expiration_date TEXT)
                     STRICT;
-                    "#,
+                    ",
                 )
                 .execute(&pool)
                 .await?;
                 sqlx::query(
-                    r#"
+                    r"
                     CREATE TABLE group_membership
                     (uid TEXT, group_name TEXT, FOREIGN KEY(uid) REFERENCES user(id) ON DELETE CASCADE)
                     STRICT;
-                    "#,
+                    ",
                 )
                 // sqlx::query(
                 //     r#"
@@ -70,12 +70,11 @@ pub async fn init_db(url: &str) -> Result<sqlx::Pool<Sqlite>> {
             }
             _ => {
                 panic!(
-                    "The database does not have handling for the stored schema version: {}",
-                    user_version
+                    "The database does not have handling for the stored schema version: {user_version}"
                 );
             }
         }
-        sqlx::query(&format!("PRAGMA user_version = {};", user_version))
+        sqlx::query(&format!("PRAGMA user_version = {user_version};"))
             .execute(&pool)
             .await?;
     }
@@ -85,11 +84,11 @@ pub async fn init_db(url: &str) -> Result<sqlx::Pool<Sqlite>> {
 /// Attempt to read a user from the database, returning the found user, or None
 pub async fn get_user(pool: &SqlitePool, uid: String) -> Result<Option<User>> {
     let query_results = sqlx::query_as::<_, User>(
-        r#"
+        r"
         SELECT *
         FROM  user
         WHERE id = ?;
-        "#,
+        ",
     )
     .bind(uid)
     .fetch_optional(pool)
@@ -99,10 +98,10 @@ pub async fn get_user(pool: &SqlitePool, uid: String) -> Result<Option<User>> {
 
 pub async fn create_user(pool: &SqlitePool, user: &User) -> Result<()> {
     let query_results = sqlx::query(
-        r#"
+        r"
         INSERT INTO user
         VALUES (?, ?, ?, ?);
-        "#,
+        ",
     )
     .bind(&user.id)
     .bind(&user.username)
@@ -122,10 +121,10 @@ pub async fn create_user(pool: &SqlitePool, user: &User) -> Result<()> {
 /// Add the provided group to the user's list of groups
 pub async fn add_group(pool: &SqlitePool, uid: String, group_name: String) -> Result<()> {
     let query_results = sqlx::query(
-        r#"
+        r"
         INSERT INTO group_membership
         VALUES (?, ?);
-        "#,
+        ",
     )
     .bind(uid)
     .bind(group_name)
@@ -143,10 +142,10 @@ pub async fn add_group(pool: &SqlitePool, uid: String, group_name: String) -> Re
 /// Remove the provided user from the provided group
 pub async fn remove_group(pool: &SqlitePool, uid: String, group_name: String) -> Result<()> {
     let query_results = sqlx::query(
-        r#"
+        r"
         DELETE FROM group_membership
         WHERE (uid = ? AND group_name = ?);
-        "#,
+        ",
     )
     .bind(uid)
     .bind(group_name)
@@ -164,11 +163,11 @@ pub async fn remove_group(pool: &SqlitePool, uid: String, group_name: String) ->
 /// Returns a list of groups the user is in
 pub async fn get_groups(pool: &SqlitePool, uid: String) -> Result<Vec<String>> {
     Ok(sqlx::query(
-        r#"
+        r"
         SELECT group_name
         FROM group_membership
         WHERE uid = ?;
-        "#,
+        ",
     )
     .bind(uid)
     .fetch_all(pool)
@@ -198,13 +197,13 @@ pub async fn get_groups(pool: &SqlitePool, uid: String) -> Result<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{add_group, create_user, get_groups, get_user, init_db};
+    use super::{add_group, create_user, get_groups, get_user, init};
     use super::User;
     use chrono::{DateTime, Utc};
     use std::time::UNIX_EPOCH;
     #[tokio::test]
     async fn user_management() {
-        let mock_db = init_db(":memory:").await.unwrap();
+        let mock_db = init(":memory:").await.unwrap();
         let mock_id = "hi mom".to_string();
         assert_eq!(
             None,
@@ -230,7 +229,7 @@ mod tests {
 
     #[tokio::test]
     async fn group_management() {
-        let mock_db = init_db(":memory:").await.unwrap();
+        let mock_db = init(":memory:").await.unwrap();
         let mock_user = User {
             id: "1234".to_string(),
             username: "foo".to_string(),

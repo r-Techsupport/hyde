@@ -1,5 +1,4 @@
 use axum::{
-    debug_handler,
     extract::{Query, Request, State},
     http::{HeaderMap, StatusCode},
     response::Redirect,
@@ -19,7 +18,6 @@ pub struct GetOAuthQuery {
     pub state: String,
 }
 
-#[debug_handler]
 /// This endpoint is used for authentication, and it's required to implement oauth2. Users
 /// are sent here by discord after they authenticate, then they're redirected to the homepage
 pub async fn get_oauth2_handler(
@@ -49,8 +47,8 @@ pub async fn get_oauth2_url(State(state): State<AppState>) -> String {
     url.to_string()
 }
 
-/// This is pretty stupid, but I want to be able to use color_eyre::Result and `?` for error handling, but
-/// that doesn't directly implement axum's IntoResponse, but that just requires calling .to_string() on the error.
+/// This is pretty stupid, but I want to be able to use `color_eyre::Result` and `?` for error handling, but
+/// that doesn't directly implement axum's `IntoResponse`, but that just requires calling `.to_string()` on the error.
 /// Async closures are unstable <https://github.com/rust-lang/rust/issues/62290> as of 2024-05-26
 async fn get_oath_processor(
     state: &AppState,
@@ -63,7 +61,6 @@ async fn get_oath_processor(
         "http://localhost:8080/api/oauth".to_string()
     } else {
         let scheme = if let Some(s) = req.uri().scheme_str() {
-            println!("{}", s);
             s
         } else {
             "http"
@@ -118,14 +115,13 @@ async fn get_oath_processor(
     if cfg!(debug_assertions) {
         headers.append(
             "Set-Cookie",
-            format!("access-token={}; Secure; HttpOnly; Path=/;", token).parse()?,
+            format!("access-token={token}; Secure; HttpOnly; Path=/;").parse()?,
         );
     } else {
         headers.append(
             "Set-Cookie",
             format!(
-                "access-token={}; Secure; HttpOnly; Path=/; Max-Age={}",
-                token,
+                "access-token={token}; Secure; HttpOnly; Path=/; Max-Age={}",
                 token_data.expires_in().unwrap().as_secs()
             )
             .parse()?,

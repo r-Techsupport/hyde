@@ -18,5 +18,7 @@ You can run the backend with `cargo run` from the `backend` folder (note: you'll
 
 Once the backend is running, run `npm run dev` from the `frontend` folder to start the frontend.
 
+It's recommended that you configure your `rust-analyzer` installation to run `clippy` instead of `check`. See <https://users.rust-lang.org/t/how-to-use-clippy-in-vs-code-with-rust-analyzer/41881/2> for a guide, set `Check On Save: Command` to `clippy`. At the very least, run `cargo clippy` before committing to make sure your code passes lint.
+
 ## Testing
 TODO
