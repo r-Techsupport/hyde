@@ -60,11 +60,7 @@ async fn get_oath_processor(
     let redirect_url = if cfg!(debug_assertions) {
         "http://localhost:8080/api/oauth".to_string()
     } else {
-        let scheme = if let Some(s) = req.uri().scheme_str() {
-            s
-        } else {
-            "http"
-        };
+        let scheme = req.uri().scheme_str().map_or("http", |s| s);
         format!(
             "{}://{}/api/oauth",
             scheme,

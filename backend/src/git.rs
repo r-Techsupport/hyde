@@ -30,11 +30,11 @@ pub struct INode {
 impl Interface {
     /// Clone the repository into `./repo`, or run `fetch` if an existing repo
     /// was detected
-    /// 
+    ///
     /// # Errors
-    /// This function will return an error if any of the git initialization steps fail, or if 
+    /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn lazy_init() -> Result<Interface> {
+    pub fn lazy_init() -> Result<Self> {
         let mut doc_path = PathBuf::from("./repo");
         doc_path.push(env::var("DOC_PATH").wrap_err("The DOC_PATH env var was not set")?);
         if let Ok(repo) = Repository::open("./repo") {
@@ -72,7 +72,7 @@ impl Interface {
     ///
     /// The return type is a little bit messy, but I needed to differentiate between
     /// "file not found", and "failed to read file"
-    /// 
+    ///
     /// # Errors
     /// This function will return an error if filesystem operations fail.
     pub fn get_doc<P: AsRef<Path>>(&self, path: P) -> Result<Option<String>> {
@@ -90,7 +90,7 @@ impl Interface {
     }
 
     /// Read the document folder into a tree-style structure.
-    /// 
+    ///
     /// # Errors
     /// This function fails if filesystem ops fail (reading file, reading directory)
     pub fn get_doc_tree(&self) -> Result<INode> {
@@ -131,9 +131,12 @@ impl Interface {
     /// (relative to the root of the documents folder) with a new document
     /// # Panics
     /// This function will panic if it's called when the repo mutex is already held by the current thread
-    /// 
+    ///
     /// # Errors
     /// This function will return an error if filesystem operations fail, or if any of the git operations fail
+    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied, 
+    // it creates errors that note the destructor for other values failing because of it (tree)
+    #[allow(clippy::significant_drop_tightening)]
     pub fn put_doc<P: AsRef<Path> + Copy>(
         &self,
         path: P,
@@ -182,7 +185,6 @@ impl Interface {
             repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
         let mut remote = repo.find_remote("origin")?;
-        // repo.find_remote("origin")?.push::<&str>(&[], None)?;
         remote.connect(git2::Direction::Push)?;
         // Push master here, to master there
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;

@@ -24,13 +24,13 @@ pub async fn get_doc_handler(
     Query(query): Query<GetCpuQuery>,
 ) -> Result<Json<GetCpuResponse>, (StatusCode, &'static str)> {
     match state.git.get_doc(&query.path) {
-        Ok(maybe_doc) => match maybe_doc {
-            Some(doc) => Ok(Json(GetCpuResponse { contents: doc })),
-            None => Err((
+        Ok(maybe_doc) => maybe_doc.map_or(
+            Err((
                 StatusCode::NOT_FOUND,
                 "The file at the provided path was not found.",
             )),
-        },
+            |doc| Ok(Json(GetCpuResponse { contents: doc })),
+        ),
         Err(e) => {
             warn!(
                 "Failed to fetch doc with path: {:?}; error: {:?}",

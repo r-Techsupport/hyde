@@ -5,7 +5,7 @@ use sqlx::{Row, Sqlite, SqlitePool};
 pub static DATABASE_URL: &str = "file:cms-data/data.db?mode=rwc";
 static SCHEMA_VERSION: u32 = 1;
 
-#[derive(Debug, PartialEq, sqlx::FromRow)]
+#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
 pub struct User {
     id: String,
     username: String,
@@ -197,8 +197,8 @@ pub async fn get_groups(pool: &SqlitePool, uid: String) -> Result<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{add_group, create_user, get_groups, get_user, init};
     use super::User;
+    use super::{add_group, create_user, get_groups, get_user, init};
     use chrono::{DateTime, Utc};
     use std::time::UNIX_EPOCH;
     #[tokio::test]

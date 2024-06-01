@@ -65,7 +65,7 @@ pub struct GithubAccessToken {
 
 impl GithubAccessToken {
     /// Initialize, but don't fetch a token yet.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             expires_at: UNIX_EPOCH,
             token: String::new(),

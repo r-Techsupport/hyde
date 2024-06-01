@@ -1,4 +1,6 @@
-#![warn(clippy::all, clippy::pedantic)]
+#![warn(clippy::all, clippy::nursery, clippy::cargo)]
+// While it would be ideal if this wasn't an issue, we don't have the dev team to do this
+#![allow(clippy::multiple_crate_versions)]
 mod db;
 mod gh;
 pub mod git;
