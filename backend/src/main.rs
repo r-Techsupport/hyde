@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic)]
+mod db;
 mod gh;
 pub mod git;
 mod handlers;
@@ -9,12 +11,14 @@ use clap::{
 };
 use color_eyre::eyre::Context;
 use color_eyre::Result;
+use db::{init_db, DATABASE_URL};
 use gh::GithubAccessToken;
 use git::GitInterface;
 use handlers::*;
 use log::{info, LevelFilter};
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::Client;
+use sqlx::SqlitePool;
 use std::env::{self, current_exe};
 use tokio::task;
 use tower_http::cors::CorsLayer;
@@ -27,6 +31,7 @@ struct AppState {
     oauth: BasicClient,
     reqwest_client: Client,
     gh_credentials: GithubAccessToken,
+    db_connection_pool: SqlitePool,
 }
 
 #[derive(Parser)]
@@ -110,5 +115,6 @@ async fn init_state() -> Result<AppState> {
         oauth,
         reqwest_client,
         gh_credentials: GithubAccessToken::new(),
+        db_connection_pool: init_db(DATABASE_URL).await?,
     })
 }

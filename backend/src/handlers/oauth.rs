@@ -1,7 +1,7 @@
 use axum::{
     debug_handler,
     extract::{Query, Request, State},
-    http::{uri::Scheme, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode},
     response::Redirect,
 };
 use color_eyre::eyre::Context;
@@ -31,7 +31,13 @@ pub async fn get_oauth2_handler(
         Ok(redirect) => Ok(redirect),
         Err(e) => {
             error!("An error was encountered during oauth processing: {:?}", e);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, format!("An error was encountered during oauth processing: {:?}", e.to_string())))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!(
+                    "An error was encountered during oauth processing: {:?}",
+                    e.to_string()
+                ),
+            ))
         }
     }
 }
@@ -125,5 +131,5 @@ async fn get_oath_processor(
             .parse()?,
         );
     }
-    return color_eyre::Result::Ok((headers, redirect));
+    Ok((headers, redirect))
 }

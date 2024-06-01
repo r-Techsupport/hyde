@@ -135,7 +135,7 @@ async fn get_installation_id(req_client: &Client) -> Result<String> {
         .await?;
     let deserialized_response =
         &serde_json::from_slice::<Vec<InstallationIdResponse>>(&response.bytes().await?)?[0];
-    return Ok(deserialized_response.id.to_string());
+    Ok(deserialized_response.id.to_string())
 }
 
 /// Generate a new JWT token for use with github api interactions.
