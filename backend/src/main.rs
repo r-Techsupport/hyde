@@ -5,6 +5,7 @@ mod db;
 mod gh;
 pub mod git;
 mod handlers_prelude;
+pub mod perms;
 
 use axum::{http::HeaderValue, routing::get, Router};
 use clap::{

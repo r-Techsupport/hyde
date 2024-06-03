@@ -1,5 +1,6 @@
+use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
-use log::info;
+use log::{debug, info};
 use sqlx::{Row, Sqlite, SqlitePool};
 
 pub static DATABASE_URL: &str = "file:cms-data/data.db?mode=rwc";
@@ -21,6 +22,34 @@ struct Group {
     uid: String,
     /// Group name
     group_name: String,
+}
+
+/// Permissions for a particular group
+#[derive(Debug, sqlx::FromRow)]
+pub struct GroupPermissions {
+    #[sqlx(rename = "group_name")]
+    pub name: String,
+    /// Permissions are serialized as a comma delimited list of `Permission`s
+    // While there is overhead that comes from deserializing this list every time,
+    // it was preferred over the added complexity of needing multiple structs and more
+    // advanced deserialization from sqlite
+    #[sqlx(rename = "permissions")]
+    serialized_perms: String,
+}
+
+impl GroupPermissions {
+    /// Check and see if the provided permission is contained within the list of permissions for the group
+    pub fn has(&self, perm: Permission) -> bool {
+        self.serialized_perms
+            .split(',')
+            .map(|p| {
+                p.try_into()
+                    .expect("Permission stored in the database is not a valid permission")
+            })
+            .any(|p: Permission| p == perm)
+    }
+
+    // pub async fn
 }
 
 /// Initialize a new database at the provided URL. Not hardcoded in so that a memory db can be used
@@ -56,15 +85,19 @@ pub async fn init(url: &str) -> Result<sqlx::Pool<Sqlite>> {
                     STRICT;
                     ",
                 )
-                // sqlx::query(
-                //     r#"
-                //     CREATE TABLE IF NOT EXISTS group 
-                //     (group_name TEXT, uid TEXT, FOREIGN KEY(uid) REFERENCES user(id))
-                //     STRICT;
-                //     "#,
-                // )
                 .execute(&pool)
                 .await?;
+                debug!("Initialized the group_membership table");
+                sqlx::query(
+                    r"
+                    CREATE TABLE group_permission
+                    (group_name TEXT, permissions TEXT)
+                    STRICT;
+                    ",
+                )
+                .execute(&pool)
+                .await?;
+                debug!("Initialized the group_permission table");
                 user_version = SCHEMA_VERSION;
                 info!("Initialized fresh database");
             }
@@ -176,24 +209,51 @@ pub async fn get_groups(pool: &SqlitePool, uid: String) -> Result<Vec<String>> {
     .map(|r| r.get::<String, _>(0))
     .collect())
 }
-// /// Write a single paste to the database
-// pub async fn write_paste(state: &AppState, paste: Paste) -> Result<()> {
-//     let query_results = sqlx::query("INSERT INTO pastes VALUES (?, ?, ?, ?, ?);")
-//         .bind(paste.id)
-//         .bind(paste.category)
-//         .bind(paste.contents)
-//         .bind(paste.date)
-//         .bind(paste.duration)
-//         .execute(&state.db_connection_pool)
-//         .await?;
-//     if query_results.rows_affected() != 1 {
-//         return Err(anyhow!(
-//             "Write did not affect one row, expected 1 row changed, where {} rows were changed",
-//             query_results.rows_affected()
-//         ));
-//     }
-//     Ok(())
-// }
+
+/// Create a new group with the provided permissions
+pub async fn create_group(
+    pool: &SqlitePool,
+    group_name: String,
+    perms: &[Permission],
+) -> Result<()> {
+    let query_results = sqlx::query(
+        r"
+        INSERT INTO group_permission
+        VALUES (?, ?);
+        ",
+    )
+    .bind(group_name)
+    .bind(
+        perms
+            .iter()
+            .map(|p| String::from(*p))
+            .collect::<Vec<String>>()
+            .join(","),
+    )
+    .execute(pool)
+    .await?;
+    if query_results.rows_affected() != 1 {
+        bail!(
+            "Group add impacted unexpected number of rows, impacted {} rows",
+            query_results.rows_affected()
+        );
+    }
+    Ok(())
+}
+
+/// Returns the permissions for the provided group
+pub async fn get_perms(pool: &SqlitePool, group_name: String) -> Result<GroupPermissions> {
+    let query_results = sqlx::query_as::<_, GroupPermissions>(
+        r"
+        SELECT * FROM group_permission
+        WHERE group_name = ?;
+        ",
+    )
+    .bind(group_name)
+    .fetch_one(pool)
+    .await?;
+    Ok(query_results)
+}
 
 #[cfg(test)]
 mod tests {
@@ -243,10 +303,6 @@ mod tests {
             Vec::<String>::new(),
             "User should have no groups when none were added"
         );
-        // let mock_group = Group {
-        //     uid: "1234".to_string(),
-        //     group: group_name.clone()
-        // };
         add_group(&mock_db, "1234".to_string(), "foo".to_string())
             .await
             .unwrap();
@@ -262,4 +318,6 @@ mod tests {
         );
         // TODO: delete group, update group
     }
+
+    // TODO: perm management
 }
