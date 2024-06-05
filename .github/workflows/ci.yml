@@ -1,4 +1,7 @@
 name: CI
+# TODO: split this into two diffferent files then use
+# a path filter `on.push.paths` so that each workflow
+# is only run when the frontend or backend change
 
 on:
   push:
@@ -41,7 +44,6 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependancy-path: frontend/package-lock.json
       - name: Install dependancies
         run: npm ci
       - name: Build
