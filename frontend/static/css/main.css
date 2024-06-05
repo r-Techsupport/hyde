@@ -1,11 +1,11 @@
-@import url("theme.css");
+@import url('theme.css');
 
 body {
 	margin: 0;
 }
 
 /* How I hate the massive variances in scrollbar appearance between browsers and UAs */
-::-webkit-scrollbar{
+::-webkit-scrollbar {
 	width: 0.2rem;
 	opacity: 30%;
 }

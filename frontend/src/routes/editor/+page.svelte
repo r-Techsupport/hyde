@@ -10,7 +10,7 @@
 	/** The path to the file currently being displayed by the window */
 	let currentFile = '';
 	/** A reference to the div where markdown is rendered to */
-	let previewWindow: InnerHTML;
+	let previewWindow: HTMLElement;
 	/**
 	 * The time in milliseconds that must pass after a keypress
 	 * before markdown is rendered
@@ -44,8 +44,7 @@
 			renderMarkdown(editorText, previewWindow);
 		} else if (e.detail.path === currentFile) {
 			// do nothing
-		}
-		else {
+		} else {
 			showChangeDialogue = true;
 		}
 	}
@@ -64,9 +63,15 @@
 				/>
 			</svg>
 			<!-- Save -->
-			<svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="#e8eaed">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				height="40px"
+				viewBox="0 -960 960 960"
+				width="40px"
+				fill="#e8eaed"
+			>
 				<title>Publish Changes</title>
-				<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/>
+				<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
 			</svg>
 		</div>
 		<div class="editor-panes">
