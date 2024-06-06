@@ -1,4 +1,3 @@
-# https://docs.docker.com/build/ci/github-actions/multi-platform/
 name: Publish Docker image multi-arch
 
 on:
@@ -9,6 +8,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 13 * * *"
+  pull_request:
 
 env:
   REGISTRY: ghcr.io
