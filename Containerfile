@@ -13,7 +13,7 @@ COPY backend/ /app/backend
 # build the npm frontend
 WORKDIR /app/frontend
 RUN npm i; npm run build
-RUN cp -r /app/frontend/build /app/target/web
+RUN cp -r /app/frontend/build/* /app/target/web/
 
 # build the rust backend
 WORKDIR /app/backend
