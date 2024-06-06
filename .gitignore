@@ -4,3 +4,4 @@ target
 repo/
 .env
 cms-data/
+data.db
