@@ -17,12 +17,15 @@ use color_eyre::Result;
 use db::DATABASE_URL;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
-use log::{info, LevelFilter};
+use log::{error, debug, info, warn, LevelFilter};
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::Client;
 use sqlx::SqlitePool;
 use std::env::{self, current_exe};
-use tokio::task;
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    task,
+};
 use tower_http::cors::CorsLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
@@ -55,12 +58,15 @@ async fn main() -> Result<()> {
     // Parse command line arguments
     let cli_args = Args::parse();
     // Read environment variables from dotenv file
-    dotenvy::from_path("cms-data/.env")
-        .context("No .env file was found in `cms-data/`, or failed to read from it.")?;
+    let dotenv_path = "cms-data/.env";
     // Initialize logging
     env_logger::builder()
-        .filter(None, log::LevelFilter::Info)
+        .filter(None, cli_args.logging_level)
         .init();
+    debug!("Initialized logging");
+    dotenvy::from_path(dotenv_path).unwrap_or_else(|_| {
+        warn!("Failed to read dotenv file located at {dotenv_path}, please ensure all config values are manually set");
+    });
     if cfg!(debug_assertions) {
         info!("Server running in development mode");
     } else {
@@ -70,6 +76,22 @@ async fn main() -> Result<()> {
     let state: AppState = init_state()
         .await
         .wrap_err("Failed to initialize app state")?;
+    debug!("Initialized app state");
+    // https://github.com/r-Techsupport/rts-cms/issues/27
+    // In docker, because the process is running with a PID of 1,
+    // we need to implement our own SIGINT/TERM handlers
+    #[cfg(target_family="unix")]
+    for sig in [SignalKind::interrupt(), SignalKind::terminate()] {
+        task::spawn(async move {
+            let mut listener = signal(sig)
+                .expect("Failed to initialize a signal handler");
+            listener.recv().await;
+            // At this point we've received SIGINT/SIGKILL and we can shut down
+            error!("SIGINT or SIGTERM received, terminating.");
+            std::process::exit(0);
+        });
+    }
+
     // files are served relative to the location of the executable, not where the
     // executable was run from
     let mut frontend_dir = current_exe()?;

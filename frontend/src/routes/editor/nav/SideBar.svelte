@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { apiAddress } from '$lib/net';
 	import FileNavigation from './FileNavigation.svelte';
-	import DOMPurify from 'dompurify';
 	import { onMount } from 'svelte';
 
 	let rootNode = {

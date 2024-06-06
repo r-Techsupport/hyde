@@ -8,11 +8,11 @@
 		on:click={() => {
 			visible = false;
 		}}
-        tabindex = "0"
-        on:keypress={() => {
-            visible = false;
-        }}
-        role="button"
+		tabindex="0"
+		on:keypress={() => {
+			visible = false;
+		}}
+		role="button"
 	></div>
 	<div class="change-dialogue">
 		<svg

@@ -10,7 +10,7 @@
 	/** The path to the file currently being displayed by the window */
 	let currentFile = '';
 	/** A reference to the div where markdown is rendered to */
-	let previewWindow: InnerHTML;
+	let previewWindow: HTMLElement;
 	/**
 	 * The time in milliseconds that must pass after a keypress
 	 * before markdown is rendered
@@ -44,8 +44,7 @@
 			renderMarkdown(editorText, previewWindow);
 		} else if (e.detail.path === currentFile) {
 			// do nothing
-		}
-		else {
+		} else {
 			showChangeDialogue = true;
 		}
 	}
@@ -57,16 +56,28 @@
 		<TopBar />
 		<div class="editor-controls">
 			<!-- Cancel -->
-			<svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				height="40px"
+				viewBox="0 -960 960 960"
+				width="40px"
+				class="cancel"
+			>
 				<title>Cancel Changes</title>
 				<path
 					d="m336-280 144-144 144 144 56-56-144-144 144-144-56-56-144 144-144-144-56 56 144 144-144 144 56 56ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"
 				/>
 			</svg>
 			<!-- Save -->
-			<svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="#e8eaed">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				height="40px"
+				viewBox="0 -960 960 960"
+				width="40px"
+				class="publish"
+			>
 				<title>Publish Changes</title>
-				<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/>
+				<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
 			</svg>
 		</div>
 		<div class="editor-panes">
@@ -87,6 +98,7 @@
 	}
 
 	.editor-controls {
+		border-radius: 5%;
 		padding-right: 0.5rem;
 		margin-top: 0.2rem;
 		border-bottom: 0.07rem solid;
@@ -94,11 +106,30 @@
 	}
 
 	.editor-controls * {
+		border-radius: 5%;
 		fill: var(--foreground-5);
 		float: right;
 		flex-direction: vertical;
 		margin: 0.3rem;
 		cursor: pointer;
+	}
+
+	.publish:hover {
+		border-radius: 5%;
+		background-color: var(--green);
+		transition: all 0.1s ease;
+	}
+
+	.cancel:hover {
+		border-radius: 5%;
+		background-color: var(--red);
+		transition: all 0.1s ease;
+	}
+
+	svg:hover * {
+		border-radius: 5%;
+		fill: var(--background-0);
+		transition: all 0.1s ease;
 	}
 
 	/* div containing both the preview pane and the editor pane */
