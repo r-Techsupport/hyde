@@ -17,7 +17,7 @@ RUN cp -r /app/frontend/build/* /app/target/web/
 
 # build the rust backend
 WORKDIR /app/backend
-RUN cargo build --release
+RUN cargo build --release --jobs 1
 RUN cp /app/backend/target/release/rts-cms-backend /app/target/rts-cms
 
 # runtime container
