@@ -1,0 +1,83 @@
+name: Publish Docker image multi-arch
+
+on:
+  push:
+    branches:
+      - main
+      - devel
+  workflow_dispatch:
+  schedule:
+    - cron: "0 13 * * *"
+
+env:
+  REGISTRY: ghcr.io
+  REPO: r-techsupport
+  IMAGE: rts-cms
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch: 
+          - main
+    permissions:
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          context: git
+          images: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE }}
+          flavor: latest=auto
+          tags: |
+            type=raw,value={{branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: Containerfile
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE}}
+          subject-digest: ${{ steps.push.outputs.digest }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE}}:${{ matrix.branch }}
+          artifact-name: ${{ env.IMAGE }}-${{ matrix.branch }}.spdx
+          format: spdx-json
+          upload-artifact: true
+          upload-artifact-retention: 7
