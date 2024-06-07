@@ -1,4 +1,4 @@
-name: Publish Docker image multi-arch
+name: Publish Docker amd64 image
 
 on:
   push:
