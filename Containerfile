@@ -1,5 +1,5 @@
 # builder base image
-FROM alpine:3.20 as builder
+FROM --platform=$BUILDPLATFORM alpine:3.20 as builder
 
 # add required packages
 RUN apk add --no-cache \
