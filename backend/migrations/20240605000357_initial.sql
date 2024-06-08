@@ -19,6 +19,6 @@ CREATE TABLE group_membership (
 
 CREATE TABLE group_permissions (
     group_id INTEGER NOT NULL,
-    permission INTEGER NOT NULL,
+    permission TEXT NOT NULL,
     FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE
 );

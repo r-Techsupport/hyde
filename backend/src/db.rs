@@ -1,3 +1,5 @@
+use std::string;
+
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
 use log::{debug, info};
@@ -33,7 +35,7 @@ pub struct GroupMembership {
 #[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
 pub struct GroupPermissions {
     group_id: i64,
-    permission: Permission
+    permission: String
 }
 
 /// Initialize a new database at the provided URL. Not hardcoded in so that a memory db can be used
@@ -163,7 +165,7 @@ pub async fn create_group(pool: &SqlitePool, group_name: String) -> Result<Group
 /// returns a Group object with information about the group
 pub async fn get_group(pool: &SqlitePool, group_id: i64) -> Result<Option<Group>> {
     let query_results: Option<Group> = sqlx::query_as(
-        "SELECT * FROM groups WHERE id = ?;"
+        "SELECT * FROM groups WHERE id = ? LIMIT 1;"
     )
     .bind(group_id)
     .fetch_optional(pool)
@@ -196,39 +198,49 @@ pub async fn get_group_members(pool: &SqlitePool, group_id: i64) -> Result<Vec<U
     Ok(users)
 }
 
-/// returns true if the user was added successfully, returns false if the user is already
-/// a member of the group
-pub async fn add_group_membership(pool: &SqlitePool, group_id: i64, user_id: i64) -> Result<bool> {
-    let current_membership = sqlx::query(
-        "SELECT * FROM group_membership WHERE user_id = ? AND group_id = ?;"
-    ).bind(user_id).bind(group_id).fetch_optional(pool).await?;
+/// checks whether the group has a specified user
+pub async fn group_has_member(pool: &SqlitePool, group_id: i64, user_id: i64) -> Result<bool> {
+    let query_result = sqlx::query(
+        "SELECT * FROM group_membership WHERE group_id = ? AND user_id = ? LIMIT 1;"
+    )
+    .bind(group_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
 
-    match current_membership {
-        Some(_) => Ok(false), // the user is already in the group
-        None => {
-            sqlx::query("INSERT INTO group_membership (group_id, user_id) VALUES (?, ?);")
-            .bind(group_id).bind(user_id).execute(pool).await?;
-
-            Ok(true)
-        }
+    match query_result {
+        Some(_) => Ok(true),
+        None => Ok(false)
     }
 }
 
 /// returns true if the user was added successfully, returns false if the user is already
 /// a member of the group
-pub async fn remove_group_membership(pool: &SqlitePool, group_id: i64, user_id: i64) -> Result<bool> {
-    let current_membership = sqlx::query(
-        "SELECT * FROM group_membership WHERE user_id = ? AND group_id = ?;"
-    ).bind(user_id).bind(group_id).fetch_optional(pool).await?;
+pub async fn add_group_membership(pool: &SqlitePool, group_id: i64, user_id: i64) -> Result<bool> {
+    let already_has_member = group_has_member(pool, group_id, user_id).await?;
 
-    match current_membership {
-        None => Ok(false), // the user was not in the group
-        Some(_) => {
-            sqlx::query("DELETE FROM group_membership WHERE group_id = ? AND user_id = ?;")
+    if already_has_member {
+        Ok(false)
+    } else {
+        sqlx::query("INSERT INTO group_membership (group_id, user_id) VALUES (?, ?);")
             .bind(group_id).bind(user_id).execute(pool).await?;
 
-            Ok(true)
-        }
+        Ok(true)
+    }
+}
+
+/// returns true if the user was removed successfully, returns false if the user is not
+/// a member of the group
+pub async fn remove_group_membership(pool: &SqlitePool, group_id: i64, user_id: i64) -> Result<bool> {
+    let already_has_member = group_has_member(pool, group_id, user_id).await?;
+
+    if already_has_member {
+        sqlx::query("DELETE FROM group_membership WHERE group_id = ? AND user_id = ?;")
+            .bind(group_id).bind(user_id).execute(pool).await?;
+
+        Ok(true)
+    } else {
+        Ok(false)
     }
 }
 
@@ -273,11 +285,84 @@ pub async fn delete_group(pool: &SqlitePool, group_id: i64) -> Result<()> {
     Ok(())
 }
 
+pub async fn get_group_permissions(pool: &SqlitePool, group_id: i64) -> Result<Vec<Permission>> {
+    let query_result: Vec<GroupPermissions> = sqlx::query_as(
+        "SELECT * FROM group_permissions WHERE group_id = ?;"
+    )
+    .bind(group_id)
+    .fetch_all(pool)
+    .await?;
+
+    let permissions_vec: Vec<Permission> = query_result
+        .iter()
+        .map(|e| e.permission.as_str().try_into().unwrap())
+        .collect();
+
+    Ok(permissions_vec)
+}
+
+/// checks whether the group has a specified permission
+pub async fn group_has_permission(pool: &SqlitePool, group_id: i64, permission: Permission) -> Result<bool> {
+    let string_permission = String::from(permission);
+    let query_result = sqlx::query(
+        "SELECT * FROM group_permissions WHERE group_id = ? AND permission = ? LIMIT 1;"
+    )
+    .bind(group_id)
+    .bind(string_permission)
+    .fetch_optional(pool)
+    .await?;
+
+    match query_result {
+        Some(_) => Ok(true),
+        None => Ok(false)
+    }
+}
+
+/// returns true if the permission was added successfully, returns false if the user is already
+/// a member of the group
+pub async fn add_group_permission(pool: &SqlitePool, group_id: i64, permission: Permission) -> Result<bool> {
+    let already_has_permission = group_has_permission(pool, group_id, permission).await?;
+    
+    if already_has_permission {
+        Ok(false)
+    } else {
+        let string_permission = String::from(permission);
+
+        sqlx::query(
+            "INSERT INTO group_permissions (group_id, permission) VALUES (?, ?);"
+        )
+        .bind(group_id)
+        .bind(string_permission)
+        .execute(pool).await?;
+
+        Ok(true)
+    }
+}
+
+/// returns true if the permission was removed successfully, returns false if the user is not
+/// a member of the group
+pub async fn remove_group_permission(pool: &SqlitePool, group_id: i64, permission: Permission) -> Result<bool> {
+    let already_has_permission = group_has_permission(pool, group_id, permission).await?;
+    
+    if already_has_permission {
+        let string_permission = String::from(permission);
+
+        sqlx::query(
+            "DELETE FROM group_permissions WHERE group_id = ? AND permission = ?;"
+        )
+        .bind(group_id)
+        .bind(string_permission)
+        .execute(pool).await?;
+
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::db::{add_group_membership, delete_group, get_all_groups, get_group, get_group_members, get_user_groups, remove_group_membership, update_group};
-
-    use super::{create_group, create_user, delete_user, get_all_users, get_user, init, update_user};
+    use super::*;
 
     /// I am too lazy to type to_owned everywhere
     macro_rules! s {
@@ -354,6 +439,12 @@ mod tests {
         assert!(addres1, "add_group_membership: returns true if there is not already a membership");
         assert!(!addres2, "add_group_membership: returns false if the membership already exists");
 
+        let user1_in_group1 = group_has_member(&pool, group1.id, user1.id).await.unwrap();
+        let user2_in_group2 = group_has_member(&pool, group2.id, user2.id).await.unwrap();
+        assert!(user1_in_group1, "group_has_member: returns true if a group has a user");
+        assert!(!user2_in_group2, "group_has_member: returns false if a group does not have a user");
+        
+
         let group1_members = get_group_members(&pool, group1.id).await.unwrap();
         assert_eq!(group1_members.len(), 2, "get_group_members: should return the right number of users");
         assert_eq!(group1_members[0], user1, "get_group_members: should return the right users in the right order");
@@ -382,5 +473,34 @@ mod tests {
         delete_user(&pool, user1.id).await.unwrap();
         let group2_members = get_group_members(&pool, group2.id).await.unwrap();
         assert_eq!(group2_members.len(), 0, "delete_user: deletes all associated group memberships along with the user");
+    }
+
+    #[tokio::test]
+    async fn permissions_management() {
+        let pool = init(":memory:").await.unwrap();
+        let group1 = create_group(&pool, s!("groupname1")).await.unwrap();
+
+        let permissions1 = get_group_permissions(&pool, group1.id).await.unwrap();
+        assert_eq!(permissions1.len(), 0, "get_group_permissions: returns 0 when no permissions are added");
+        let has_manage_content1 = group_has_permission(&pool, group1.id, Permission::ManageContent).await.unwrap();
+        assert!(!has_manage_content1, "group_has_permission: should return false if the group does not have the permission");
+
+        let permission_added = add_group_permission(&pool, group1.id, Permission::ManageContent).await.unwrap();
+        let has_manage_content2 = group_has_permission(&pool, group1.id, Permission::ManageContent).await.unwrap();
+        assert!(permission_added, "add_group_permission: returns true when the permission has been added");
+        assert!(has_manage_content2, "add_group_permission: works, group_has_permission: should return true if the group does have the permission");
+        let permissions2 = get_group_permissions(&pool, group1.id).await.unwrap();
+        assert_eq!(permissions2, vec![Permission::ManageContent], "get_group_permissions: returns the right thing");
+        let already_added = add_group_permission(&pool, group1.id, Permission::ManageContent).await.unwrap();
+        assert!(!already_added, "add_group_permission: should return false if group already has the permission");
+
+        let permission_removed = remove_group_permission(&pool, group1.id, Permission::ManageContent).await.unwrap();
+        assert!(permission_removed, "remove_group_permission: returns true when permission has been removed");
+        let already_removed = remove_group_permission(&pool, group1.id, Permission::ManageContent).await.unwrap();
+        assert!(!already_removed, "remove_group_permission: returns false when the group didn't have the permission");
+        let has_manage_content3 = group_has_permission(&pool, group1.id, Permission::ManageContent).await.unwrap();
+        assert!(!has_manage_content3, "remove_group_permission: works");
+        let permissions3 = get_group_permissions(&pool, group1.id).await.unwrap();
+        assert_eq!(permissions3.len(), 0, "get_group_permissions: returns 0 when the permission has been removed");
     }
 }
