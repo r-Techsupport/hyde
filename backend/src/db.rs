@@ -1,9 +1,7 @@
-use std::string;
-
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
-use log::{debug, info};
-use sqlx::{query, Executor, Row, Sqlite, SqlitePool};
+use log::debug;
+use sqlx::{Sqlite, SqlitePool};
 
 pub static DATABASE_URL: &str = "file:cms-data/data.db?mode=rwc";
 
@@ -78,6 +76,16 @@ pub async fn get_user(pool: &SqlitePool, user_id: i64) -> Result<Option<User>> {
         r"SELECT * FROM  users WHERE id = ?;",
     )
     .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(query_results)
+}
+
+pub async fn get_user_from_token(pool: &SqlitePool, token: String) -> Result<Option<User>> {
+    let query_results: Option<User> = sqlx::query_as(
+        r"SELECT * FROM  users WHERE token = ?;",
+    )
+    .bind(token)
     .fetch_optional(pool)
     .await?;
     Ok(query_results)
@@ -385,6 +393,9 @@ mod tests {
 
         let fetched_user = get_user(&mock_db, mock_user.id).await.unwrap().unwrap();
         assert_eq!(mock_user, fetched_user, "get_user: The fetched user's id should be the same as the created user");
+
+        let token_user = get_user_from_token(&mock_db, s!("token")).await.unwrap().unwrap();
+        assert_eq!(token_user, mock_user, "get_user_from_token: should work");
 
         let mut mock_user2 = 
             create_user(&mock_db, s!("username2"), s!("token2"), s!("expiration_date2"))
