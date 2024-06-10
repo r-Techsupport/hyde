@@ -1,13 +1,19 @@
 #![warn(clippy::all, clippy::nursery, clippy::cargo)]
 // While it would be ideal if this wasn't an issue, we don't have the dev team to do this
 #![allow(clippy::multiple_crate_versions)]
+// A lot of database methods have been preemptively implemented
+#[allow(dead_code)]
 mod db;
 mod gh;
 pub mod git;
 mod handlers_prelude;
 pub mod perms;
 
-use axum::{http::HeaderValue, routing::get, Router};
+use axum::{
+    http::HeaderValue,
+    routing::{get, put},
+    Router,
+};
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
     Parser,
@@ -17,15 +23,17 @@ use color_eyre::Result;
 use db::DATABASE_URL;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
-use log::{error, debug, info, warn, LevelFilter};
+#[cfg(target_family = "unix")]
+use log::error;
+use log::{debug, info, warn, LevelFilter};
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
-use reqwest::Client;
+use reqwest::{Client, Method};
 use sqlx::SqlitePool;
 use std::env::{self, current_exe};
-use tokio::{
-    signal::unix::{signal, SignalKind},
-    task,
-};
+#[cfg(target_family = "unix")]
+use tokio::signal::unix::{signal, SignalKind};
+
+use tokio::task;
 use tower_http::cors::CorsLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
@@ -80,11 +88,10 @@ async fn main() -> Result<()> {
     // https://github.com/r-Techsupport/rts-cms/issues/27
     // In docker, because the process is running with a PID of 1,
     // we need to implement our own SIGINT/TERM handlers
-    #[cfg(target_family="unix")]
+    #[cfg(target_family = "unix")]
     for sig in [SignalKind::interrupt(), SignalKind::terminate()] {
         task::spawn(async move {
-            let mut listener = signal(sig)
-                .expect("Failed to initialize a signal handler");
+            let mut listener = signal(sig).expect("Failed to initialize a signal handler");
             listener.recv().await;
             // At this point we've received SIGINT/SIGKILL and we can shut down
             error!("SIGINT or SIGTERM received, terminating.");
@@ -102,10 +109,15 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello world" }))
         .route("/api/doc", get(get_doc_handler))
+        .route("/api/doc", put(put_doc_handler))
         .route("/api/tree", get(get_tree_handler))
         .route("/api/oauth", get(get_oauth2_handler))
         .route("/api/oauth/url", get(get_oauth2_url))
-        .layer(CorsLayer::new().allow_origin("*".parse::<HeaderValue>().unwrap()))
+        .layer(
+            CorsLayer::new()
+                .allow_origin("*".parse::<HeaderValue>()?)
+                .allow_methods([Method::GET, Method::PUT]),
+        )
         .with_state(state)
         // Serve the frontend files
         .nest_service("/", ServeDir::new(frontend_dir))

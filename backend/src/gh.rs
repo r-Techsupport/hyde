@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::Mutex;
 
 /// In order to authenticate as a github app or generate an installation access token, you must generate a JSON Web Token (JWT). The JWT must contain predefined *claims*.
 ///
@@ -59,29 +61,32 @@ impl Claims {
 /// A wrapper around the github access token that automatically refreshes if the token has been invalidated
 #[derive(Clone)]
 pub struct GithubAccessToken {
-    expires_at: SystemTime,
-    token: String,
+    expires_at: Arc<Mutex<SystemTime>>,
+    token: Arc<Mutex<String>>,
 }
 
 impl GithubAccessToken {
     /// Initialize, but don't fetch a token yet.
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            expires_at: UNIX_EPOCH,
-            token: String::new(),
+            // I don't know a better way to handle interior mutability
+            expires_at: Arc::new(Mutex::new(UNIX_EPOCH)),
+            token: Arc::new(Mutex::new(String::new())),
         }
     }
 
     /// Return the cached token if it's less than one hour old, or fetch a new token from the api, and return that, updating the cache
-    pub async fn get(&mut self, req_client: &Client) -> Result<String> {
+    pub async fn get(&self, req_client: &Client) -> Result<String> {
+        let mut token_ref = self.token.lock().await;
         // Fetch a new token if more than 59 minutes have passed
         // Tokens expire after 1 hour, this is to account for clock drift
         if SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() > (60 * 59) {
             let api_response = get_access_token(req_client).await?;
-            self.token = api_response.0;
-            self.expires_at = api_response.1;
+            *token_ref = api_response.0;
+            let mut expires_ref = self.expires_at.lock().await;
+            *expires_ref = api_response.1;
         }
-        Ok(self.token.clone())
+        Ok(token_ref.clone())
     }
 }
 
