@@ -34,7 +34,7 @@ use std::env::{self, current_exe};
 use tokio::signal::unix::{signal, SignalKind};
 
 use tokio::task;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
 /// Global app state passed to handlers by axum
@@ -89,14 +89,17 @@ async fn main() -> Result<()> {
     // In docker, because the process is running with a PID of 1,
     // we need to implement our own SIGINT/TERM handlers
     #[cfg(target_family = "unix")]
-    for sig in [SignalKind::interrupt(), SignalKind::terminate()] {
-        task::spawn(async move {
-            let mut listener = signal(sig).expect("Failed to initialize a signal handler");
-            listener.recv().await;
-            // At this point we've received SIGINT/SIGKILL and we can shut down
-            error!("SIGINT or SIGTERM received, terminating.");
-            std::process::exit(0);
-        });
+    {
+        debug!("Unix environment detected, starting custom interrupt handler");
+        for sig in [SignalKind::interrupt(), SignalKind::terminate()] {
+            task::spawn(async move {
+                let mut listener = signal(sig).expect("Failed to initialize a signal handler");
+                listener.recv().await;
+                // At this point we've received SIGINT/SIGKILL and we can shut down
+                error!("SIGINT or SIGTERM received, terminating.");
+                std::process::exit(0);
+            });
+        }
     }
 
     // files are served relative to the location of the executable, not where the
@@ -116,7 +119,8 @@ async fn main() -> Result<()> {
         .layer(
             CorsLayer::new()
                 .allow_origin("*".parse::<HeaderValue>()?)
-                .allow_methods([Method::GET, Method::PUT]),
+                .allow_methods([Method::GET, Method::PUT])
+                .allow_headers(Any),
         )
         .with_state(state)
         // Serve the frontend files

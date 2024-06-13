@@ -44,6 +44,15 @@ pub async fn init(url: &str) -> Result<sqlx::Pool<Sqlite>> {
     debug!("Running SQL migrations...");
     // this should embed the migrations into the executable itself
     sqlx::migrate!("./migrations").run(&pool).await?;
+    let admin_group_name = String::from("Admin");
+    let groups = get_all_groups(&pool).await?;
+    if !groups.iter().any(|g| g.name == admin_group_name) {
+        debug!("Creating admin group");
+        let group = create_group(&pool, admin_group_name).await?;
+        for permission in [Permission::ManageContent, Permission::ManageUsers] {
+            add_group_permission(&pool, group.id, permission).await?;
+        }
+    }
     debug!("SQL migrations complete");
 
     Ok(pool)
@@ -93,6 +102,7 @@ pub async fn get_user_from_token(pool: &SqlitePool, token: String) -> Result<Opt
     Ok(query_results)
 }
 
+/// Returns a list of groups that a particular user is a member of.
 pub async fn get_user_groups(pool: &SqlitePool, user_id: i64) -> Result<Vec<Group>> {
     let groups: Vec<Group> = sqlx::query_as(
         "SELECT groups.* FROM group_membership 
@@ -178,6 +188,7 @@ pub async fn get_group(pool: &SqlitePool, group_id: i64) -> Result<Option<Group>
     Ok(query_results)
 }
 
+/// Returns a vec of every group in the database.
 pub async fn get_all_groups(pool: &SqlitePool) -> Result<Vec<Group>> {
     let query_results: Vec<Group> = sqlx::query_as(r"SELECT * FROM groups;")
         .fetch_all(pool)
@@ -294,6 +305,7 @@ pub async fn delete_group(pool: &SqlitePool, group_id: i64) -> Result<()> {
     Ok(())
 }
 
+/// Get a list of all of the permissions tied to a particular group.
 pub async fn get_group_permissions(pool: &SqlitePool, group_id: i64) -> Result<Vec<Permission>> {
     let query_result: Vec<GroupPermissions> =
         sqlx::query_as("SELECT * FROM group_permissions WHERE group_id = ?;")

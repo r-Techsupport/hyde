@@ -1,8 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	onMount(() => {
-		console.log('Cookies: ', document.cookie);
-	});
 </script>
 
 <h1>Welcome to SvelteKit</h1>

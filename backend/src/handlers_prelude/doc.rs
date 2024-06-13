@@ -157,10 +157,12 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
     let mut cookies: HashMap<&str, &str> = HashMap::new();
     // There can be multiple cookie headers, and each cookie header can contain multiple cookies
     let cookie_headers = headers.get_all("Cookie");
+    println!("Headers: {headers:?}");
     for cookie_header in cookie_headers {
         let deserialized_cookie = cookie_header
             .to_str()
             .wrap_err("Cookie header contains invalid UTF-8")?;
+            println!("Cookie header: {deserialized_cookie}");
         for nv_pair in deserialized_cookie.split("; ") {
             let (name, value) = nv_pair.split_once('=').wrap_err("Malformed cookie")?;
             cookies.insert(name, value);

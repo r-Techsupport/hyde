@@ -4,6 +4,7 @@
 	import ChangeDialogue from './nav/ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
+	import { apiAddress } from '$lib/net';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -48,6 +49,19 @@
 			showChangeDialogue = true;
 		}
 	}
+
+	async function saveChangesHandler() {
+		await fetch(`${apiAddress}/api/doc`, {
+			method: "PUT",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				contents: editorText,
+				path: currentFile,
+			})
+		})
+	}
 </script>
 
 <div class="container">
@@ -70,6 +84,10 @@
 			</svg>
 			<!-- Save -->
 			<svg
+				on:click={saveChangesHandler}
+				on:keydown={saveChangesHandler}
+				role="button"
+				tabindex="0"
 				xmlns="http://www.w3.org/2000/svg"
 				height="40px"
 				viewBox="0 -960 960 960"
@@ -115,21 +133,42 @@
 	}
 
 	.publish:hover {
+		background-color: var(--background-0);
+		box-sizing: border-box;
+		border: 0.1rem var(--green) solid;
+		transition: all 0.1s ease;
+	}
+
+	.publish:hover > * {
+		fill: var(--green);
+	}
+
+	.publish:active {
 		border-radius: 5%;
 		background-color: var(--green);
-		transition: all 0.1s ease;
+	}
+
+	.publish:active > * {
+		fill: var(--background-0);
 	}
 
 	.cancel:hover {
-		border-radius: 5%;
-		background-color: var(--red);
+		background-color: var(--background-0);
+		box-sizing: border-box;
+		/* border: 0.1rem var(--red) solid; */
 		transition: all 0.1s ease;
 	}
 
-	svg:hover * {
-		border-radius: 5%;
+	.cancel:hover > * {
+		fill: var(--red);
+	}
+
+	.cancel:active {
+		background-color: var(--red);
+	}
+
+	.cancel:active > * {
 		fill: var(--background-0);
-		transition: all 0.1s ease;
 	}
 
 	/* div containing both the preview pane and the editor pane */
