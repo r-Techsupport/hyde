@@ -44,15 +44,6 @@ pub async fn init(url: &str) -> Result<sqlx::Pool<Sqlite>> {
     debug!("Running SQL migrations...");
     // this should embed the migrations into the executable itself
     sqlx::migrate!("./migrations").run(&pool).await?;
-    let admin_group_name = String::from("Admin");
-    let groups = get_all_groups(&pool).await?;
-    if !groups.iter().any(|g| g.name == admin_group_name) {
-        debug!("Creating admin group");
-        let group = create_group(&pool, admin_group_name).await?;
-        for permission in [Permission::ManageContent, Permission::ManageUsers] {
-            add_group_permission(&pool, group.id, permission).await?;
-        }
-    }
     debug!("SQL migrations complete");
 
     Ok(pool)
@@ -497,7 +488,7 @@ mod tests {
             "create_group: The output group's name should be the same as provided"
         );
 
-        let fetched_group1 = get_group(&pool, 1).await.unwrap().unwrap();
+        let fetched_group1 = get_group(&pool, group1.id).await.unwrap().unwrap();
         assert_eq!(
             fetched_group1, group1,
             "get_group: The fetched group should be equal to the created group"
@@ -507,15 +498,15 @@ mod tests {
         let all_groups = get_all_groups(&pool).await.unwrap();
         assert_eq!(
             all_groups.len(),
-            2,
+            3, // includes admin
             "get_all_groups: should return the right number of groups"
         );
         assert_eq!(
-            all_groups[0], group1,
+            all_groups[1], group1,
             "get_all_groups: should return the right groups in the right order"
         );
         assert_eq!(
-            all_groups[1], group2,
+            all_groups[2], group2,
             "get_all_groups: should return the right groups in the right order"
         );
 
@@ -526,7 +517,7 @@ mod tests {
         let all_groups2 = get_all_groups(&pool).await.unwrap();
         assert_eq!(
             all_groups2.len(),
-            2,
+            3, // includes admin group
             "update_group: should not create or delete any groups"
         );
 
@@ -621,9 +612,12 @@ mod tests {
 
         delete_group(&pool, group1.id).await.unwrap();
         let all_groups3 = get_all_groups(&pool).await.unwrap();
-        assert_eq!(all_groups3.len(), 1, "delete_group: should work");
         assert_eq!(
-            all_groups3[0], group2,
+            all_groups3.len(), 
+            2, // includes admin group 
+            "delete_group: should work");
+        assert_eq!(
+            all_groups3[1], group2,
             "delete_group: should delete the right group"
         );
         let fetched_group_fail = get_group(&pool, group1.id).await.unwrap();
@@ -715,5 +709,8 @@ mod tests {
             0,
             "get_group_permissions: returns 0 when the permission has been removed"
         );
+
+        let admin_permissions = get_group_permissions(&pool, 1).await.unwrap();
+        assert_eq!(admin_permissions, vec![Permission::ManageContent, Permission::ManageUsers], "admin group should have the right permissions");
     }
 }
