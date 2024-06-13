@@ -163,7 +163,7 @@ impl Interface {
             )
         })?;
         let sig = Signature::now("rts-cms", "rts-cms")?;
-        let msg = format!("[CMS]: {message:?}");
+        let msg = format!("[CMS]: {message}");
         // adapted from https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html
         let mut index = repo.index()?;
         // File paths are relative to the root of the repository for `add_path`
@@ -188,7 +188,7 @@ impl Interface {
         remote.connect(git2::Direction::Push)?;
         // Push master here, to master there
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;
-        info!("Document {:?} edited and pushed to GitHub", path.as_ref());
+        info!("Document {:?} edited and pushed to GitHub with message: {message:?}", path.as_ref());
         remote.disconnect()?;
         index.remove_path(&relative_path)?;
         index.write()?;

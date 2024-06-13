@@ -27,14 +27,14 @@ use handlers_prelude::*;
 use log::error;
 use log::{debug, info, warn, LevelFilter};
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
-use reqwest::{Client, Method};
+use reqwest::{header::{ACCEPT, ALLOW, CONTENT_TYPE}, Client, Method};
 use sqlx::SqlitePool;
 use std::env::{self, current_exe};
 #[cfg(target_family = "unix")]
 use tokio::signal::unix::{signal, SignalKind};
 
 use tokio::task;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
 /// Global app state passed to handlers by axum
@@ -117,10 +117,20 @@ async fn main() -> Result<()> {
         .route("/api/oauth", get(get_oauth2_handler))
         .route("/api/oauth/url", get(get_oauth2_url))
         .layer(
-            CorsLayer::new()
-                .allow_origin("*".parse::<HeaderValue>()?)
-                .allow_methods([Method::GET, Method::PUT])
-                .allow_headers(Any),
+            // TODO: create a separate CORS layer for debug and release mode (credentials, allow origin)
+            if cfg!(debug_assertions)
+            {
+                CorsLayer::new()
+                    // If this isn't set, cookies won't be sent across ports
+                    .allow_credentials(true)
+                    .allow_origin("http://localhost:5173".parse::<HeaderValue>()?)
+                    .allow_methods([Method::GET, Method::PUT])
+                    .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
+            } else {
+                CorsLayer::new()
+                    .allow_methods([Method::GET, Method::PUT])
+                    .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
+            }
         )
         .with_state(state)
         // Serve the frontend files

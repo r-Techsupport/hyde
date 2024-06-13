@@ -8,7 +8,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{Context, ContextCompat};
-use log::{error, warn};
+use log::{debug, error, trace, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -104,7 +104,7 @@ pub async fn put_doc_handler(
                 } else {
                     return Err((
                         StatusCode::FORBIDDEN,
-                        format!("{:?} lacks the permission to edit documents.", u.username),
+                        format!("User {:?} lacks the permission to edit documents.", u.username),
                     ));
                 }
             }
@@ -130,7 +130,7 @@ pub async fn put_doc_handler(
     match state.git.put_doc(
         &body.path,
         &body.contents,
-        &format!("{} updated {:?}", author.username, body.path),
+        &format!("{} updated {}", author.username, body.path),
         &gh_token,
     ) {
         Ok(_) => Ok(StatusCode::CREATED),
@@ -157,29 +157,34 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
     let mut cookies: HashMap<&str, &str> = HashMap::new();
     // There can be multiple cookie headers, and each cookie header can contain multiple cookies
     let cookie_headers = headers.get_all("Cookie");
-    println!("Headers: {headers:?}");
     for cookie_header in cookie_headers {
         let deserialized_cookie = cookie_header
             .to_str()
             .wrap_err("Cookie header contains invalid UTF-8")?;
-            println!("Cookie header: {deserialized_cookie}");
         for nv_pair in deserialized_cookie.split("; ") {
             let (name, value) = nv_pair.split_once('=').wrap_err("Malformed cookie")?;
             cookies.insert(name, value);
         }
     }
     if let Some(token) = cookies.get("access-token") {
+        trace!("Request was made that contains an access-token cookie");
         if let Some(user) =
             get_user_from_token(&state.db_connection_pool, token.to_string()).await?
         {
             let expiration_date = DateTime::parse_from_rfc3339(&user.expiration_date)
                 .wrap_err("Expiration time in database is not a valid time")?;
             if expiration_date < Utc::now() {
+                debug!("User {:?} made a request that requires a valid access token but their access token expired", user.username);
                 return Ok(Some(FoundUser::ExpiredUser(user)));
             } else {
+                debug!("User {:?} made a request that requires a valid access token and they have a valid access token", user.username);
                 return Ok(Some(FoundUser::User(user)));
             }
+        } else {
+            trace!("No user was found in the database with the request's access token");
         }
+    } else {
+        trace!("Request was made that lacked an access-token cookie");
     }
 
     Ok(None)

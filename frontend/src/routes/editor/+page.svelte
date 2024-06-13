@@ -1,10 +1,11 @@
 <script lang="ts">
 	import SideBar from './nav/SideBar.svelte';
 	import TopBar from './nav/TopBar.svelte';
-	import ChangeDialogue from './nav/ChangeDialogue.svelte';
+	import ChangeDialogue from './ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
 	import { apiAddress } from '$lib/net';
+	import LoadingIcon from './LoadingIcon.svelte';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -34,6 +35,7 @@
 	}
 
 	let showChangeDialogue: boolean;
+	let showLoadingIcon: boolean;
 
 	async function fileSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
@@ -53,6 +55,7 @@
 	async function saveChangesHandler() {
 		await fetch(`${apiAddress}/api/doc`, {
 			method: "PUT",
+			credentials: "include",
 			headers: {
 				"Content-Type": "application/json",
 			},
@@ -66,7 +69,7 @@
 
 <div class="container">
 	<SideBar on:fileselect={fileSelectionHandler} />
-	<div style="display: flex;flex-direction: column; height: 100vh;">
+	<div style="display: flex; flex-direction: column; height: 100vh;">
 		<TopBar />
 		<div class="editor-controls">
 			<!-- Cancel -->
@@ -103,6 +106,7 @@
 			<div bind:this={previewWindow} class="preview-pane"></div>
 		</div>
 	</div>
+	<LoadingIcon bind:visible={showLoadingIcon}/>
 	<ChangeDialogue bind:visible={showChangeDialogue} />
 </div>
 
