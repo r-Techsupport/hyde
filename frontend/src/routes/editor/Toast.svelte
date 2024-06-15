@@ -90,14 +90,14 @@
 <style>
 	article {
 		color: var(--foreground-0);
-        font-family: var(--font-family);
+		font-family: var(--font-family);
 		padding: 0.75rem 1.5rem;
 		border-radius: 0.2rem;
 		display: flex;
 		align-items: center;
 		margin: 0 0.5rem 0.5rem auto;
 		width: 20rem;
-        float: right;
+		float: right;
 	}
 
 	.error {
@@ -114,12 +114,12 @@
 
 	.text {
 		margin-left: 1rem;
-        margin-right: 0.5rem;
+		margin-right: 0.5rem;
 	}
 
-    .close {
-        cursor: pointer;
-    }
+	.close {
+		cursor: pointer;
+	}
 
 	button {
 		color: white;

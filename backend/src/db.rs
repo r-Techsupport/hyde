@@ -613,9 +613,10 @@ mod tests {
         delete_group(&pool, group1.id).await.unwrap();
         let all_groups3 = get_all_groups(&pool).await.unwrap();
         assert_eq!(
-            all_groups3.len(), 
-            2, // includes admin group 
-            "delete_group: should work");
+            all_groups3.len(),
+            2, // includes admin group
+            "delete_group: should work"
+        );
         assert_eq!(
             all_groups3[1], group2,
             "delete_group: should delete the right group"
@@ -711,6 +712,10 @@ mod tests {
         );
 
         let admin_permissions = get_group_permissions(&pool, 1).await.unwrap();
-        assert_eq!(admin_permissions, vec![Permission::ManageContent, Permission::ManageUsers], "admin group should have the right permissions");
+        assert_eq!(
+            admin_permissions,
+            vec![Permission::ManageContent, Permission::ManageUsers],
+            "admin group should have the right permissions"
+        );
     }
 }

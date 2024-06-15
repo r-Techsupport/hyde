@@ -6,7 +6,6 @@
 	import { cache } from '$lib/cache';
 	import { apiAddress } from '$lib/net';
 	import LoadingIcon from './LoadingIcon.svelte';
-	import { onMount } from 'svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from './Toasts.svelte';
 
@@ -72,10 +71,19 @@
 		switch (response.status) {
 			case 201:
 				// TODO: Show created message, flush cache
-				addToast({ message: 'Changes synced successfully.', type: ToastType.Success, dismissible: true, timeout: 3000});
+				addToast({
+					message: 'Changes synced successfully.',
+					type: ToastType.Success,
+					dismissible: true,
+					timeout: 3000
+				});
 				break;
 			default:
-				addToast({ message: `An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`, type: ToastType.Error, dismissible: true });
+				addToast({
+					message: `An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
+					type: ToastType.Error,
+					dismissible: true
+				});
 			// TODO: show error message
 
 			// At some point the editor should make sure it's got a valid token

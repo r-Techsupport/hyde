@@ -188,7 +188,10 @@ impl Interface {
         remote.connect(git2::Direction::Push)?;
         // Push master here, to master there
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;
-        info!("Document {:?} edited and pushed to GitHub with message: {message:?}", path.as_ref());
+        info!(
+            "Document {:?} edited and pushed to GitHub with message: {message:?}",
+            path.as_ref()
+        );
         remote.disconnect()?;
         index.remove_path(&relative_path)?;
         index.write()?;

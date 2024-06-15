@@ -14,7 +14,7 @@
 				on:dismiss={() => dismissToast(toast.id ?? -1)}>{toast.message}</Toast
 			>
 		{/each}
-  </div>
+	</div>
 {/if}
 
 <style>

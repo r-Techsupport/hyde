@@ -27,7 +27,10 @@ use handlers_prelude::*;
 use log::error;
 use log::{debug, info, warn, LevelFilter};
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
-use reqwest::{header::{ACCEPT, ALLOW, CONTENT_TYPE}, Client, Method};
+use reqwest::{
+    header::{ACCEPT, ALLOW, CONTENT_TYPE},
+    Client, Method,
+};
 use sqlx::SqlitePool;
 use std::env::{self, current_exe};
 #[cfg(target_family = "unix")]
@@ -118,8 +121,7 @@ async fn main() -> Result<()> {
         .route("/api/oauth/url", get(get_oauth2_url))
         .layer(
             // TODO: create a separate CORS layer for debug and release mode (credentials, allow origin)
-            if cfg!(debug_assertions)
-            {
+            if cfg!(debug_assertions) {
                 CorsLayer::new()
                     // If this isn't set, cookies won't be sent across ports
                     .allow_credentials(true)
@@ -130,7 +132,7 @@ async fn main() -> Result<()> {
                 CorsLayer::new()
                     .allow_methods([Method::GET, Method::PUT])
                     .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
-            }
+            },
         )
         .with_state(state)
         // Serve the frontend files

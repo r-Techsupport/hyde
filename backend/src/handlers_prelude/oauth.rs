@@ -6,14 +6,17 @@ use axum::{
     response::Redirect,
 };
 use chrono::Utc;
-use color_eyre::{eyre::{Context, ContextCompat}, owo_colors::OwoColorize};
-use log::{error, debug, info, warn};
+use color_eyre::eyre::{Context, ContextCompat};
+use log::{debug, error, info, warn};
 use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl};
 use oauth2::{CsrfToken, TokenResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{db::{self, add_group_membership}, AppState};
+use crate::{
+    db,
+    AppState,
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetOAuthQuery {
@@ -106,8 +109,17 @@ async fn get_oath_processor(
         let all_users = db::get_all_users(&state.db_connection_pool).await?;
         // If the user doesn't already exist, create one
         if !all_users.iter().any(|u| u.username == username) {
-            let expiration_date = Utc::now() + token_data.expires_in().wrap_err("Discord OAuth2 response didn't include an expiration date")?;
-            db::create_user(&state.db_connection_pool, username.to_string(), token.to_string(), expiration_date.to_rfc3339()).await?;
+            let expiration_date = Utc::now()
+                + token_data
+                    .expires_in()
+                    .wrap_err("Discord OAuth2 response didn't include an expiration date")?;
+            db::create_user(
+                &state.db_connection_pool,
+                username.to_string(),
+                token.to_string(),
+                expiration_date.to_rfc3339(),
+            )
+            .await?;
             info!("New user {username:?} authenticated, entry added to database");
         }
         // If the user is the admin specified in the config, give them the admin role
@@ -115,11 +127,21 @@ async fn get_oath_processor(
             let all_users = db::get_all_users(&state.db_connection_pool).await?;
             let maybe_admin_user = all_users.iter().find(|u| u.username == admin_username);
             if let Some(admin_user) = maybe_admin_user {
-                let their_groups = db::get_user_groups(&state.db_connection_pool, admin_user.id).await?;
+                let their_groups =
+                    db::get_user_groups(&state.db_connection_pool, admin_user.id).await?;
                 // If they don't have the admin group, add it
                 if !their_groups.iter().any(|g| g.name == "Admin") {
-                    let admin_group = db::get_all_groups(&state.db_connection_pool, ).await?.into_iter().find(|g| g.name == "Admin").expect("No admin group in database");
-                    db::add_group_membership(&state.db_connection_pool, admin_group.id, admin_user.id).await?;
+                    let admin_group = db::get_all_groups(&state.db_connection_pool)
+                        .await?
+                        .into_iter()
+                        .find(|g| g.name == "Admin")
+                        .expect("No admin group in database");
+                    db::add_group_membership(
+                        &state.db_connection_pool,
+                        admin_group.id,
+                        admin_user.id,
+                    )
+                    .await?;
                     debug!("User {admin_username:?} was automatically added to the admin group based off of the server config");
                 }
                 // if let Some(admin_group) = their_groups.iter().find(|g| g.name == "Admin") {

@@ -104,7 +104,10 @@ pub async fn put_doc_handler(
                 } else {
                     return Err((
                         StatusCode::FORBIDDEN,
-                        format!("User {:?} lacks the permission to edit documents.", u.username),
+                        format!(
+                            "User {:?} lacks the permission to edit documents.",
+                            u.username
+                        ),
                     ));
                 }
             }
