@@ -66,6 +66,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    color_eyre::install()?;
     // Parse command line arguments
     let cli_args = Args::parse();
     // Read environment variables from dotenv file

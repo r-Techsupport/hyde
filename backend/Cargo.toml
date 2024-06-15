@@ -2,7 +2,7 @@
 name = "rts-cms-backend"
 version = "0.1.0"
 edition = "2021"
-license_file = "./LICENSE"
+license-file = "../LICENSE"
 description = "A backend for the r/TechSupport CMS"
 repository = "https://github.com/r-Techsupport/rts-cms"
 readme = "../README.md"
