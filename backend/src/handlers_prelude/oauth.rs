@@ -88,7 +88,7 @@ async fn get_oath_processor(
         .bearer_auth(token_data.access_token().secret())
         .header(
             "User-Agent",
-            "DiscordBot (https://github.com/r-Techsupport/rts-crm, 0)",
+            "DiscordBot (https://github.com/r-Techsupport/hyde, 0)",
         )
         .send()
         .await?;

@@ -108,7 +108,7 @@ async fn get_access_token(req_client: &Client) -> Result<(String, SystemTime)> {
         ))
         .bearer_auth(token)
         .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "rts-crm")
+        .header("User-Agent", "Hyde")
         // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
@@ -133,7 +133,7 @@ async fn get_installation_id(req_client: &Client) -> Result<String> {
     let response = req_client
         .get("https://api.github.com/app/installations")
         .bearer_auth(gen_jwt_token()?)
-        .header("User-Agent", "rts-crm")
+        .header("User-Agent", "Hyde")
         // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
