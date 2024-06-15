@@ -20,7 +20,7 @@ use clap::{
 };
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use db::DATABASE_URL;
+use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
 #[cfg(target_family = "unix")]
@@ -31,7 +31,6 @@ use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
     Client, Method,
 };
-use sqlx::SqlitePool;
 use std::env::{self, current_exe};
 #[cfg(target_family = "unix")]
 use tokio::signal::unix::{signal, SignalKind};
@@ -47,7 +46,7 @@ struct AppState {
     oauth: BasicClient,
     reqwest_client: Client,
     gh_credentials: GithubAccessToken,
-    db_connection_pool: SqlitePool,
+    db: Database,
 }
 
 #[derive(Parser)]
@@ -168,6 +167,6 @@ async fn init_state() -> Result<AppState> {
         oauth,
         reqwest_client,
         gh_credentials: GithubAccessToken::new(),
-        db_connection_pool: db::init(DATABASE_URL).await?,
+        db: Database::new().await?,
     })
 }

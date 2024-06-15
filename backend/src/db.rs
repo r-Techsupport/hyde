@@ -1,13 +1,45 @@
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
 use log::debug;
-use sqlx::{Sqlite, SqlitePool};
+use sqlx::SqlitePool;
 
 pub const DATABASE_URL: &str = "file:cms-data/data.db?mode=rwc";
 
-/// A wrapper around the sqlite database
+// the ids have to be i64 because that's what sql uses
+#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
+pub struct User {
+    pub id: i64,
+    pub username: String,
+    /// The oauth2 auth token
+    pub token: String,
+    /// ISO-8601/RFC-3339 string
+    pub expiration_date: String,
+}
+
+#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
+pub struct Group {
+    pub id: i64,
+    /// Group name
+    pub name: String,
+}
+
+#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
+pub struct GroupMembership {
+    user_id: i64,
+    /// Group name
+    group_id: i64,
+}
+
+#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
+pub struct GroupPermissions {
+    group_id: i64,
+    permission: String,
+}
+
+/// A wrapper around the sqlite database, and how consumers should interact with the database in any capacity.
+#[derive(Clone)]
 pub struct Database {
-    pool: SqlitePool
+    pool: SqlitePool,
 }
 
 impl Database {
@@ -20,7 +52,7 @@ impl Database {
         sqlx::migrate!("./migrations").run(&pool).await?;
         debug!("SQL migrations complete");
 
-        Ok(Self {pool})
+        Ok(Self { pool })
     }
 
     /// Create or connect to the database with the provided url, useful for testing so that
@@ -33,7 +65,7 @@ impl Database {
         sqlx::migrate!("./migrations").run(&pool).await?;
         debug!("SQL migrations complete");
 
-        Ok(Self {pool})
+        Ok(Self { pool })
     }
 
     /// Add a new user to the database, returning the created user.
@@ -101,7 +133,7 @@ impl Database {
     }
 
     /// Refresh the database entry for the provided user based off of the user id.
-    /// 
+    ///
     /// The ID of the user will not be updated.
     pub async fn update_user(&self, user: &User) -> Result<()> {
         let query_result = sqlx::query(
@@ -160,10 +192,11 @@ impl Database {
     /// Returns a group from the database associated with the provided
     /// group id.
     pub async fn get_group(&self, group_id: i64) -> Result<Option<Group>> {
-        let query_results: Option<Group> = sqlx::query_as("SELECT * FROM groups WHERE id = ? LIMIT 1;")
-            .bind(group_id)
-            .fetch_optional(&self.pool)
-            .await?;
+        let query_results: Option<Group> =
+            sqlx::query_as("SELECT * FROM groups WHERE id = ? LIMIT 1;")
+                .bind(group_id)
+                .fetch_optional(&self.pool)
+                .await?;
 
         Ok(query_results)
     }
@@ -190,16 +223,16 @@ impl Database {
 
         Ok(users)
     }
-    
 
     /// Whether a user is a member of a group.
     pub async fn group_has_member(&self, group_id: i64, user_id: i64) -> Result<bool> {
-        let query_result =
-            sqlx::query("SELECT * FROM group_membership WHERE group_id = ? AND user_id = ? LIMIT 1;")
-                .bind(group_id)
-                .bind(user_id)
-                .fetch_optional(&self.pool)
-                .await?;
+        let query_result = sqlx::query(
+            "SELECT * FROM group_membership WHERE group_id = ? AND user_id = ? LIMIT 1;",
+        )
+        .bind(group_id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
 
         match query_result {
             Some(_) => Ok(true),
@@ -207,9 +240,8 @@ impl Database {
         }
     }
 
-
     /// Add a user to a group (by id).
-    /// 
+    ///
     /// Returns true if the user was added successfully, returns false if the user is already
     /// a member of the group.
     pub async fn add_group_membership(&self, group_id: i64, user_id: i64) -> Result<bool> {
@@ -229,14 +261,10 @@ impl Database {
     }
 
     /// Remove a user from a group (by id).
-    /// 
+    ///
     /// Returns `true` if the user was removed successfully, returns `false` if the user was not
     /// a member of the provided group.
-    pub async fn remove_group_membership(
-        &self,
-        group_id: i64,
-        user_id: i64,
-    ) -> Result<bool> {
+    pub async fn remove_group_membership(&self, group_id: i64, user_id: i64) -> Result<bool> {
         let already_has_member = self.group_has_member(group_id, user_id).await?;
 
         if already_has_member {
@@ -253,7 +281,7 @@ impl Database {
     }
 
     /// Modify the database entry for the given group.
-    /// 
+    ///
     /// The id of the group will not be updated.
     pub async fn update_group(&self, group: &Group) -> Result<()> {
         let query_result = sqlx::query(
@@ -309,7 +337,6 @@ impl Database {
         Ok(permissions_vec)
     }
 
-
     /// Check whether a group has a permission.
     pub async fn group_has_permission(
         &self,
@@ -331,9 +358,8 @@ impl Database {
         }
     }
 
-
     /// Assign a group a new permission.
-    /// 
+    ///
     /// Returns `true` if the permission was added successfully, returns `false` if the group
     /// already had that permission.
     pub async fn add_group_permission(
@@ -355,12 +381,11 @@ impl Database {
                 .await?;
 
             Ok(true)
+        }
     }
-}
-
 
     /// Remove a permission from a group.
-    /// 
+    ///
     /// Returns `true` if the permission was removed successfully, returns `false` if the group
     /// didn't have that permission in the first place.
     pub async fn remove_group_permission(
@@ -386,397 +411,6 @@ impl Database {
     }
 }
 
-// the ids have to be i64 because that's what sql uses
-#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
-pub struct User {
-    pub id: i64,
-    pub username: String,
-    /// The oauth2 auth token
-    pub token: String,
-    /// ISO-8601/RFC-3339 string
-    pub expiration_date: String,
-}
-
-#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
-pub struct Group {
-    pub id: i64,
-    /// Group name
-    pub name: String,
-}
-
-#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
-pub struct GroupMembership {
-    user_id: i64,
-    /// Group name
-    group_id: i64,
-}
-
-#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
-pub struct GroupPermissions {
-    group_id: i64,
-    permission: String,
-}
-
-/// Initialize a new database at the provided URL. Not hardcoded in so that a memory db can be used
-/// for testing. Use the corresponding `Database` struct.
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn init(url: &str) -> Result<sqlx::Pool<Sqlite>> {
-    let pool = SqlitePool::connect(url).await?;
-
-    debug!("Running SQL migrations...");
-    // this should embed the migrations into the executable itself
-    sqlx::migrate!("./migrations").run(&pool).await?;
-    debug!("SQL migrations complete");
-
-    Ok(pool)
-}
-
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn create_user(
-    pool: &SqlitePool,
-    username: String,
-    token: String,
-    expiration_date: String,
-) -> Result<User> {
-    let query_results: User = sqlx::query_as(
-        r"
-        INSERT INTO users (username, token, expiration_date)
-        VALUES (?, ?, ?) RETURNING *;
-        ",
-    )
-    .bind(username)
-    .bind(token)
-    .bind(expiration_date)
-    .fetch_one(pool)
-    .await?;
-
-    Ok(query_results)
-}
-
-/// Attempt to read a user from the database, returning the found user, or None
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn get_user(pool: &SqlitePool, user_id: i64) -> Result<Option<User>> {
-    let query_results: Option<User> = sqlx::query_as(r"SELECT * FROM  users WHERE id = ?;")
-        .bind(user_id)
-        .fetch_optional(pool)
-        .await?;
-    Ok(query_results)
-}
-
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn get_user_from_token(pool: &SqlitePool, token: String) -> Result<Option<User>> {
-    let query_results: Option<User> = sqlx::query_as(r"SELECT * FROM  users WHERE token = ?;")
-        .bind(token)
-        .fetch_optional(pool)
-        .await?;
-    Ok(query_results)
-}
-
-/// Returns a list of groups that a particular user is a member of.
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn get_user_groups(pool: &SqlitePool, user_id: i64) -> Result<Vec<Group>> {
-    let groups: Vec<Group> = sqlx::query_as(
-        "SELECT groups.* FROM group_membership 
-        RIGHT JOIN groups ON group_membership.group_id = groups.id
-        WHERE group_membership.user_id = ? ORDER BY groups.id;",
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await?;
-
-    Ok(groups)
-}
-
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn get_all_users(pool: &SqlitePool) -> Result<Vec<User>> {
-    let query_results: Vec<User> = sqlx::query_as(r"SELECT * FROM users;")
-        .fetch_all(pool)
-        .await?;
-
-    Ok(query_results)
-}
-
-/// note: the id of the user will not be updated.
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn update_user(pool: &SqlitePool, user: &User) -> Result<()> {
-    let query_result = sqlx::query(
-        r"
-        UPDATE users SET username = ?, token = ?, expiration_date = ?
-        WHERE id = ?;",
-    )
-    .bind(&user.username)
-    .bind(&user.token)
-    .bind(&user.expiration_date)
-    .bind(user.id)
-    .execute(pool)
-    .await?;
-
-    if query_result.rows_affected() != 1 {
-        bail!(
-            "Update user impacted unexpected number of rows, impacted {} rows",
-            query_result.rows_affected()
-        )
-    }
-
-    Ok(())
-}
-
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn delete_user(pool: &SqlitePool, user_id: i64) -> Result<()> {
-    let query_result = sqlx::query(r"DELETE FROM users WHERE id = ?")
-        .bind(user_id)
-        .execute(pool)
-        .await?;
-
-    if query_result.rows_affected() != 1 {
-        bail!(
-            "Delete user impacted unexpected number of rows, impacted {} rows",
-            query_result.rows_affected()
-        )
-    }
-
-    Ok(())
-}
-
-/// Add the provided group to the user's list of groups
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn create_group(pool: &SqlitePool, group_name: String) -> Result<Group> {
-    let query_results: Group = sqlx::query_as(
-        r"
-        INSERT INTO groups (name) VALUES (?) RETURNING *;
-        ",
-    )
-    .bind(group_name)
-    .fetch_one(pool)
-    .await?;
-
-    Ok(query_results)
-}
-
-/// returns a Group object with information about the group
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn get_group(pool: &SqlitePool, group_id: i64) -> Result<Option<Group>> {
-    let query_results: Option<Group> = sqlx::query_as("SELECT * FROM groups WHERE id = ? LIMIT 1;")
-        .bind(group_id)
-        .fetch_optional(pool)
-        .await?;
-
-    Ok(query_results)
-}
-
-/// Returns a vec of every group in the database.
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn get_all_groups(pool: &SqlitePool) -> Result<Vec<Group>> {
-    let query_results: Vec<Group> = sqlx::query_as(r"SELECT * FROM groups;")
-        .fetch_all(pool)
-        .await?;
-
-    Ok(query_results)
-}
-
-/// returns the members of a given group
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn get_group_members(pool: &SqlitePool, group_id: i64) -> Result<Vec<User>> {
-    let users: Vec<User> = sqlx::query_as(
-        "SELECT users.* FROM group_membership 
-        RIGHT JOIN users ON group_membership.user_id = users.id
-        WHERE group_membership.group_id = ? ORDER BY users.id;",
-    )
-    .bind(group_id)
-    .fetch_all(pool)
-    .await?;
-
-    Ok(users)
-}
-
-/// checks whether the group has a specified user
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn group_has_member(pool: &SqlitePool, group_id: i64, user_id: i64) -> Result<bool> {
-    let query_result =
-        sqlx::query("SELECT * FROM group_membership WHERE group_id = ? AND user_id = ? LIMIT 1;")
-            .bind(group_id)
-            .bind(user_id)
-            .fetch_optional(pool)
-            .await?;
-
-    match query_result {
-        Some(_) => Ok(true),
-        None => Ok(false),
-    }
-}
-
-/// returns true if the user was added successfully, returns false if the user is already
-/// a member of the group
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn add_group_membership(pool: &SqlitePool, group_id: i64, user_id: i64) -> Result<bool> {
-    let already_has_member = group_has_member(pool, group_id, user_id).await?;
-
-    if already_has_member {
-        Ok(false)
-    } else {
-        sqlx::query("INSERT INTO group_membership (group_id, user_id) VALUES (?, ?);")
-            .bind(group_id)
-            .bind(user_id)
-            .execute(pool)
-            .await?;
-
-        Ok(true)
-    }
-}
-
-/// returns true if the user was removed successfully, returns false if the user is not
-/// a member of the group
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn remove_group_membership(
-    pool: &SqlitePool,
-    group_id: i64,
-    user_id: i64,
-) -> Result<bool> {
-    let already_has_member = group_has_member(pool, group_id, user_id).await?;
-
-    if already_has_member {
-        sqlx::query("DELETE FROM group_membership WHERE group_id = ? AND user_id = ?;")
-            .bind(group_id)
-            .bind(user_id)
-            .execute(pool)
-            .await?;
-
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
-/// note: the id of the user will not be updated.
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn update_group(pool: &SqlitePool, group: &Group) -> Result<()> {
-    let query_result = sqlx::query(
-        r"
-        UPDATE groups SET name = ?
-        WHERE id = ?;",
-    )
-    .bind(&group.name)
-    .bind(group.id)
-    .execute(pool)
-    .await?;
-
-    if query_result.rows_affected() != 1 {
-        bail!(
-            "Update user impacted unexpected number of rows, impacted {} rows",
-            query_result.rows_affected()
-        )
-    }
-
-    Ok(())
-}
-
-/// deletes the group. This should also delete all the members
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn delete_group(pool: &SqlitePool, group_id: i64) -> Result<()> {
-    let query_result = sqlx::query(r"DELETE FROM groups WHERE id = ?")
-        .bind(group_id)
-        .execute(pool)
-        .await?;
-
-    if query_result.rows_affected() != 1 {
-        bail!(
-            "Delete user impacted unexpected number of rows, impacted {} rows",
-            query_result.rows_affected()
-        )
-    }
-
-    Ok(())
-}
-
-/// Get a list of all of the permissions tied to a particular group.
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn get_group_permissions(pool: &SqlitePool, group_id: i64) -> Result<Vec<Permission>> {
-    let query_result: Vec<GroupPermissions> =
-        sqlx::query_as("SELECT * FROM group_permissions WHERE group_id = ?;")
-            .bind(group_id)
-            .fetch_all(pool)
-            .await?;
-
-    let permissions_vec: Vec<Permission> = query_result
-        .iter()
-        .map(|e| e.permission.as_str().try_into().unwrap())
-        .collect();
-
-    Ok(permissions_vec)
-}
-
-/// checks whether the group has a specified permission
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn group_has_permission(
-    pool: &SqlitePool,
-    group_id: i64,
-    permission: Permission,
-) -> Result<bool> {
-    let string_permission = String::from(permission);
-    let query_result = sqlx::query(
-        "SELECT * FROM group_permissions WHERE group_id = ? AND permission = ? LIMIT 1;",
-    )
-    .bind(group_id)
-    .bind(string_permission)
-    .fetch_optional(pool)
-    .await?;
-
-    match query_result {
-        Some(_) => Ok(true),
-        None => Ok(false),
-    }
-}
-
-/// returns true if the permission was added successfully, returns false if the user is already
-/// a member of the group
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn add_group_permission(
-    pool: &SqlitePool,
-    group_id: i64,
-    permission: Permission,
-) -> Result<bool> {
-    let already_has_permission = group_has_permission(pool, group_id, permission).await?;
-
-    if already_has_permission {
-        Ok(false)
-    } else {
-        let string_permission = String::from(permission);
-
-        sqlx::query("INSERT INTO group_permissions (group_id, permission) VALUES (?, ?);")
-            .bind(group_id)
-            .bind(string_permission)
-            .execute(pool)
-            .await?;
-
-        Ok(true)
-    }
-}
-
-/// returns true if the permission was removed successfully, returns false if the user is not
-/// a member of the group
-#[deprecated = "Users should instead use the corresponding impl on the `Database` struct"]
-pub async fn remove_group_permission(
-    pool: &SqlitePool,
-    group_id: i64,
-    permission: Permission,
-) -> Result<bool> {
-    let already_has_permission = group_has_permission(pool, group_id, permission).await?;
-
-    if already_has_permission {
-        let string_permission = String::from(permission);
-
-        sqlx::query("DELETE FROM group_permissions WHERE group_id = ? AND permission = ?;")
-            .bind(group_id)
-            .bind(string_permission)
-            .execute(pool)
-            .await?;
-
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -792,7 +426,8 @@ mod tests {
     async fn user_management() {
         let mock_db = Database::from_url(":memory:").await.unwrap();
 
-        let mock_user = mock_db.create_user(s!("username"), s!("token"), s!("expiration_date"))
+        let mock_user = mock_db
+            .create_user(s!("username"), s!("token"), s!("expiration_date"))
             .await
             .unwrap();
 
@@ -815,19 +450,17 @@ mod tests {
             "get_user: The fetched user's id should be the same as the created user"
         );
 
-        let token_user = mock_db.get_user_from_token(s!("token"))
+        let token_user = mock_db
+            .get_user_from_token(s!("token"))
             .await
             .unwrap()
             .unwrap();
         assert_eq!(token_user, mock_user, "get_user_from_token: should work");
 
-        let mut mock_user2 = mock_db.create_user(
-            s!("username2"),
-            s!("token2"),
-            s!("expiration_date2"),
-        )
-        .await
-        .unwrap();
+        let mut mock_user2 = mock_db
+            .create_user(s!("username2"), s!("token2"), s!("expiration_date2"))
+            .await
+            .unwrap();
         let all_users = mock_db.get_all_users().await.unwrap();
         assert_eq!(
             all_users.len(),
@@ -843,7 +476,7 @@ mod tests {
             "get_all_users: The user vector's second element should be the second user inserted"
         );
 
-        mock_user2.username = s!("username2_updated");
+        "username2_updated".clone_into(&mut mock_user2.username);
         mock_db.update_user(&mock_user2).await.unwrap();
         let updated_user2 = mock_db.get_user(mock_user2.id).await.unwrap().unwrap();
         let all_users2 = mock_db.get_all_users().await.unwrap();
@@ -874,7 +507,8 @@ mod tests {
     async fn group_management() {
         let mock_db = Database::from_url(":memory:").await.unwrap();
 
-        let user1 = mock_db.create_user(s!("username1"), s!("token1"), s!("exp1"))
+        let user1 = mock_db
+            .create_user(s!("username1"), s!("token1"), s!("exp1"))
             .await
             .unwrap();
         let group1 = mock_db.create_group(s!("groupname1")).await.unwrap();
@@ -905,7 +539,7 @@ mod tests {
             "get_all_groups: should return the right groups in the right order"
         );
 
-        group2.name = s!("groupname2_updated");
+        "groupname2_updated".clone_into(&mut group2.name);
         mock_db.update_group(&group2).await.unwrap();
         let fetched_group2 = mock_db.get_group(group2.id).await.unwrap().unwrap();
         assert_eq!(fetched_group2, group2, "update_group: should work");
@@ -916,19 +550,24 @@ mod tests {
             "update_group: should not create or delete any groups"
         );
 
-        let user2 = mock_db.create_user(s!("username2"), s!("token2"), s!("exp2"))
+        let user2 = mock_db
+            .create_user(s!("username2"), s!("token2"), s!("exp2"))
             .await
             .unwrap();
-        let address1 = mock_db.add_group_membership(group1.id, user1.id)
+        let address1 = mock_db
+            .add_group_membership(group1.id, user1.id)
             .await
             .unwrap();
-        let address2 = mock_db.add_group_membership(group1.id, user1.id)
+        let address2 = mock_db
+            .add_group_membership(group1.id, user1.id)
             .await
             .unwrap();
-        mock_db.add_group_membership(group1.id, user2.id)
+        mock_db
+            .add_group_membership(group1.id, user2.id)
             .await
             .unwrap();
-        mock_db.add_group_membership(group2.id, user1.id)
+        mock_db
+            .add_group_membership(group2.id, user1.id)
             .await
             .unwrap();
         assert!(
@@ -980,10 +619,12 @@ mod tests {
             "get_user_groups: should return the right groups in the right order"
         );
 
-        let remres1 = mock_db.remove_group_membership(group1.id, user2.id)
+        let remres1 = mock_db
+            .remove_group_membership(group1.id, user2.id)
             .await
             .unwrap();
-        let remres2 = mock_db.remove_group_membership(group2.id, user2.id)
+        let remres2 = mock_db
+            .remove_group_membership(group2.id, user2.id)
             .await
             .unwrap();
         assert!(
@@ -1047,7 +688,8 @@ mod tests {
             0,
             "get_group_permissions: returns 0 when no permissions are added"
         );
-        let has_manage_content1 = mock_db.group_has_permission(group1.id, Permission::ManageContent)
+        let has_manage_content1 = mock_db
+            .group_has_permission(group1.id, Permission::ManageContent)
             .await
             .unwrap();
         assert!(
@@ -1055,10 +697,12 @@ mod tests {
             "group_has_permission: should return false if the group does not have the permission"
         );
 
-        let permission_added = mock_db.add_group_permission(group1.id, Permission::ManageContent)
+        let permission_added = mock_db
+            .add_group_permission(group1.id, Permission::ManageContent)
             .await
             .unwrap();
-        let has_manage_content2 = mock_db.group_has_permission(group1.id, Permission::ManageContent)
+        let has_manage_content2 = mock_db
+            .group_has_permission(group1.id, Permission::ManageContent)
             .await
             .unwrap();
         assert!(
@@ -1072,7 +716,8 @@ mod tests {
             vec![Permission::ManageContent],
             "get_group_permissions: returns the right thing"
         );
-        let already_added = mock_db.add_group_permission(group1.id, Permission::ManageContent)
+        let already_added = mock_db
+            .add_group_permission(group1.id, Permission::ManageContent)
             .await
             .unwrap();
         assert!(
@@ -1080,22 +725,24 @@ mod tests {
             "add_group_permission: should return false if group already has the permission"
         );
 
-        let permission_removed =
-            mock_db.remove_group_permission(group1.id, Permission::ManageContent)
-                .await
-                .unwrap();
+        let permission_removed = mock_db
+            .remove_group_permission(group1.id, Permission::ManageContent)
+            .await
+            .unwrap();
         assert!(
             permission_removed,
             "remove_group_permission: returns true when permission has been removed"
         );
-        let already_removed = mock_db.remove_group_permission(group1.id, Permission::ManageContent)
+        let already_removed = mock_db
+            .remove_group_permission(group1.id, Permission::ManageContent)
             .await
             .unwrap();
         assert!(
             !already_removed,
             "remove_group_permission: returns false when the group didn't have the permission"
         );
-        let has_manage_content3 = mock_db.group_has_permission(group1.id, Permission::ManageContent)
+        let has_manage_content3 = mock_db
+            .group_has_permission(group1.id, Permission::ManageContent)
             .await
             .unwrap();
         assert!(!has_manage_content3, "remove_group_permission: works");

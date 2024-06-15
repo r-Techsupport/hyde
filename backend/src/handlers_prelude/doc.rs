@@ -11,12 +11,7 @@ use color_eyre::eyre::{Context, ContextCompat};
 use log::{debug, error, trace, warn};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::{get_user_from_token, get_user_groups, group_has_permission, User},
-    eyre_to_axum_err,
-    perms::Permission,
-    AppState,
-};
+use crate::{db::User, eyre_to_axum_err, perms::Permission, AppState};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetDocQuery {
@@ -83,18 +78,18 @@ pub async fn put_doc_handler(
                 ))
             }
             FoundUser::User(u) => {
-                let groups = get_user_groups(&state.db_connection_pool, u.id)
+                let groups = &state
+                    .db
+                    .get_user_groups(u.id)
                     .await
                     .map_err(eyre_to_axum_err)?;
                 let mut has_permission = false;
                 for group in groups {
-                    if group_has_permission(
-                        &state.db_connection_pool,
-                        group.id,
-                        Permission::ManageContent,
-                    )
-                    .await
-                    .map_err(eyre_to_axum_err)?
+                    if state
+                        .db
+                        .group_has_permission(group.id, Permission::ManageContent)
+                        .await
+                        .map_err(eyre_to_axum_err)?
                     {
                         has_permission = true;
                     }
@@ -156,7 +151,6 @@ enum FoundUser {
 
 /// Find the user attached to a particular request, if there is one, and the access token is still valid
 async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<Option<FoundUser>> {
-    // TODO: check to see if the request has a Cookie header with a valid access token set, that's attached to a user with the correct permissions
     let mut cookies: HashMap<&str, &str> = HashMap::new();
     // There can be multiple cookie headers, and each cookie header can contain multiple cookies
     let cookie_headers = headers.get_all("Cookie");
@@ -171,9 +165,7 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
     }
     if let Some(token) = cookies.get("access-token") {
         trace!("Request was made that contains an access-token cookie");
-        if let Some(user) =
-            get_user_from_token(&state.db_connection_pool, token.to_string()).await?
-        {
+        if let Some(user) = state.db.get_user_from_token(token.to_string()).await? {
             let expiration_date = DateTime::parse_from_rfc3339(&user.expiration_date)
                 .wrap_err("Expiration time in database is not a valid time")?;
             if expiration_date < Utc::now() {
