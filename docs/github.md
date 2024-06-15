@@ -1,9 +1,9 @@
 ## Introduction
-`rts-crm` requires a (Github App)[https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app] private key to function so that it
+Hyde requires a (Github App)[https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app] private key to function so that it
 can interact with the wiki repository. This enables functionality like pushing commits, or creating/managing PRs.
 
 See (Github's documentation)[https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps#generating-private-keys].
-Save the generated private key in the `cms-data/` directory  as `key.pem`.
+Save the generated private key in the `hyde-data/` directory  as `key.pem`.
 
 The generated key needs the *"Access: Read and Write"* permission for Contents.
 

@@ -145,8 +145,8 @@ async fn get_installation_id(req_client: &Client) -> Result<String> {
 
 /// Generate a new JWT token for use with github api interactions.
 fn gen_jwt_token() -> Result<String> {
-    let mut private_key_file = File::open("cms-data/key.pem")
-        .wrap_err("Failed to read private key from `cms-data/key.pem`")?;
+    let mut private_key_file = File::open("hyde-data/key.pem")
+        .wrap_err("Failed to read private key from `hyde-data/key.pem`")?;
     let mut private_key = Vec::new();
     private_key_file.read_to_end(&mut private_key)?;
     Ok(encode(

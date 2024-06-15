@@ -1,10 +1,10 @@
 [package]
-name = "rts-cms-backend"
+name = "hyde-backend"
 version = "0.1.0"
 edition = "2021"
 license-file = "../LICENSE"
 description = "A backend for the r/TechSupport CMS"
-repository = "https://github.com/r-Techsupport/rts-cms"
+repository = "https://github.com/r-Techsupport/hyde"
 readme = "../README.md"
 keywords = ["cms", "wiki"]
 categories = ["server-backend"]

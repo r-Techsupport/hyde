@@ -3,5 +3,5 @@
 target
 repo/
 .env
-cms-data/
+hyde-data/
 data.db

@@ -12,7 +12,7 @@ on:
 env:
   REGISTRY: ghcr.io
   REPO: r-techsupport
-  IMAGE: rts-cms
+  IMAGE: hyde
 
 jobs:
   docker:

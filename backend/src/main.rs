@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
     // Parse command line arguments
     let cli_args = Args::parse();
     // Read environment variables from dotenv file
-    let dotenv_path = "cms-data/.env";
+    let dotenv_path = "hyde-data/.env";
     // Initialize logging
     env_logger::builder()
         .filter(None, cli_args.logging_level)
@@ -88,7 +88,7 @@ async fn main() -> Result<()> {
         .await
         .wrap_err("Failed to initialize app state")?;
     debug!("Initialized app state");
-    // https://github.com/r-Techsupport/rts-cms/issues/27
+    // https://github.com/r-Techsupport/hyde/issues/27
     // In docker, because the process is running with a PID of 1,
     // we need to implement our own SIGINT/TERM handlers
     #[cfg(target_family = "unix")]

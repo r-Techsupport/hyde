@@ -162,7 +162,7 @@ impl Interface {
                 path.as_ref()
             )
         })?;
-        let sig = Signature::now("rts-cms", "rts-cms")?;
+        let sig = Signature::now("Hyde", "hyde")?;
         let msg = format!("[CMS]: {message}");
         // adapted from https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html
         let mut index = repo.index()?;

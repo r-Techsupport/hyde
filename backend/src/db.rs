@@ -3,7 +3,7 @@ use color_eyre::{eyre::bail, Result};
 use log::debug;
 use sqlx::SqlitePool;
 
-pub const DATABASE_URL: &str = "file:cms-data/data.db?mode=rwc";
+pub const DATABASE_URL: &str = "file:hyde-data/data.db?mode=rwc";
 
 // the ids have to be i64 because that's what sql uses
 #[derive(Debug, PartialEq, Eq, sqlx::FromRow)]

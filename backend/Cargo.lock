@@ -961,6 +961,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
+name = "hyde-backend"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "clap",
+ "color-eyre",
+ "dotenvy",
+ "env_logger",
+ "git2",
+ "jsonwebtoken",
+ "log",
+ "oauth2",
+ "reqwest 0.12.4",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower",
+ "tower-http",
+ "url",
+]
+
+[[package]]
 name = "hyper"
 version = "0.14.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1846,30 +1870,6 @@ dependencies = [
  "spki",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "rts-cms-backend"
-version = "0.1.0"
-dependencies = [
- "axum",
- "chrono",
- "clap",
- "color-eyre",
- "dotenvy",
- "env_logger",
- "git2",
- "jsonwebtoken",
- "log",
- "oauth2",
- "reqwest 0.12.4",
- "serde",
- "serde_json",
- "sqlx",
- "tokio",
- "tower",
- "tower-http",
- "url",
 ]
 
 [[package]]
