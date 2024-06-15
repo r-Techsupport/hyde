@@ -9,6 +9,9 @@
 
 	--green: #329932;
 	--red: #993232;
+	--toast-success: #36a331;
+	--toast-error: #a42121;
+	--toast-info: #2c68bb;
 }
 
 :root,
@@ -20,6 +23,7 @@
 	--background-4: #606060;
 
 	--foreground-0: #fafafa;
+	--foreground-1: #dadada;
 	--foreground-5: #8a8a8a;
 }
 

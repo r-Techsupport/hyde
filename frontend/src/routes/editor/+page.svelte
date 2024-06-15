@@ -6,6 +6,9 @@
 	import { cache } from '$lib/cache';
 	import { apiAddress } from '$lib/net';
 	import LoadingIcon from './LoadingIcon.svelte';
+	import { onMount } from 'svelte';
+	import { ToastType, addToast } from '$lib/toast';
+	import Toasts from './Toasts.svelte';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -53,21 +56,36 @@
 	}
 
 	async function saveChangesHandler() {
-		await fetch(`${apiAddress}/api/doc`, {
-			method: "PUT",
-			credentials: "include",
+		showLoadingIcon = true;
+		let response = await fetch(`${apiAddress}/api/doc`, {
+			method: 'PUT',
+			credentials: 'include',
 			headers: {
-				"Content-Type": "application/json",
+				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
 				contents: editorText,
-				path: currentFile,
+				path: currentFile
 			})
-		})
+		});
+		showLoadingIcon = false;
+		switch (response.status) {
+			case 201:
+				// TODO: Show created message, flush cache
+				addToast({ message: 'Changes synced successfully.', type: ToastType.Success, dismissible: true, timeout: 3000});
+				break;
+			default:
+				addToast({ message: `An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`, type: ToastType.Error, dismissible: true });
+			// TODO: show error message
+
+			// At some point the editor should make sure it's got a valid token
+			// when you first open it, so we don't need to worry about 401 or 403
+		}
 	}
 </script>
 
 <div class="container">
+	<Toasts />
 	<SideBar on:fileselect={fileSelectionHandler} />
 	<div style="display: flex; flex-direction: column; height: 100vh;">
 		<TopBar />
@@ -106,7 +124,7 @@
 			<div bind:this={previewWindow} class="preview-pane"></div>
 		</div>
 	</div>
-	<LoadingIcon bind:visible={showLoadingIcon}/>
+	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
 </div>
 
@@ -159,7 +177,6 @@
 	.cancel:hover {
 		background-color: var(--background-0);
 		box-sizing: border-box;
-		/* border: 0.1rem var(--red) solid; */
 		transition: all 0.1s ease;
 	}
 
@@ -178,10 +195,6 @@
 	/* div containing both the preview pane and the editor pane */
 	.editor-panes {
 		height: 100%;
-		/* flex-direction: row;
-		flex-grow: 1; */
-		/* max-height: 80%;
-		height: 80%; */
 		overflow-y: hidden;
 	}
 
