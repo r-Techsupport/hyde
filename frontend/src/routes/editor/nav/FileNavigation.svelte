@@ -1,7 +1,7 @@
 <!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-
+	import { currentFile } from '$lib/main';
 	interface INode {
 		name: string;
 		children: INode[];
@@ -10,8 +10,8 @@
 	export let name = '';
 	export let children: INode[] = [];
 	export let indent = 1;
-	// so that the root is included
 	export let path = name;
+	let selected = false;
 	let open = false;
 
 	const dispatch = createEventDispatcher();
@@ -28,9 +28,22 @@
 			// console.log(`Clicked file with path: "${path}"`);
 		}
 	}
+
+	currentFile.subscribe((p) => {
+		if (path === p) {
+			selected = true;
+		} else {
+			selected = false;
+		}
+	});
 </script>
 
-<button on:click={clickHandler} style="padding-left: {indent}rem">
+<!-- {#if selected} -->
+<button
+	on:click={clickHandler}
+	style="padding-left: {indent}rem"
+	class={selected ? 'selected' : ''}
+>
 	{#if children.length > 0}
 		{#if !open}
 			<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"
@@ -76,6 +89,13 @@
 		margin-left: 1%;
 		padding-top: 0.4rem;
 		padding-bottom: 0.4rem;
+		/* overflow-x: hidden; */
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	button * {
+		text-overflow: ellipsis;
 	}
 
 	button:hover {
@@ -85,6 +105,15 @@
 	button * {
 		vertical-align: middle;
 		/* text-align: ; */
+	}
+
+	.selected {
+		background-color: var(--background-3);
+		border-left: 3px solid var(--foreground-5);
+	}
+
+	.selected:hover {
+		background-color: var(--background-4);
 	}
 
 	svg {

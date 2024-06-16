@@ -2,6 +2,8 @@
 	import { apiAddress } from '$lib/net';
 	import FileNavigation from './FileNavigation.svelte';
 	import { onMount } from 'svelte';
+	/** Binding to the css variable determining sidebar width */
+	export let sidebarWidth: string;
 
 	let rootNode = {
 		name: '',
@@ -40,10 +42,9 @@
 	//         }
 	//     ],
 	// }
+	let draggingWindow = false;
 
 	onMount(async () => {
-		// TODO: Dynamically determine whether to refer to local dev url
-		// or to relative route
 		const response = await fetch(`${apiAddress}/api/tree`);
 		rootNode = await response.json();
 	});
@@ -57,6 +58,25 @@
 	</div>
 </div>
 
+<div
+	on:mousedown={() => {
+		draggingWindow = true;
+	}}
+	on:mouseup={() => {
+		draggingWindow = false;
+	}}
+	role="none"
+	class="resizeable-hitbox"
+></div>
+
+<svelte:body
+	on:mousemove={(e) => {
+		if (draggingWindow && e.clientX > 90 && e.clientX < 500) {
+			sidebarWidth = `${e.clientX}px`;
+		}
+	}}
+/>
+
 <style>
 	/* TODO: Resizeable sidebar, make file nav rendering more elegant */
 	.side-bar {
@@ -66,6 +86,14 @@
 		color: var(--foreground-0);
 		font-family: var(--font-family);
 		overflow-y: scroll;
+	}
+
+	.resizeable-hitbox {
+		left: calc(var(--sidebar-width) - 0.25rem);
+		position: absolute;
+		height: 100vh;
+		width: 0.5rem;
+		cursor: col-resize;
 	}
 
 	.directory-nav {

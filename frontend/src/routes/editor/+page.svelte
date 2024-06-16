@@ -8,13 +8,16 @@
 	import LoadingIcon from './LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from './Toasts.svelte';
+	import { currentFile } from '$lib/main';
+	import { get } from 'svelte/store';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
-	/** The path to the file currently being displayed by the window */
-	let currentFile = '';
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement;
+	/** The width of the sidebar */
+	export let sidebarWidth = '14rem';
+	$: sidebarWidth;
 	/**
 	 * The time in milliseconds that must pass after a keypress
 	 * before markdown is rendered
@@ -41,15 +44,16 @@
 
 	async function fileSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
-		if ((await cache.get(currentFile)) === editorText || currentFile === '') {
-			currentFile = e.detail.path;
+		if ((await cache.get(get(currentFile))) === editorText || get(currentFile) === '') {
+			currentFile.set(e.detail.path);
 			editorText =
 				(await cache.get(e.detail.path)) ??
 				'Something went wrong, the file tree reported by the backend references a nonexistent file.';
 			renderMarkdown(editorText, previewWindow);
 		} else if (e.detail.path === currentFile) {
-			// do nothing
+			// Do nothing
 		} else {
+			// Unsaved changes
 			showChangeDialogue = true;
 		}
 	}
@@ -92,9 +96,9 @@
 	}
 </script>
 
-<div class="container">
+<div style="--sidebar-width: {sidebarWidth}" class="container">
 	<Toasts />
-	<SideBar on:fileselect={fileSelectionHandler} />
+	<SideBar on:fileselect={fileSelectionHandler} bind:sidebarWidth />
 	<div style="display: flex; flex-direction: column; height: 100vh;">
 		<TopBar />
 		<div class="editor-controls">
@@ -140,7 +144,7 @@
 
 <style>
 	.container {
-		--sidebar-width: 14rem;
+		/* --sidebar-width: 14rem; */
 		background-color: var(--background-0);
 		display: flex;
 	}
