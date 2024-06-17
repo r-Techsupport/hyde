@@ -28,4 +28,3 @@ sqlx = { version = "0.7.4", features = ["sqlite", "runtime-tokio"] }
 tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread", "signal"] }
 tower = "0.4.13"
 tower-http = { version = "0.5.2", features = ["normalize-path", "fs", "cors"] }
-url = "2.5.0"
