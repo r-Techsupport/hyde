@@ -150,10 +150,24 @@ async fn main() -> Result<()> {
 async fn init_state() -> Result<AppState> {
     let git = task::spawn(async { git::Interface::lazy_init() });
     let oauth = {
-        let client_id = env::var("OAUTH_CLIENT_ID").wrap_err("OAUTH_CLIENT_ID not set in env")?;
-        let client_secret = env::var("OAUTH_SECRET").wrap_err("OAUTH_SECRET not sent in env")?;
-        let auth_url = env::var("OAUTH_URL").wrap_err("OAUTH_URL not set in env")?;
-        let token_url = env::var("OAUTH_TOKEN_URL").wrap_err("OAUTH_TOKEN_URL not set in env")?;
+        // let client_id = env::var("OAUTH_CLIENT_ID").wrap_err("OAUTH_CLIENT_ID not set in env")?;
+        let client_id = env::var("OAUTH_CLIENT_ID").unwrap_or_else(|_| {
+            warn!("The `OAUTH_CLIENT_ID` environment variable is not set, oauth functionality will be broken");
+            String::new()
+        });
+        let client_secret = env::var("OAUTH_SECRET").unwrap_or_else(|_| {
+            warn!("The `OAUTH_SECRET` environment variable is not set, oauth functionality will be broken");
+            String::new()
+        });
+        // The oauth constructor does some url parsing on startup so these need valid urls
+        let auth_url = env::var("OAUTH_URL").unwrap_or_else(|_| {
+            warn!("The `OAUTH_URL` environment variable is not set, oauth functionality will be broken");
+            String::from("https://example.com/")
+        });
+        let token_url = env::var("OAUTH_TOKEN_URL").unwrap_or_else(|_| {
+            warn!("The `OAUTH_TOKEN_URL` environment variable is not set, oauth functionality will be broken");
+            String::from("https://example.com/")
+        });
         BasicClient::new(
             ClientId::new(client_id),
             Some(ClientSecret::new(client_secret)),

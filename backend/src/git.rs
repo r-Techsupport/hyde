@@ -2,7 +2,7 @@
 
 use color_eyre::{eyre::Context, Result};
 use git2::{Repository, Signature};
-use log::{debug, info};
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -36,7 +36,10 @@ impl Interface {
     /// the required environment variables are not set.
     pub fn lazy_init() -> Result<Self> {
         let mut doc_path = PathBuf::from("./repo");
-        doc_path.push(env::var("DOC_PATH").wrap_err("The DOC_PATH env var was not set")?);
+        doc_path.push(env::var("DOC_PATH").unwrap_or_else(|_| {
+            warn!("The `DOC_PATH` environment variable was not set, defaulting to `docs/`");
+            "docs".to_string()
+        }));
         if let Ok(repo) = Repository::open("./repo") {
             info!("Existing repository detected, fetching latest changes...");
             let mut remote = repo.find_remote("origin")?;
@@ -51,7 +54,7 @@ impl Interface {
             });
         }
 
-        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
+        let repository_url = env::var("REPO_URL").wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
         let output_path = Path::new("./repo");
         info!(
             "No repo detected, cloning {repository_url:?} into {:?}...",
@@ -167,7 +170,7 @@ impl Interface {
         // adapted from https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html
         let mut index = repo.index()?;
         // File paths are relative to the root of the repository for `add_path`
-        let mut relative_path = PathBuf::from(env::var("DOC_PATH")?);
+        let mut relative_path = PathBuf::from(env::var("DOC_PATH").wrap_err("The `DOC_PATH` environment variable was not set")?);
         let tree = {
             // Standard practice is to stage commits by adding them to an index.
             relative_path.push(path);
