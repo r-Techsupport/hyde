@@ -83,10 +83,12 @@
 		border: none;
 		background: none;
 		color: var(--foreground-0);
-		font-size: larger;
+		font-size: inherit;
 		width: 98%;
 		border-radius: 5px;
 		margin-left: 1%;
+		margin-top: 0.4rem;
+		margin-bottom: 0.4rem;
 		padding-top: 0.4rem;
 		padding-bottom: 0.4rem;
 		/* overflow-x: hidden; */

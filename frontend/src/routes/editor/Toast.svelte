@@ -4,6 +4,7 @@
 	import { ToastType } from '$lib/toast';
 	import { createEventDispatcher } from 'svelte';
 	import { fade } from 'svelte/transition';
+	import { quartOut } from 'svelte/easing';
 	//   import SuccessIcon from "./SuccessIcon.svelte";
 	//   import ErrorIcon from "./ErrorIcon.svelte";
 	//   import InfoIcon from "./InfoIcon.svelte";
@@ -15,7 +16,7 @@
 	export let dismissible = true;
 </script>
 
-<article class={type} role="alert" transition:fade>
+<article class={type} role="alert" transition:fade={{ duration: 150, easing: quartOut }}>
 	{#if type === ToastType.Success}
 		<svg
 			width="2rem"

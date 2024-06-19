@@ -23,7 +23,8 @@
 		top: 0;
 		right: 0;
 		display: flex;
-		margin-top: 2rem;
+		margin-top: 1rem;
+		margin-right: 0.5rem;
 		flex-direction: column;
 		/* z-index: 1000; */
 	}

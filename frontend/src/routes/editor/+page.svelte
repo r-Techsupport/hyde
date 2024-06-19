@@ -116,9 +116,9 @@
 				/>
 			</svg>
 			<!-- Save -->
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<svg
 				on:click={saveChangesHandler}
-				on:keydown={saveChangesHandler}
 				role="button"
 				tabindex="0"
 				xmlns="http://www.w3.org/2000/svg"
@@ -169,8 +169,8 @@
 	.publish:hover {
 		background-color: var(--background-0);
 		box-sizing: border-box;
-		border: 0.1rem var(--green) solid;
-		transition: all 0.1s ease;
+		border: 0.2rem var(--green) solid;
+		transition: all 0.05s ease-out;
 	}
 
 	.publish:hover > * {
@@ -189,7 +189,8 @@
 	.cancel:hover {
 		background-color: var(--background-0);
 		box-sizing: border-box;
-		transition: all 0.1s ease;
+		border: 0.2rem var(--red) solid;
+		transition: all 0.05s ease-out;
 	}
 
 	.cancel:hover > * {
