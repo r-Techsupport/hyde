@@ -14,7 +14,7 @@ import DOMPurify from 'dompurify';
 export async function renderMarkdown(input: string, output: InnerHTML): Promise<undefined> {
 	// https://marked.js.org/#demo
 
-	let rawTokens: TokensList = marked.lexer(input);
+	const rawTokens: TokensList = marked.lexer(input);
 
 	// Remove FrontMatter
 
