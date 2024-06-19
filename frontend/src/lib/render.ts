@@ -19,7 +19,7 @@ export async function renderMarkdown(input: string, output: InnerHTML): Promise<
 	// Remove FrontMatter
 
 	rawTokens.shift();
-	let frontMatter: string = '';
+	let _frontMatter: string = '';
 	try {
 		frontMatter = rawTokens.shift()['raw'].replace('---\n', '\n').trim();
 		// frontMatterPrint = `<details><summary>Show FrontMatter</summary><pre>` + frontMatter + `</pre></details>`;
