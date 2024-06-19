@@ -94,7 +94,6 @@
 			// when you first open it, so we don't need to worry about 401 or 403
 		}
 	}
-
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
