@@ -83,7 +83,7 @@
 		border: none;
 		background: none;
 		color: var(--foreground-0);
-		font-size: 1rem;
+		font-size: inherit;
 		width: 98%;
 		border-radius: 5px;
 		margin-left: 1%;
