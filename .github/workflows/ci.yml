@@ -27,7 +27,7 @@ jobs:
         components: clippy
 
     - name: Lint
-      run: cargo clippy
+      run: cargo clippy --all -- -D warnings
     - name: Build
       run:  cargo build --verbose
     - name: Run tests
@@ -53,3 +53,5 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+      - name: Test
+        run: npm run test
