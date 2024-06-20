@@ -44,23 +44,25 @@
 	style="padding-left: {indent}rem"
 	class={selected ? 'selected' : ''}
 >
-	{#if children.length > 0}
-		{#if !open}
-			<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"
-				><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" /></svg
-			>
-		{:else}
-			<!-- Rotate if it's closed -->
-			<svg
-				style="transform: rotate(90deg)"
-				xmlns="http://www.w3.org/2000/svg"
-				height="24px"
-				viewBox="0 -960 960 960"
-				width="24px"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" /></svg
-			>
+	<span class="container">
+		{#if children.length > 0}
+			{#if !open}
+				<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"
+					><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" /></svg
+				>
+			{:else}
+				<!-- Rotate if it's closed -->
+				<svg
+					style="transform: rotate(90deg)"
+					xmlns="http://www.w3.org/2000/svg"
+					height="24px"
+					viewBox="0 -960 960 960"
+					width="24px"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" /></svg
+				>
+			{/if}
 		{/if}
-	{/if}
-	{name}
+		{name}
+	</span>
 </button>
 
 {#if open}
@@ -120,5 +122,10 @@
 
 	svg {
 		fill: var(--background-4);
+	}
+
+	.container {
+		display: flex;
+		align-items: center;
 	}
 </style>
