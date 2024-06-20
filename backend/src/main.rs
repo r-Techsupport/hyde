@@ -51,16 +51,26 @@ struct AppState {
 
 #[derive(Parser)]
 struct Args {
-    #[arg(short = 'p', long = "port", default_value_t = String::from("8080"))]
+    #[arg(short, long, help = "The port the application listens on.", default_value_t = String::from("8080"))]
     port: String,
     #[arg(
         short = 'v',
         long = "verbosity",
         default_value_t = LevelFilter::Info,
+        help = "The logging level for the server.",
         value_parser = PossibleValuesParser::new(["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF"])
             .map(|s| s.to_lowercase().parse::<LevelFilter>().unwrap())
     )]
     logging_level: LevelFilter,
+    #[arg(
+        short,
+        long,
+        help = "A list of config options as key value pairs supplied by passing this flag multiple times or providing a comma delimited list. \
+        This will set supplied config options as environment variables.",
+        value_parser = parse_key_val,
+        value_delimiter = ','
+    )]
+    cfg: Vec<(String, String)>,
 }
 
 #[tokio::main]
@@ -70,6 +80,10 @@ async fn main() -> Result<()> {
     let cli_args = Args::parse();
     // Read environment variables from dotenv file
     let dotenv_path = "hyde-data/.env";
+    // Load in any config settings passed by cli
+    for (key, value) in cli_args.cfg {
+        env::set_var(key, value);
+    }
     // Initialize logging
     env_logger::builder()
         .filter(None, cli_args.logging_level)
@@ -147,6 +161,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// Initialize an instance of [`AppState`]
 async fn init_state() -> Result<AppState> {
     let git = task::spawn(async { git::Interface::lazy_init() });
     let oauth = {
@@ -183,4 +198,16 @@ async fn init_state() -> Result<AppState> {
         gh_credentials: GithubAccessToken::new(),
         db: Database::new().await?,
     })
+}
+
+
+/// Parse a single key-value pair for clap list parsing
+/// 
+/// https://github.com/clap-rs/clap_derive/blob/master/examples/keyvalue.rs
+fn parse_key_val(s: &str) -> Result<(String, String), String>
+{
+    let pos = s
+        .find('=')
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
+    Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
 }
