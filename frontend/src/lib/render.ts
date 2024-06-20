@@ -2,9 +2,10 @@
  * @file
  * This file contains code used for rendering markdown code
  */
-import { marked, type TokensList } from 'marked';
+import { Renderer, marked, type TokensList } from 'marked';
 import DOMPurify from 'dompurify';
 import { ToastType, addToast, dismissToast } from './toast';
+import { dev } from '$app/environment';
 
 let toastId = -1;
 /**
@@ -15,11 +16,22 @@ let toastId = -1;
  */
 export async function renderMarkdown(input: string, output: InnerHTML): Promise<undefined> {
 	// https://marked.js.org/#demo
-
+	// This whole pipeline needs to be manually defined otherwise everything breaks
+	marked.use({ renderer: new Renderer() });
 	const rawTokens: TokensList = marked.lexer(input);
 	stripFrontMatter(rawTokens);
+	// rewrite image urls to point to the correct location
+	if (dev) {
+		marked.walkTokens(rawTokens, (t) => {
+			if (t.type !== 'image') {
+				return;
+			}
+			if (t.href.startsWith('/')) {
+				t.href = 'http://localhost:8080' + t.href;
+			}
+		});
+	}
 	const cleanedOutput: string = DOMPurify.sanitize(await marked.parser(rawTokens));
-
 	if (DOMPurify.removed.length > 0) {
 		console.warn('Possible XSS detected, modified output: ', DOMPurify.removed);
 	}

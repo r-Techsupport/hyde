@@ -125,6 +125,8 @@ async fn main() -> Result<()> {
     // current_exe returns the path of the file, we need the dir the file is in
     frontend_dir.pop();
     frontend_dir.push("web");
+    let asset_path = env::var("ASSET_PATH")
+        .wrap_err("The `ASSET_PATH` environment variable was not set in the env")?;
     // Initialize the handler and router
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello world" }))
@@ -151,6 +153,11 @@ async fn main() -> Result<()> {
         .with_state(state)
         // Serve the frontend files
         .nest_service("/", ServeDir::new(frontend_dir))
+        // Serve the assets folder from the repo
+        .nest_service(
+            &format!("/{asset_path}"),
+            ServeDir::new(format!("repo/{asset_path}")),
+        )
         // Enable support for routes that have or don't have a trailing slash
         .layer(NormalizePathLayer::trim_trailing_slash());
 
@@ -165,7 +172,6 @@ async fn main() -> Result<()> {
 async fn init_state() -> Result<AppState> {
     let git = task::spawn(async { git::Interface::lazy_init() });
     let oauth = {
-        // let client_id = env::var("OAUTH_CLIENT_ID").wrap_err("OAUTH_CLIENT_ID not set in env")?;
         let client_id = env::var("OAUTH_CLIENT_ID").unwrap_or_else(|_| {
             warn!("The `OAUTH_CLIENT_ID` environment variable is not set, oauth functionality will be broken");
             String::new()
@@ -200,12 +206,10 @@ async fn init_state() -> Result<AppState> {
     })
 }
 
-
 /// Parse a single key-value pair for clap list parsing
-/// 
+///
 /// https://github.com/clap-rs/clap_derive/blob/master/examples/keyvalue.rs
-fn parse_key_val(s: &str) -> Result<(String, String), String>
-{
+fn parse_key_val(s: &str) -> Result<(String, String), String> {
     let pos = s
         .find('=')
         .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;

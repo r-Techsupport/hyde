@@ -92,59 +92,55 @@ async fn get_oath_processor(
         )
         .send()
         .await?;
-    if response.status().is_success() {
-        // While there's no actual infrastructure to make use of this information,
-        // we got it (hooray)
-        let discord_user_json: Value = serde_json::from_slice(&response.bytes().await?)?;
-        let username = discord_user_json
-            .get("username")
-            .wrap_err("Discord API response did not contain a `username` field")?
-            .as_str()
-            .wrap_err(
-                "The `username` field from the discord api response did not contain a string",
-            )?;
+    // While there's no actual infrastructure to make use of this information,
+    // we got it (hooray)
+    let discord_user_json: Value = serde_json::from_slice(&response.bytes().await?)?;
+    let username = discord_user_json
+        .get("username")
+        .wrap_err("Discord API response did not contain a `username` field")?
+        .as_str()
+        .wrap_err("The `username` field from the discord api response did not contain a string")?;
+    let all_users = state.db.get_all_users().await?;
+    // If the user doesn't already exist, create one
+    if !all_users.iter().any(|u| u.username == username) {
+        let expiration_date = Utc::now()
+            + token_data
+                .expires_in()
+                .wrap_err("Discord OAuth2 response didn't include an expiration date")?;
+        state
+            .db
+            .create_user(
+                username.to_string(),
+                token.to_string(),
+                expiration_date.to_rfc3339(),
+            )
+            .await?;
+        info!("New user {username:?} authenticated, entry added to database");
+    }
+    // If the user is the admin specified in the config, give them the admin role
+    if let Ok(admin_username) = env::var("ADMIN_USERNAME") {
         let all_users = state.db.get_all_users().await?;
-        // If the user doesn't already exist, create one
-        if !all_users.iter().any(|u| u.username == username) {
-            let expiration_date = Utc::now()
-                + token_data
-                    .expires_in()
-                    .wrap_err("Discord OAuth2 response didn't include an expiration date")?;
-            state
-                .db
-                .create_user(
-                    username.to_string(),
-                    token.to_string(),
-                    expiration_date.to_rfc3339(),
-                )
-                .await?;
-            info!("New user {username:?} authenticated, entry added to database");
-        }
-        // If the user is the admin specified in the config, give them the admin role
-        if let Ok(admin_username) = env::var("ADMIN_USERNAME") {
-            let all_users = state.db.get_all_users().await?;
-            let maybe_admin_user = all_users.iter().find(|u| u.username == admin_username);
-            if let Some(admin_user) = maybe_admin_user {
-                let their_groups = state.db.get_user_groups(admin_user.id).await?;
-                // If they don't have the admin group, add it
-                if !their_groups.iter().any(|g| g.name == "Admin") {
-                    let admin_group = state
-                        .db
-                        .get_all_groups()
-                        .await?
-                        .into_iter()
-                        .find(|g| g.name == "Admin")
-                        .expect("No admin group in database");
-                    state
-                        .db
-                        .add_group_membership(admin_group.id, admin_user.id)
-                        .await?;
-                    debug!("User {admin_username:?} was automatically added to the admin group based off of the server config");
-                }
+        let maybe_admin_user = all_users.iter().find(|u| u.username == admin_username);
+        if let Some(admin_user) = maybe_admin_user {
+            let their_groups = state.db.get_user_groups(admin_user.id).await?;
+            // If they don't have the admin group, add it
+            if !their_groups.iter().any(|g| g.name == "Admin") {
+                let admin_group = state
+                    .db
+                    .get_all_groups()
+                    .await?
+                    .into_iter()
+                    .find(|g| g.name == "Admin")
+                    .expect("No admin group in database");
+                state
+                    .db
+                    .add_group_membership(admin_group.id, admin_user.id)
+                    .await?;
+                debug!("User {admin_username:?} was automatically added to the admin group based off of the server config");
             }
-        } else {
-            warn!("The \"ADMIN_USERNAME\" environment variable is not set, no default admin will be available.");
         }
+    } else {
+        warn!("The \"ADMIN_USERNAME\" environment variable is not set, no default admin will be available.");
     }
     // After authenticating, send them back to the homepage
     let redirect = if cfg!(debug_assertions) {
@@ -154,20 +150,21 @@ async fn get_oath_processor(
     };
 
     let mut headers = HeaderMap::new();
-    if cfg!(debug_assertions) {
-        headers.append(
-            "Set-Cookie",
-            format!("access-token={token}; Secure; HttpOnly; Path=/;").parse()?,
-        );
-    } else {
-        headers.append(
-            "Set-Cookie",
-            format!(
-                "access-token={token}; Secure; HttpOnly; Path=/; Max-Age={}",
-                token_data.expires_in().unwrap().as_secs()
-            )
-            .parse()?,
-        );
-    }
+    headers.append(
+        "Set-Cookie",
+        format!(
+            "access-token={token}; Secure; HttpOnly; Path=/; Max-Age={}",
+            token_data.expires_in().unwrap().as_secs()
+        )
+        .parse()?,
+    );
+    headers.append(
+        "Set-Cookie",
+        format!(
+            "username={username}; Path=/; Max-Age={}",
+            token_data.expires_in().unwrap().as_secs()
+        )
+        .parse()?,
+    );
     Ok((headers, redirect))
 }

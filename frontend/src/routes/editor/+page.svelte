@@ -10,6 +10,8 @@
 	import Toasts from './Toasts.svelte';
 	import { currentFile } from '$lib/main';
 	import { get } from 'svelte/store';
+	import { onMount } from 'svelte';
+	import { dev } from '$app/environment';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -88,12 +90,28 @@
 					type: ToastType.Error,
 					dismissible: true
 				});
-			// TODO: show error message
-
-			// At some point the editor should make sure it's got a valid token
-			// when you first open it, so we don't need to worry about 401 or 403
 		}
 	}
+
+	onMount(() => {
+		// TODO: when /users/@me or whatever exists, redirect if the user doesn't have the manage doc permission
+		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
+		if (!document.cookie.includes('username')) {
+			addToast({
+				message: 'You need to be logged in to access this page, redirecting...',
+				type: ToastType.Error,
+				dismissible: false
+			});
+			setTimeout(() => {
+				// TODO: When .html stripping middleware is complete, change this to always redirect to /login`
+				if (dev) {
+					window.location.href = '/login';
+				} else {
+					window.location.href = '/login.html';
+				}
+			}, 800);
+		}
+	});
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
@@ -154,12 +172,12 @@
 		padding-right: 0.5rem;
 		margin-top: 0.2rem;
 		border-bottom: 0.07rem solid;
-		border-color: var(--foreground-5);
+		border-color: var(--foreground-4);
 	}
 
 	.editor-controls * {
 		border-radius: 5%;
-		fill: var(--foreground-5);
+		fill: var(--foreground-4);
 		float: right;
 		flex-direction: vertical;
 		margin: 0.3rem;
@@ -250,5 +268,9 @@
 
 	.preview-pane :global(a) {
 		color: var(--foreground-0);
+	}
+
+	.preview-pane :global(img) {
+		width: 90%;
 	}
 </style>
