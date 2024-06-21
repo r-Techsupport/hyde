@@ -45,19 +45,22 @@
 	.background-cover {
 		position: absolute;
 		background-color: var(--background-0);
-		opacity: 90%;
+		opacity: 0.9;
 		width: 100vw;
 		height: 100vh;
 	}
 
 	.change-dialogue {
 		position: absolute;
+
 		/* Centering in the window */
 		left: calc((100vw + var(--sidebar-width)) / 2);
 		top: 40%;
 		transform: translate(-50%, -50%);
+
 		/* Shape */
 		width: 20rem;
+
 		/* Appearance */
 		border: 1px solid var(--background-2);
 		border-radius: 5px;

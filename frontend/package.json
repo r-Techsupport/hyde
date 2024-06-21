@@ -8,7 +8,7 @@
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"lint": "prettier --check . && eslint .",
+		"lint": "prettier --check . && eslint . && stylelint **/*.svelte",
 		"format": "prettier --write .",
 		"test": "vitest run",
 		"test:watch": "vitest watch"
@@ -27,6 +27,9 @@
 		"jsdom": "^24.1.0",
 		"prettier": "^3.3.1",
 		"prettier-plugin-svelte": "^3.2.4",
+		"stylelint": "^16.6.1",
+		"stylelint-config-html": "^1.1.0",
+		"stylelint-config-standard": "^36.0.1",
 		"svelte": "^4.2.18",
 		"svelte-check": "^3.8.0",
 		"tslib": "^2.6.3",

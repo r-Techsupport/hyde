@@ -93,22 +93,17 @@
 		margin-bottom: 0.4rem;
 		padding-top: 0.4rem;
 		padding-bottom: 0.4rem;
-		/* overflow-x: hidden; */
 		white-space: nowrap;
 		text-overflow: ellipsis;
 	}
 
 	button * {
 		text-overflow: ellipsis;
+		vertical-align: middle;
 	}
 
 	button:hover {
 		background-color: var(--background-3);
-	}
-
-	button * {
-		vertical-align: middle;
-		/* text-align: ; */
 	}
 
 	.selected {

@@ -60,16 +60,5 @@
 
 	.account svg {
 		fill: var(--foreground-2);
-		/* margin-right: 0.4rem; */
 	}
-
-	/* .dot {
-		display: flex;
-		height: 2rem;
-		width: 2rem;
-		background-color: var(--foreground-5);
-		border-radius: 50%;
-		border: 1px var(--background-1) solid;
-		margin-right: 0.4rem;
-	} */
 </style>

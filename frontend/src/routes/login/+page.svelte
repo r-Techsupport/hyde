@@ -55,7 +55,6 @@
 		color: #f2f3f5;
 		margin: 0 auto;
 		height: 4rem;
-		/* color: var(--foreground-0); */
 		font-family: var(--font-family);
 		font-size: large;
 		font-weight: 500;

@@ -162,7 +162,6 @@
 
 <style>
 	.container {
-		/* --sidebar-width: 14rem; */
 		background-color: var(--background-0);
 		display: flex;
 	}
@@ -243,7 +242,7 @@
 	}
 
 	.editor-pane:focus {
-		outline-width: 0px;
+		outline-width: 0;
 	}
 
 	.preview-pane {

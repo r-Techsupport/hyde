@@ -101,6 +101,5 @@
 		margin-left: 0.25rem;
 		margin-right: calc(0.5rem - 3px);
 		overflow-x: hidden;
-		/* overflow-y: scroll; */
 	}
 </style>
