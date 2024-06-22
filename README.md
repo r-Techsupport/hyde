@@ -37,9 +37,5 @@ To run the frontend tests, navigate to `./frontend` and run `npm test`, or `npm 
 | OAUTH_SECRET | The Discord Application Client Secret that you generate in the Discord Developer Portal |
 | OAUTH_URL | The Discord OAUTH Base URL that is provided in the Discord Developer Portal |
 | OAUTH_TOKEN_URL | This will always be "https://discord.com/api/oauth2/token" when using Discord OAuth |
-| GH_CLIENT_ID |  |
+| GH_CLIENT_ID | This is the Client ID for your Github App, view this on teh App's configuraton page |
 | DATABASE_URL | This should be "sqlite://../hyde-data/data.db" unless you have good reason to change it |
-
-
-
-### Generating 

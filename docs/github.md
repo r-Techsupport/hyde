@@ -2,17 +2,27 @@
 Hyde requires a [Github App](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app) private key to function so that it
 can interact with the wiki repository. This enables functionality like pushing commits, or creating/managing PRs.
 
+## Creating a Github App
+This should be done at either the User level, or Organization level depending on your use case.
+
+Follow the [Github Documentation](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app) for creating a GithubApp
+
+### Repository Permissions Required
+ - Metadata: Read only
+ - Contents: Read and write
+
+### Notes
+- There is no Callback URL for Hyde
+- Untick "Webhook > Active"
+- If you want to use this in an organization or on a repo you do not own you must tick "Any Account" under "Where can this GitHub App be installed?"
+
+## Installing the GithubApp
+After creating your app you will be taken to its Github page.
+1. Choose "Install App" on the right side of the page and 
+2. Choose "Install" on the account you wish to use with Hyde. 
+3. Select the specific repository you want to use with Hyde.
+
 ## Generating a private key
-Follow the following section of [Github's documentation](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps#generating-private-keys) to generate a private key for your app.
+Follow this section of [Github's documentation](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps#generating-private-keys) to generate a private key for your app.
 
 Save the generated private key in the `hyde-data/` directory  as `key.pem`.
-
-## Assign permissions to the key
-The generated key needs the *"Access: Read and Write"* permission for Contents.
-
-<https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app#choosing-permissions-for-git-access>
-> If you want your app to use an installation or user access token to authenticate for HTTP-based Git access, you should request the "Contents" repository permission.
-
-After creating your Github App, make note of the client ID, you'll need it later.
-
-Then, you'll install the app under the org, and configure repository access to "Only select repositories". You'll select the wiki, and save.
