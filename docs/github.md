@@ -1,10 +1,13 @@
 ## Introduction
-Hyde requires a (Github App)[https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app] private key to function so that it
+Hyde requires a [Github App](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app) private key to function so that it
 can interact with the wiki repository. This enables functionality like pushing commits, or creating/managing PRs.
 
-See (Github's documentation)[https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps#generating-private-keys].
+## Generating a private key
+Follow the following section of [Github's documentation](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps#generating-private-keys) to generate a private key for your app.
+
 Save the generated private key in the `hyde-data/` directory  as `key.pem`.
 
+## Assign permissions to the key
 The generated key needs the *"Access: Read and Write"* permission for Contents.
 
 <https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app#choosing-permissions-for-git-access>
