@@ -71,14 +71,14 @@ async fn get_oath_processor(
         )
     };
 
+    println!("Redirect url: {redirect_url:?}");
     // The obtained token after they authenticate
     let token_data: oauth2::StandardTokenResponse<_, _> = state
         .oauth
         .exchange_code(AuthorizationCode::new(query.code))
         .set_redirect_uri(std::borrow::Cow::Owned(RedirectUrl::new(redirect_url)?))
         .request_async(async_http_client)
-        .await
-        .wrap_err("OAuth token request failed")?;
+        .await.unwrap();
 
     let token = token_data.access_token().secret();
     // Use that token to request user data

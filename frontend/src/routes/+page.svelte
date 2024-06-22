@@ -57,7 +57,7 @@
 	let showLoadingIcon: boolean;
 
 	async function fileSelectionHandler(e: CustomEvent) {
-		console.log("himom!")
+		console.log('himom!');
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if ((await cache.get(get(currentFile))) === editorText || get(currentFile) === '') {
 			currentFile.set(e.detail.path);
