@@ -1,6 +1,7 @@
 <script lang="ts">
-	import SideBar from './nav/SideBar.svelte';
-	import TopBar from './nav/TopBar.svelte';
+	import SideBar from '../SideBar.svelte';
+	import FileNavigation from './nav/FileNavigation.svelte';
+	import TopBar from '../TopBar.svelte';
 	import ChangeDialogue from './ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
@@ -26,6 +27,17 @@
 	 */
 	const DEBOUNCE_TIME: number = 500;
 	let lastKeyPressedTime = Date.now();
+
+	/** The base directory for filesystem navigation */
+	let rootNode = {
+		name: '',
+		children: []
+	};
+	$: rootNode;
+	onMount(async () => {
+		const response = await fetch(`${apiAddress}/api/tree`);
+		rootNode = await response.json();
+	});
 
 	/**
 	 * This function is called whenever a key is pressed.
@@ -116,7 +128,11 @@
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
 	<Toasts />
-	<SideBar on:fileselect={fileSelectionHandler} bind:sidebarWidth />
+	<SideBar on:fileselect={fileSelectionHandler} bind:sidebarWidth>
+		<div class="directory-nav">
+			<FileNavigation on:fileselect {...rootNode} />
+		</div>
+	</SideBar>
 	<div style="display: flex; flex-direction: column; height: 100vh;">
 		<TopBar />
 		<div class="editor-controls">

@@ -1,15 +1,6 @@
 <script lang="ts">
-	import { apiAddress } from '$lib/net';
-	import FileNavigation from './FileNavigation.svelte';
-	import { onMount } from 'svelte';
 	/** Binding to the css variable determining sidebar width */
 	export let sidebarWidth: string;
-
-	let rootNode = {
-		name: '',
-		children: []
-	};
-	$: rootNode;
 	// const MOCK_DIRECTORY = {
 	//     name: "Root",
 	//     children: [
@@ -43,19 +34,10 @@
 	//     ],
 	// }
 	let draggingWindow = false;
-
-	onMount(async () => {
-		const response = await fetch(`${apiAddress}/api/tree`);
-		rootNode = await response.json();
-	});
 </script>
 
 <div class="side-bar">
-	<!-- Because FileNavigation renders recursively, -->
-	<!-- any "outside" css needs to be done in a separate div -->
-	<div class="directory-nav">
-		<FileNavigation on:fileselect {...rootNode} />
-	</div>
+	<slot></slot>
 </div>
 
 <div
@@ -94,12 +76,5 @@
 		height: 100vh;
 		width: 0.5rem;
 		cursor: col-resize;
-	}
-
-	.directory-nav {
-		margin-top: 1rem;
-		margin-left: 0.25rem;
-		margin-right: calc(0.5rem - 3px);
-		overflow-x: hidden;
 	}
 </style>
