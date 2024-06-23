@@ -24,4 +24,3 @@ It's recommended that you configure your `rust-analyzer` installation to run `cl
 To run the backend tests, navigate to `./backend`, and run `cargo test`.
 
 To run the frontend tests, navigate to `./frontend` and run `npm test`, or `npm test:watch` for hot reload.
-
