@@ -4,6 +4,8 @@ a web browser, and provides a permission management interface for multi-user sup
 
 It is composed of a frontend written in Svelte, and a backend written in Rust.
 
+For more documentation, please check the `docs/` folder at the root of the repo.
+
 ## Building
 Run `build.sh` to build the front and and backend. The output will be assembled into `./target`, run `hyde` to start the binary.
 
