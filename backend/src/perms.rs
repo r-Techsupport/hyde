@@ -1,3 +1,5 @@
+//! User permissions for the wiki (manage content, manage users, et cetera)
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Permission {
     ManageContent, // TODO

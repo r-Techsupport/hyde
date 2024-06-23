@@ -31,7 +31,7 @@ pub async fn get_oauth2_handler(
     match get_oath_processor(&state, query, req).await {
         Ok(redirect) => Ok(redirect),
         Err(e) => {
-            error!("An error was encountered during oauth processing: {:?}", e);
+            error!("An error was encountered during oauth processing: {:#?}", e);
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!(
@@ -59,26 +59,23 @@ async fn get_oath_processor(
     req: Request,
 ) -> color_eyre::Result<(HeaderMap, Redirect)> {
     // Support for dev and local environments, where discord sends the user
-    // after the first step of the handshake
+    // after the first step of the handshake.
+    // HTTPS is required in production for full functionality so it's ok to hardcode that in
     let redirect_url = if cfg!(debug_assertions) {
-        "http://localhost:8080/api/oauth".to_string()
+        format!("http://{}/api/oauth", req.headers().get("host").unwrap().to_str()?)
     } else {
-        let scheme = req.uri().scheme_str().map_or("http", |s| s);
         format!(
-            "{}://{}/api/oauth",
-            scheme,
+            "https://{}/api/oauth",
             req.headers().get("host").unwrap().to_str()?
         )
     };
-
-    println!("Redirect url: {redirect_url:?}");
     // The obtained token after they authenticate
     let token_data: oauth2::StandardTokenResponse<_, _> = state
         .oauth
         .exchange_code(AuthorizationCode::new(query.code))
         .set_redirect_uri(std::borrow::Cow::Owned(RedirectUrl::new(redirect_url)?))
         .request_async(async_http_client)
-        .await.unwrap();
+        .await.wrap_err("OAuth token request failed")?;
 
     let token = token_data.access_token().secret();
     // Use that token to request user data

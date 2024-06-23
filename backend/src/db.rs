@@ -1,3 +1,5 @@
+//! Database specific interfaces and abstractions
+
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
 use log::{debug, warn};
