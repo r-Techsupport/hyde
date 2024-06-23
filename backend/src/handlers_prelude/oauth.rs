@@ -62,7 +62,10 @@ async fn get_oath_processor(
     // after the first step of the handshake.
     // HTTPS is required in production for full functionality so it's ok to hardcode that in
     let redirect_url = if cfg!(debug_assertions) {
-        format!("http://{}/api/oauth", req.headers().get("host").unwrap().to_str()?)
+        format!(
+            "http://{}/api/oauth",
+            req.headers().get("host").unwrap().to_str()?
+        )
     } else {
         format!(
             "https://{}/api/oauth",
@@ -75,7 +78,8 @@ async fn get_oath_processor(
         .exchange_code(AuthorizationCode::new(query.code))
         .set_redirect_uri(std::borrow::Cow::Owned(RedirectUrl::new(redirect_url)?))
         .request_async(async_http_client)
-        .await.wrap_err("OAuth token request failed")?;
+        .await
+        .wrap_err("OAuth token request failed")?;
 
     let token = token_data.access_token().secret();
     // Use that token to request user data
