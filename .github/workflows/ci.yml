@@ -58,7 +58,9 @@ jobs:
 
   # This should depend on the backend and frontend builds, then if it is a PR submitted by Dependabot that is a patch it will merge the PR
   close_pr:
-    needs: backend-build && frontend-build
+    needs: 
+      - backend-build
+      - frontend-build
     if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' 
     runs-on: ubuntu-latest
     steps:
