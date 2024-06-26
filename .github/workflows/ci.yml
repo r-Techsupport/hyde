@@ -55,7 +55,6 @@ jobs:
         run: npm run build
       - name: Test
         run: npm run test
-    GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
   # This should depend on the backend and frontend builds, then if it is a PR submitted by Dependabot that is a patch it will merge the PR
   close_pr:
