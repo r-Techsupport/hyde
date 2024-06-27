@@ -55,3 +55,23 @@ jobs:
         run: npm run build
       - name: Test
         run: npm run test
+
+  # This should depend on the backend and frontend builds, then if it is a PR submitted by Dependabot that is a patch it will merge the PR
+  close_pr:
+    needs: 
+      - backend-build
+      - frontend-build
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Merge PR
+        if: steps.dependabot-metadata.outputs.update-type == 'version-update:semver-patch'
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
