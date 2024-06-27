@@ -26,5 +26,6 @@
 		margin-top: 1rem;
 		margin-right: 0.5rem;
 		flex-direction: column;
+		z-index: 1;
 	}
 </style>

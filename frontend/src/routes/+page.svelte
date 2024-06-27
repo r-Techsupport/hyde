@@ -13,6 +13,8 @@
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
+	import SettingsMenu from './nav/SettingsMenu.svelte';
+	import AdminDashboard from './dashboard/AdminDashboard.svelte';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -55,9 +57,10 @@
 
 	let showChangeDialogue: boolean;
 	let showLoadingIcon: boolean;
+	let showSettingsMenu: boolean;
+	let adminDashboardDialog: HTMLDialogElement;
 
 	async function fileSelectionHandler(e: CustomEvent) {
-		console.log('himom!');
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if ((await cache.get(get(currentFile))) === editorText || get(currentFile) === '') {
 			currentFile.set(e.detail.path);
@@ -135,7 +138,18 @@
 		</div>
 	</SideBar>
 	<div style="display: flex; flex-direction: column; height: 100vh;">
-		<TopBar />
+		<TopBar
+			on:settingsopen={() => {
+				showSettingsMenu = true;
+			}}
+		/>
+		<SettingsMenu
+			bind:visible={showSettingsMenu}
+			on:showadmindashboard={() => {
+				adminDashboardDialog.showModal();
+			}}
+		/>
+		<!-- TODO: migrate editor to separate component -->
 		<div class="editor-controls">
 			<!-- Cancel -->
 			<svg
@@ -173,6 +187,7 @@
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
+	<AdminDashboard bind:dialog={adminDashboardDialog} />
 </div>
 
 <svelte:window on:keydown={onKeyDown} />

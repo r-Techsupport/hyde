@@ -1,9 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 
 	let username: string = '';
 
+	const dispatch = createEventDispatcher();
+
+	function settingsClickHandler() {
+		// The settings menu display listens for this event to show
+		dispatch('settingsopen');
+	}
+
 	onMount(() => {
+		// Look for the username cookie and display it as the username
 		const cookieJar = document.cookie.split('; ');
 		for (const cookie of cookieJar) {
 			const [key, value] = cookie.split('=');
@@ -15,7 +24,14 @@
 </script>
 
 <div class="top-bar">
-	<div class="account">
+	<div
+		on:click={settingsClickHandler}
+		on:keydown={settingsClickHandler}
+		role="button"
+		tabindex="0"
+		class="settings"
+		title="Settings"
+	>
 		<p>{username}</p>
 		<svg xmlns="http://www.w3.org/2000/svg" height="2rem" viewBox="0 -960 960 960" width="2rem"
 			><path
@@ -40,13 +56,14 @@
 		margin-right: 0.6rem;
 	}
 
-	.account {
+	.settings {
+		cursor: pointer;
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 	}
 
-	.account p {
+	.settings p {
 		color: var(--foreground-2);
 		font-family: var(--font-family);
 		font-size: larger;
@@ -54,7 +71,7 @@
 		font-weight: 350;
 	}
 
-	.account svg {
+	.settings svg {
 		fill: var(--foreground-2);
 	}
 </style>
