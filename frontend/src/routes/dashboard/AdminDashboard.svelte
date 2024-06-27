@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import GroupTab from './GroupTab.svelte';
 	import UserTab from './UserTab.svelte';
 
@@ -12,24 +11,28 @@
 	];
 
 	// E must be defined as any because for some reason typescript thinks parentElement doesn't exist on e.target
-	function tabSelectHandler(e: MouseEvent | any) {
-		if (e.target !== null) {
-			selectedTab = Number(e.target.parentElement.id);
-		}
+	function tabSelectHandler(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		selectedTab = Number(target.parentElement!.id);
 	}
 </script>
 
 <dialog bind:this={dialog} class="container">
 	<ul class="tab-menu">
 		<li>
-			<svg on:click={() => {dialog.close();}}
+			<svg
+				on:click={() => {
+					dialog.close();
+				}}
 				xmlns="http://www.w3.org/2000/svg"
 				height="1.5rem"
 				viewBox="0 -960 960 960"
 				width="1.5rem"
-				on:keydown={() => {dialog.close()}}
+				on:keydown={() => {
+					dialog.close();
+				}}
 				role="none"
-				>
+			>
 				<title>Exit</title>
 				<path
 					d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"

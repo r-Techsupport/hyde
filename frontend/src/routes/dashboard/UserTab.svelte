@@ -17,16 +17,15 @@
 	];
 	let selectedUser = 0;
 	// E must be defined as any because for some reason typescript thinks parentElement doesn't exist on e.target
-	function userSelectHandler(e: MouseEvent | any) {
-		if (e.target !== null) {
-			selectedUser = Number(e.target.parentElement.id);
-			for (const group of allGroups) {
-				const element = document.getElementById(group) as HTMLInputElement;
-				if (users[selectedUser].groups.includes(group)) {
-					element.checked = true;
-				} else {
-					element.checked = false;
-				}
+	function userSelectHandler(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		selectedUser = Number(target.parentElement!.id);
+		for (const group of allGroups) {
+			const element = document.getElementById(group) as HTMLInputElement;
+			if (users[selectedUser].groups.includes(group)) {
+				element.checked = true;
+			} else {
+				element.checked = false;
 			}
 		}
 	}

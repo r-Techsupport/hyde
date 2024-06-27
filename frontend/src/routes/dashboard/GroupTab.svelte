@@ -21,17 +21,15 @@
 	let showNewGroupInput = false;
 	let newGroupInput: HTMLInputElement;
 
-	// E must be defined as any because for some reason typescript thinks parentElement doesn't exist on e.target
-	function userSelectHandler(e: MouseEvent | any) {
-		if (e.target !== null) {
-			selectedGroup = Number(e.target.parentElement.id);
-			for (const permission of allPermissions) {
-				const element = document.getElementById(permission) as HTMLInputElement;
-				if (groups[selectedGroup].permissions.includes(permission)) {
-					element.checked = true;
-				} else {
-					element.checked = false;
-				}
+	function userSelectHandler(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		selectedGroup = Number(target.parentElement!.id);
+		for (const permission of allPermissions) {
+			const element = document.getElementById(permission) as HTMLInputElement;
+			if (groups[selectedGroup].permissions.includes(permission)) {
+				element.checked = true;
+			} else {
+				element.checked = false;
 			}
 		}
 	}
@@ -201,8 +199,7 @@
 
 	.header {
 		display: flex;
-		align-content: center;
-		justify-content: center;
+		place-content: center;
 		height: 2rem;
 	}
 </style>

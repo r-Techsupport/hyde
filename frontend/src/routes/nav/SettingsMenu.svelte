@@ -65,6 +65,11 @@
 		width: 15rem;
 	}
 
+	button * {
+		margin-right: 0.2rem;
+		vertical-align: middle;
+	}
+
 	.container * {
 		margin-left: 0.1rem;
 		margin-right: 0.1rem;
@@ -111,11 +116,6 @@
 	button:hover {
 		background-color: var(--background-2);
 		cursor: pointer;
-	}
-
-	button * {
-		margin-right: 0.2rem;
-		vertical-align: middle;
 	}
 
 	svg {
