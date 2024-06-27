@@ -2,7 +2,7 @@
 
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
-use log::{debug, warn};
+use log::debug;
 use sqlx::SqlitePool;
 
 pub const DATABASE_URL: &str = "file:hyde-data/data.db?mode=rwc";
