@@ -52,10 +52,9 @@ impl Database {
         debug!("Running SQL migrations...");
         // this should embed the migrations into the executable itself
         sqlx::migrate!("./migrations").run(&pool).await?;
-        let db = Self { pool };
         debug!("SQL migrations complete");
 
-        Ok(db)
+        Ok(Self { pool })
     }
 
     /// Create or connect to the database with the provided url, useful for testing so that
@@ -66,21 +65,9 @@ impl Database {
         debug!("Running SQL migrations...");
         // this should embed the migrations into the executable itself
         sqlx::migrate!("./migrations").run(&pool).await?;
-        // TODO: This section of code should be removed when seals returns and the migration is added
-        warn!("Temporary Admin group patch in place");
-        let db = Self { pool };
-        let admin_group_name = String::from("Admin");
-        let groups = db.get_all_groups().await?;
-        if !groups.iter().any(|g| g.name == admin_group_name) {
-            debug!("Creating admin group");
-            let group = db.create_group(admin_group_name).await?;
-            for permission in [Permission::ManageContent, Permission::ManageUsers] {
-                db.add_group_permission(group.id, permission).await?;
-            }
-        }
         debug!("SQL migrations complete");
 
-        Ok(db)
+        Ok(Self { pool })
     }
 
     /// Add a new user to the database, returning the created user.
