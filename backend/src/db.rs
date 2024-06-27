@@ -52,6 +52,7 @@ impl Database {
         debug!("Running SQL migrations...");
         // this should embed the migrations into the executable itself
         sqlx::migrate!("./migrations").run(&pool).await?;
+        let db = Self { pool };
         debug!("SQL migrations complete");
 
         Ok(db)
