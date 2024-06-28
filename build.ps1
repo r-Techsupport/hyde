@@ -1,15 +1,18 @@
-echo "Building the frontend..."
-cd frontend
+Write-Host "Building the frontend..."
+Set-Location frontend
 npm i
 npm run build
-cd ..
-echo "Copying frontend files..."
-mkdir target\web
-xcopy frontend\build target\web /s /e
+Set-Location ..
 
-echo "Building the backend..."
-cd backend
+Write-Host "Copying frontend files..."
+New-Item -Path "target\web" -ItemType Directory
+Move-Item -Path "frontend\build\*" -Destination "target\web"
+
+Write-Host "Building the backend..."
+Set-Location backend
 cargo build --release
-echo "Copying backend files..."
-mkdir target\hyde
-xcopy backend\target\release\hyde-backend.exe target\hyde.exe
+Set-Location ..
+
+Write-Host "Copying backend files..."
+New-Item -Path "target\hyde" -ItemType Directory
+Move-Item -Path "backend\target\release\hyde-backend.exe" -Destination "target\hyde\hyde.exe"
