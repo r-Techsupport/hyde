@@ -14,5 +14,4 @@ cargo build --release
 Set-Location ..
 
 Write-Host "Copying backend files..."
-New-Item -Path "target\hyde" -ItemType Directory
-Move-Item -Path "backend\target\release\hyde-backend.exe" -Destination "target\hyde\hyde.exe"
+Move-Item -Path "backend\target\release\hyde-backend.exe" -Destination "target\hyde.exe"
