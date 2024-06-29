@@ -106,7 +106,7 @@
 					dismissible: true
 				});
 		}
-	}
+	};
 
 	onMount(() => {
 		// TODO: when /users/@me or whatever exists, redirect if the user doesn't have the manage doc permission
@@ -148,7 +148,7 @@
 				adminDashboardDialog.showModal();
 			}}
 		/>
-		<Editor bind:saveChangesHandler bind:editorText bind:previewWindow/>
+		<Editor bind:saveChangesHandler bind:editorText bind:previewWindow />
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
@@ -162,5 +162,4 @@
 		background-color: var(--background-0);
 		display: flex;
 	}
-
 </style>
