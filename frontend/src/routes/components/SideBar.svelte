@@ -37,6 +37,7 @@
 </script>
 
 <div class="side-bar">
+	<img src="assets/logo-dark.svg" alt="Logo"/>
 	<slot></slot>
 </div>
 
