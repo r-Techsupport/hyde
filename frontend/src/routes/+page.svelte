@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SideBar from './nav/SideBar.svelte';
-	import FileNavigation from './nav/FileNavigation.svelte';
-	import TopBar from './nav/TopBar.svelte';
+	import SideBar from './components/SideBar.svelte';
+	import FileNavigation from './components/FileNavigation.svelte';
+	import TopBar from './components/TopBar.svelte';
 	import ChangeDialogue from './ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
@@ -13,8 +13,9 @@
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
-	import SettingsMenu from './nav/SettingsMenu.svelte';
-	import AdminDashboard from './dashboard/AdminDashboard.svelte';
+	import SettingsMenu from './components/SettingsMenu.svelte';
+	import AdminDashboard from './components/dashboard/AdminDashboard.svelte';
+	import Editor from './components/Editor.svelte';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -22,7 +23,6 @@
 	let previewWindow: HTMLElement;
 	/** The width of the sidebar */
 	export let sidebarWidth = '14rem';
-	$: sidebarWidth;
 	/**
 	 * The time in milliseconds that must pass after a keypress
 	 * before markdown is rendered
@@ -35,7 +35,6 @@
 		name: '',
 		children: []
 	};
-	$: rootNode;
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree`);
 		rootNode = await response.json();
@@ -76,7 +75,7 @@
 		}
 	}
 
-	async function saveChangesHandler() {
+	let saveChangesHandler = async (): Promise<void> => {
 		showLoadingIcon = true;
 		let response = await fetch(`${apiAddress}/api/doc`, {
 			method: 'PUT',
@@ -149,41 +148,7 @@
 				adminDashboardDialog.showModal();
 			}}
 		/>
-		<!-- TODO: migrate editor to separate component -->
-		<div class="editor-controls">
-			<!-- Cancel -->
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				height="40px"
-				viewBox="0 -960 960 960"
-				width="40px"
-				class="cancel"
-			>
-				<title>Cancel Changes</title>
-				<path
-					d="m336-280 144-144 144 144 56-56-144-144 144-144-56-56-144 144-144-144-56 56 144 144-144 144 56 56ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"
-				/>
-			</svg>
-			<!-- Save -->
-			<!-- svelte-ignore a11y-click-events-have-key-events -->
-			<svg
-				on:click={saveChangesHandler}
-				role="button"
-				tabindex="0"
-				xmlns="http://www.w3.org/2000/svg"
-				height="40px"
-				viewBox="0 -960 960 960"
-				width="40px"
-				class="publish"
-			>
-				<title>Publish Changes</title>
-				<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
-			</svg>
-		</div>
-		<div class="editor-panes">
-			<textarea bind:value={editorText} class="editor-pane"></textarea>
-			<div bind:this={previewWindow} class="preview-pane"></div>
-		</div>
+		<Editor bind:saveChangesHandler bind:editorText bind:previewWindow/>
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
@@ -198,110 +163,4 @@
 		display: flex;
 	}
 
-	.editor-controls {
-		border-radius: 5%;
-		padding-right: 0.5rem;
-		margin-top: 0.2rem;
-		border-bottom: 0.07rem solid;
-		border-color: var(--foreground-4);
-	}
-
-	.editor-controls * {
-		border-radius: 5%;
-		fill: var(--foreground-4);
-		float: right;
-		flex-direction: vertical;
-		margin: 0.3rem;
-		cursor: pointer;
-	}
-
-	.publish:hover {
-		background-color: var(--background-0);
-		box-sizing: border-box;
-		border: 0.2rem var(--green) solid;
-		transition: all 0.05s ease-out;
-	}
-
-	.publish:hover > * {
-		fill: var(--green);
-	}
-
-	.publish:active {
-		border-radius: 5%;
-		background-color: var(--green);
-	}
-
-	.publish:active > * {
-		fill: var(--background-0);
-	}
-
-	.cancel:hover {
-		background-color: var(--background-0);
-		box-sizing: border-box;
-		border: 0.2rem var(--red) solid;
-		transition: all 0.05s ease-out;
-	}
-
-	.cancel:hover > * {
-		fill: var(--red);
-	}
-
-	.cancel:active {
-		background-color: var(--red);
-	}
-
-	.cancel:active > * {
-		fill: var(--background-0);
-	}
-
-	/* div containing both the preview pane and the editor pane */
-	.editor-panes {
-		height: 100%;
-		overflow-y: hidden;
-	}
-
-	.editor-pane {
-		resize: none;
-		float: left;
-		box-sizing: border-box;
-		width: calc((100vw - var(--sidebar-width)) / 2);
-		height: 98%;
-		padding: 1rem;
-		border: none;
-		font-size: larger;
-		background-color: var(--background-0);
-		color: var(--foreground-0);
-	}
-
-	.editor-pane:focus {
-		outline-width: 0;
-	}
-
-	.preview-pane {
-		/* sizing and spacing */
-		float: left;
-		box-sizing: border-box;
-		width: calc((100vw - var(--sidebar-width)) / 2);
-		height: 100%;
-		padding-left: 1rem;
-		padding-right: 1rem;
-		border-left: 0.07rem solid var(--foreground-5);
-
-		/* styling of rendered text */
-		color: var(--foreground-0);
-		font-family: var(--font-family);
-		overflow-y: scroll;
-	}
-
-	.preview-pane :global(*) {
-		word-break: normal;
-	}
-
-	.preview-pane :global(a) {
-		color: var(--foreground-0);
-	}
-
-	.preview-pane :global(img) {
-		width: 90%;
-	}
 </style>

@@ -199,7 +199,8 @@
 
 	.header {
 		display: flex;
-		place-content: center;
-		height: 2rem;
+		align-items: center;
+		justify-content: center;
+		height: 2.75rem;
 	}
 </style>

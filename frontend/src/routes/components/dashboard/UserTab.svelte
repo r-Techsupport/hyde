@@ -171,6 +171,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: 2rem;
+		height: 2.75rem;
 	}
 </style>

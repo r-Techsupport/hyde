@@ -22,10 +22,10 @@
 		top: 40%;
 		width: 4rem;
 		height: 4rem;
-		border: 0.5rem solid rgba(0 0 0 0);
+		border: 5px solid rgba(0, 0, 0, 0);
 		border-radius: 50%;
 		border-top: 0.5rem solid var(--foreground-1);
-		animation: spin 1s linear infinite;
+		animation: spin 1.5s linear infinite;
 	}
 
 	@keyframes spin {
