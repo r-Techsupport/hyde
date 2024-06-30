@@ -148,7 +148,6 @@ async fn main() -> Result<()> {
         .route("/api/users/:user_id", delete(delete_user_handler))
         .route("/api/users/me", delete(delete_current_user))
         .layer(
-            // TODO: create a separate CORS layer for debug and release mode (credentials, allow origin)
             if cfg!(debug_assertions) {
                 CorsLayer::new()
                     // If this isn't set, cookies won't be sent across ports
@@ -173,7 +172,7 @@ async fn main() -> Result<()> {
         // Enable support for routes that have or don't have a trailing slash
         .layer(NormalizePathLayer::trim_trailing_slash());
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", cli_args.port)).await?;
+    let listener = tokio::net::TcpListener::bind(format!("localhost:{}", cli_args.port)).await?;
     info!("Application starting, listening on port {}", cli_args.port);
     axum::serve(listener, app).await?;
 
