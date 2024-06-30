@@ -128,6 +128,7 @@ impl Database {
 
     /// Returns a list of all of the permissions a user has.
     pub async fn get_user_permissions(&self, user_id: i64) -> Result<Vec<Permission>> {
+        // TODO include get_user_permissions in tests
         let query_result: Vec<GroupPermissions> = sqlx::query_as(
             "SELECT DISTINCT gp.* FROM group_permissions gp
             INNER JOIN group_membership gm ON gp.group_id = gm.group_id WHERE gm.user_id = ?;",
