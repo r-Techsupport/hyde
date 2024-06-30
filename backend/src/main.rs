@@ -11,7 +11,7 @@ pub mod perms;
 
 use axum::{
     http::HeaderValue,
-    routing::{get, put},
+    routing::{delete, get, put},
     Router,
 };
 use clap::{
@@ -135,6 +135,18 @@ async fn main() -> Result<()> {
         .route("/api/tree", get(get_tree_handler))
         .route("/api/oauth", get(get_oauth2_handler))
         .route("/api/oauth/url", get(get_oauth2_url))
+        .route("/api/users", get(get_users_handler))
+        .route("/api/users/me", get(get_current_user_handler))
+        .route(
+            "/api/users/groups/:user_id",
+            put(put_user_membership_handler),
+        )
+        .route(
+            "/api/users/groups/:user_id",
+            delete(delete_user_membership_handler),
+        )
+        .route("/api/users/:user_id", delete(delete_user_handler))
+        .route("/api/users/me", delete(delete_current_user))
         .layer(
             if cfg!(debug_assertions) {
                 CorsLayer::new()

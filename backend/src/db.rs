@@ -3,6 +3,7 @@
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
 use log::debug;
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 pub const DATABASE_URL: &str = "file:hyde-data/data.db?mode=rwc";
@@ -18,7 +19,7 @@ pub struct User {
     pub expiration_date: String,
 }
 
-#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
+#[derive(Debug, PartialEq, Eq, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Group {
     pub id: i64,
     /// Group name
@@ -123,6 +124,25 @@ impl Database {
         .await?;
 
         Ok(groups)
+    }
+
+    /// Returns a list of all of the permissions a user has.
+    pub async fn get_user_permissions(&self, user_id: i64) -> Result<Vec<Permission>> {
+        // TODO include get_user_permissions in tests
+        let query_result: Vec<GroupPermissions> = sqlx::query_as(
+            "SELECT DISTINCT gp.* FROM group_permissions gp
+            INNER JOIN group_membership gm ON gp.group_id = gm.group_id WHERE gm.user_id = ?;",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let permissions_vec = query_result
+            .into_iter()
+            .map(|e| e.permission.as_str().try_into().unwrap())
+            .collect();
+
+        Ok(permissions_vec)
     }
 
     /// Returns a list of every user in the database.
