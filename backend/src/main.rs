@@ -136,6 +136,7 @@ async fn main() -> Result<()> {
         .route("/api/oauth", get(get_oauth2_handler))
         .route("/api/oauth/url", get(get_oauth2_url))
         .route("/api/users", get(get_users_handler))
+        .route("/api/users/me", get(get_current_user))
         .layer(
             // TODO: create a separate CORS layer for debug and release mode (credentials, allow origin)
             if cfg!(debug_assertions) {
