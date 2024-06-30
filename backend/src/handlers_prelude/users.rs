@@ -39,7 +39,7 @@ pub async fn get_users_handler(
     require_perms(
         axum::extract::State(&state),
         headers,
-        &[Permission::ViewUsers],
+        &[Permission::ManageUsers],
     )
     .await?;
 
