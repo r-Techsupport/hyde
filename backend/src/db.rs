@@ -1,7 +1,5 @@
 //! Database specific interfaces and abstractions
 
-use std::collections::HashSet;
-
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
 use log::debug;
@@ -128,16 +126,21 @@ impl Database {
     }
 
     /// Returns a list of all of the permissions a user has.
-    /// THIS MIGHT NOT BELONG HERE AS IT'S NOT A DATABASE OPERATION
-    pub async fn get_user_permissions(&self, user_id: i64) -> Result<HashSet<Permission>> {
-        let groups = self.get_user_groups(user_id).await?;
-        let mut permissions = HashSet::new();
+    pub async fn get_user_permissions(&self, user_id: i64) -> Result<Vec<Permission>> {
+        let query_result: Vec<GroupPermissions> = sqlx::query_as(
+            "SELECT DISTINCT gp.* FROM group_permissions gp
+            INNER JOIN group_membership gm ON gp.group_id = gm.group_id WHERE gm.user_id = ?;",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
 
-        for group in groups {
-            permissions.extend(self.get_group_permissions(group.id).await?);
-        }
+        let permissions_vec = query_result
+            .into_iter()
+            .map(|e| e.permission.as_str().try_into().unwrap())
+            .collect();
 
-        Ok(permissions)
+        Ok(permissions_vec)
     }
 
     /// Returns a list of every user in the database.
