@@ -12,8 +12,6 @@ mod oauth;
 pub use oauth::*;
 mod users;
 pub use users::*;
-mod groups;
-pub use groups::*;
 
 use color_eyre::{
     eyre::{Context, ContextCompat},
