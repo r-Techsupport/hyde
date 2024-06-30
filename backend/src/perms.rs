@@ -7,7 +7,6 @@ pub enum Permission {
     ManageContent, // TODO
     ViewUsers,
     ManageUsers,
-    ManageGroups,
     // TODO: Submit for review
 }
 
@@ -17,7 +16,6 @@ impl From<Permission> for String {
             Permission::ManageContent => "manage_content",
             Permission::ViewUsers => "view_users",
             Permission::ManageUsers => "manage_users",
-            Permission::ManageGroups => "manage_groups",
         }
         .to_string()
     }
@@ -30,7 +28,6 @@ impl TryInto<Permission> for &str {
             "manage_content" => Ok(Permission::ManageContent),
             "view_users" => Ok(Permission::ViewUsers),
             "manage_users" => Ok(Permission::ManageUsers),
-            "manage_groups" => Ok(Permission::ManageGroups),
             _ => Err("Not a valid permission level"),
         }
     }
