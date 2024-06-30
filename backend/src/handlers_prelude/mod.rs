@@ -10,6 +10,10 @@ mod tree;
 pub use tree::*;
 mod oauth;
 pub use oauth::*;
+mod users;
+pub use users::*;
+mod groups;
+pub use groups::*;
 
 use color_eyre::{
     eyre::{Context, ContextCompat},
@@ -88,26 +92,12 @@ pub async fn require_perms(
                 ),
             )),
             FoundUser::User(u) => {
-                let groups = &state
+                let user_perms = &state
                     .db
-                    .get_user_groups(u.id)
+                    .get_user_permissions(u.id)
                     .await
                     .map_err(eyre_to_axum_err)?;
-                let mut has_permissions = false;
-                for &perm in perms {
-                    let mut has_permission = false;
-                    for group in groups {
-                        if state
-                            .db
-                            .group_has_permission(group.id, perm)
-                            .await
-                            .map_err(eyre_to_axum_err)?
-                        {
-                            has_permission = true;
-                        }
-                    }
-                    has_permissions = has_permissions && has_permission;
-                }
+                let has_permissions = perms.iter().all(|perm| user_perms.contains(perm));
                 if has_permissions {
                     Ok(u)
                 } else {

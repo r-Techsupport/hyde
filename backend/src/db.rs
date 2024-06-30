@@ -1,5 +1,7 @@
 //! Database specific interfaces and abstractions
 
+use std::collections::HashSet;
+
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
 use log::debug;
@@ -123,6 +125,19 @@ impl Database {
         .await?;
 
         Ok(groups)
+    }
+
+    /// Returns a list of all of the permissions a user has.
+    /// THIS MIGHT NOT BELONG HERE AS IT'S NOT A DATABASE OPERATION
+    pub async fn get_user_permissions(&self, user_id: i64) -> Result<HashSet<Permission>> {
+        let groups = self.get_user_groups(user_id).await?;
+        let mut permissions = HashSet::new();
+
+        for group in groups {
+            permissions.extend(self.get_group_permissions(group.id).await?);
+        }
+
+        Ok(permissions)
     }
 
     /// Returns a list of every user in the database.
