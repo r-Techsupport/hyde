@@ -7,7 +7,12 @@ use log::error;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
-use crate::{db::User, eyre_to_axum_err, perms::Permission, require_perms, AppState};
+use crate::{
+    db::{Database, Group, User},
+    eyre_to_axum_err,
+    perms::Permission,
+    require_perms, AppState,
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PermissionDetails {
@@ -19,13 +24,28 @@ pub struct PermissionDetails {
 pub struct GetUserResponse {
     id: i64,
     username: String,
+    groups: Vec<Group>,
     permissions: Vec<PermissionDetails>,
 }
 
-pub fn create_user_response(user: User, perms: &[Permission]) -> GetUserResponse {
-    GetUserResponse {
+pub async fn create_user_response(
+    db: &Database,
+    user: User,
+) -> Result<GetUserResponse, (StatusCode, String)> {
+    let groups = db
+        .get_user_groups(user.id)
+        .await
+        .map_err(eyre_to_axum_err)?;
+
+    let perms = db
+        .get_user_permissions(user.id)
+        .await
+        .map_err(eyre_to_axum_err)?;
+
+    Ok(GetUserResponse {
         id: user.id,
         username: user.username,
+        groups,
         permissions: perms
             .iter()
             .map(|perm| PermissionDetails {
@@ -33,7 +53,7 @@ pub fn create_user_response(user: User, perms: &[Permission]) -> GetUserResponse
                 permission: *perm,
             })
             .collect(),
-    }
+    })
 }
 
 pub async fn get_users_handler(
@@ -52,12 +72,7 @@ pub async fn get_users_handler(
             let mut get_user_response = Vec::new();
 
             for user in users {
-                let user_perms = &state
-                    .db
-                    .get_user_permissions(user.id)
-                    .await
-                    .map_err(eyre_to_axum_err)?;
-                get_user_response.push(create_user_response(user, user_perms));
+                get_user_response.push(create_user_response(&state.db, user).await?);
             }
 
             Ok(Json(get_user_response))
@@ -79,14 +94,7 @@ pub async fn get_current_user_handler(
     headers: HeaderMap,
 ) -> Result<Json<GetUserResponse>, (StatusCode, String)> {
     let user = require_perms(axum::extract::State(&state), headers, &[]).await?;
-
-    let user_perms = &state
-        .db
-        .get_user_permissions(user.id)
-        .await
-        .map_err(eyre_to_axum_err)?;
-
-    Ok(Json(create_user_response(user, user_perms)))
+    Ok(Json(create_user_response(&state.db, user).await?))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -122,13 +130,7 @@ pub async fn put_user_membership_handler(
         .map_err(eyre_to_axum_err)?
         .unwrap();
 
-    let user_perms = &state
-        .db
-        .get_user_permissions(user.id)
-        .await
-        .map_err(eyre_to_axum_err)?;
-
-    Ok(Json(create_user_response(user, user_perms)))
+    Ok(Json(create_user_response(&state.db, user).await?))
 }
 
 pub async fn delete_user_membership_handler(
@@ -159,13 +161,7 @@ pub async fn delete_user_membership_handler(
         .map_err(eyre_to_axum_err)?
         .unwrap();
 
-    let user_perms = &state
-        .db
-        .get_user_permissions(user.id)
-        .await
-        .map_err(eyre_to_axum_err)?;
-
-    Ok(Json(create_user_response(user, user_perms)))
+    Ok(Json(create_user_response(&state.db, user).await?))
 }
 
 pub async fn delete_user_handler(
