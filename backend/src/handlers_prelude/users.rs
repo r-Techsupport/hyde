@@ -15,51 +15,39 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct PermissionDetails {
-    permission_tag: String,
-    permission: Permission,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct GetUserResponse {
+pub struct UserResponse {
     id: i64,
     username: String,
     groups: Vec<Group>,
-    permissions: Vec<PermissionDetails>,
+    permissions: Vec<Permission>,
 }
 
 pub async fn create_user_response(
     db: &Database,
     user: User,
-) -> Result<GetUserResponse, (StatusCode, String)> {
+) -> Result<UserResponse, (StatusCode, String)> {
     let groups = db
         .get_user_groups(user.id)
         .await
         .map_err(eyre_to_axum_err)?;
 
-    let perms = db
+    let permissions = db
         .get_user_permissions(user.id)
         .await
         .map_err(eyre_to_axum_err)?;
 
-    Ok(GetUserResponse {
+    Ok(UserResponse {
         id: user.id,
         username: user.username,
         groups,
-        permissions: perms
-            .iter()
-            .map(|perm| PermissionDetails {
-                permission_tag: String::from(*perm),
-                permission: *perm,
-            })
-            .collect(),
+        permissions,
     })
 }
 
 pub async fn get_users_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<Json<Vec<GetUserResponse>>, (StatusCode, String)> {
+) -> Result<Json<Vec<UserResponse>>, (StatusCode, String)> {
     require_perms(
         axum::extract::State(&state),
         headers,
@@ -92,7 +80,7 @@ pub async fn get_users_handler(
 pub async fn get_current_user_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<Json<GetUserResponse>, (StatusCode, String)> {
+) -> Result<Json<UserResponse>, (StatusCode, String)> {
     let user = require_perms(axum::extract::State(&state), headers, &[]).await?;
     Ok(Json(create_user_response(&state.db, user).await?))
 }
@@ -107,7 +95,7 @@ pub async fn put_user_membership_handler(
     headers: HeaderMap,
     Path(user_id): Path<i64>,
     Json(body): Json<UpdateUserGroupsRequestBody>,
-) -> Result<Json<GetUserResponse>, (StatusCode, String)> {
+) -> Result<Json<UserResponse>, (StatusCode, String)> {
     require_perms(
         axum::extract::State(&state),
         headers,
@@ -138,7 +126,7 @@ pub async fn delete_user_membership_handler(
     headers: HeaderMap,
     Path(user_id): Path<i64>,
     Json(body): Json<UpdateUserGroupsRequestBody>,
-) -> Result<Json<GetUserResponse>, (StatusCode, String)> {
+) -> Result<Json<UserResponse>, (StatusCode, String)> {
     require_perms(
         axum::extract::State(&state),
         headers,
