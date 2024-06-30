@@ -3,6 +3,7 @@
 use crate::perms::Permission;
 use color_eyre::{eyre::bail, Result};
 use log::debug;
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 pub const DATABASE_URL: &str = "file:hyde-data/data.db?mode=rwc";
@@ -18,7 +19,7 @@ pub struct User {
     pub expiration_date: String,
 }
 
-#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
+#[derive(Debug, PartialEq, Eq, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Group {
     pub id: i64,
     /// Group name
