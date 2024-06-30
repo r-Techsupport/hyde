@@ -70,7 +70,7 @@ pub async fn get_users_handler(
     }
 }
 
-pub async fn get_current_user(
+pub async fn get_current_user_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<GetUserResponse>, (StatusCode, String)> {
