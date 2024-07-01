@@ -147,27 +147,30 @@ async fn main() -> Result<()> {
         )
         .route("/api/users/:user_id", delete(delete_user_handler))
         .route("/api/users/me", delete(delete_current_user))
-        .layer(
-            if cfg!(debug_assertions) {
-                CorsLayer::new()
-                    // If this isn't set, cookies won't be sent across ports
-                    .allow_credentials(true)
-                    .allow_origin("http://localhost:5173".parse::<HeaderValue>()?)
-                    .allow_methods([Method::GET, Method::PUT])
-                    .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
-            } else {
-                CorsLayer::new()
-                    .allow_methods([Method::GET, Method::PUT])
-                    .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
-            },
-        )
+        .layer(if cfg!(debug_assertions) {
+            CorsLayer::new()
+                // If this isn't set, cookies won't be sent across ports
+                .allow_credentials(true)
+                .allow_origin("http://localhost:5173".parse::<HeaderValue>()?)
+                .allow_methods([Method::GET, Method::PUT])
+                .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
+        } else {
+            CorsLayer::new()
+                .allow_methods([Method::GET, Method::PUT])
+                .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
+        })
         .with_state(state)
-        // Serve the frontend files
-        .nest_service("/", ServeDir::new(frontend_dir))
         // Serve the assets folder from the repo
         .nest_service(
             &format!("/{asset_path}"),
-            ServeDir::new(format!("repo/{asset_path}")),
+            ServeDir::new(format!("repo/{asset_path}"))
+        )
+        // Serve the frontend files
+        .nest_service(
+            "/",
+            ServeDir::new(frontend_dir)
+                .precompressed_br()
+                .precompressed_gzip(),
         )
         // Enable support for routes that have or don't have a trailing slash
         .layer(NormalizePathLayer::trim_trailing_slash());

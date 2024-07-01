@@ -11,7 +11,7 @@ categories = ["server-backend"]
 
 
 [dependencies]
-axum = { version = "0.7.5", features = ["macros"] }
+axum = { version = "0.7.5", features = ["http2", "macros"] }
 chrono = "0.4.38"
 clap = { version = "4.5.7", features = ["derive"] }
 color-eyre = "0.6.3"

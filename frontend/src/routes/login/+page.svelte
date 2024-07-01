@@ -17,7 +17,7 @@
 	<h2>Login to Hyde</h2>
 	<button on:click={loginHandler}>
 		<img
-			src="/assets/discord-logo.svg"
+			src="/hyde-assets/discord-logo.svg"
 			alt="discord-logo"
 			class="discord-logo"
 			width="35rem"
