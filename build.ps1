@@ -6,7 +6,7 @@ Set-Location ..
 
 Write-Host "Copying frontend files..."
 New-Item -Path "target\web" -ItemType Directory
-Copy-Item -Path "frontend\build\*" -Destination "target\web"
+Copy-Item -Path "frontend\build\*" -Destination "target\web" -Recurse -Force
 
 Write-Host "Building the backend..."
 Set-Location backend
