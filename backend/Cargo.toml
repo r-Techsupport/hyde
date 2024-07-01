@@ -19,7 +19,7 @@ dotenvy = "0.15.7"
 env_logger = "0.11.3"
 git2 = "0.19.0"
 jsonwebtoken = "9.3.0"
-log = "0.4.21"
+log = "0.4.22"
 oauth2 = "4.4.2"
 reqwest = { version = "0.12.5", features = ["stream"] }
 serde = { version = "1.0.203", features = ["derive"] }
