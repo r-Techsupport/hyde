@@ -37,7 +37,7 @@
 </script>
 
 <div class="side-bar">
-	<img src="hyde-assets/logo-dark.svg" alt="Logo"/>
+	<img src="hyde-assets/logo-dark.svg" alt="Logo" />
 	<slot></slot>
 </div>
 
