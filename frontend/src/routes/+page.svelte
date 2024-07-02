@@ -16,6 +16,7 @@
 	import SettingsMenu from './components/SettingsMenu.svelte';
 	import AdminDashboard from './components/dashboard/AdminDashboard.svelte';
 	import Editor from './components/Editor.svelte';
+	import { type User, Permission } from '$lib/types.d';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -58,6 +59,7 @@
 	let showLoadingIcon: boolean;
 	let showSettingsMenu: boolean;
 	let adminDashboardDialog: HTMLDialogElement;
+	let showEditor: boolean = false;
 
 	async function fileSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
@@ -85,7 +87,7 @@
 			},
 			body: JSON.stringify({
 				contents: editorText,
-				path: currentFile
+				path: get(currentFile)
 			})
 		});
 		showLoadingIcon = false;
@@ -108,8 +110,14 @@
 		}
 	};
 
-	onMount(() => {
+	onMount(async () => {
 		// TODO: when /users/@me or whatever exists, redirect if the user doesn't have the manage doc permission
+		const currentUser: User = await (
+			await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' })
+		).json();
+		if (currentUser.permissions.includes(Permission.ManageContent)) {
+			showEditor = true;
+		}
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
 		if (!document.cookie.includes('username')) {
 			addToast({
@@ -125,6 +133,7 @@
 					window.location.href = '/login.html';
 				}
 			}, 800);
+			return;
 		}
 	});
 </script>
@@ -148,7 +157,9 @@
 				adminDashboardDialog.showModal();
 			}}
 		/>
-		<Editor bind:saveChangesHandler bind:editorText bind:previewWindow />
+		{#if showEditor}
+			<Editor bind:saveChangesHandler bind:editorText bind:previewWindow />
+		{/if}
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
