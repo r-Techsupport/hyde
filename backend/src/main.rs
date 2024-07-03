@@ -152,11 +152,11 @@ async fn main() -> Result<()> {
                 // If this isn't set, cookies won't be sent across ports
                 .allow_credentials(true)
                 .allow_origin("http://localhost:5173".parse::<HeaderValue>()?)
-                .allow_methods([Method::GET, Method::PUT])
+                .allow_methods([Method::GET, Method::PUT, Method::DELETE])
                 .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
         } else {
             CorsLayer::new()
-                .allow_methods([Method::GET, Method::PUT])
+                .allow_methods([Method::GET, Method::PUT, Method::DELETE])
                 .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
         })
         .with_state(state)

@@ -49,7 +49,7 @@ pub async fn get_users_handler(
     headers: HeaderMap,
 ) -> Result<Json<Vec<UserResponse>>, (StatusCode, String)> {
     require_perms(
-        axum::extract::State(&state),
+        State(&state),
         headers,
         &[Permission::ManageUsers],
     )
@@ -128,7 +128,7 @@ pub async fn delete_user_membership_handler(
     Json(body): Json<UpdateUserGroupsRequestBody>,
 ) -> Result<Json<UserResponse>, (StatusCode, String)> {
     require_perms(
-        axum::extract::State(&state),
+        State(&state),
         headers,
         &[Permission::ManageUsers],
     )
@@ -158,7 +158,7 @@ pub async fn delete_user_handler(
     Path(user_id): Path<i64>,
 ) -> Result<(), (StatusCode, String)> {
     require_perms(
-        axum::extract::State(&state),
+        State(&state),
         headers,
         &[Permission::ManageUsers],
     )
