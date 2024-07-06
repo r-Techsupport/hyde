@@ -8,9 +8,9 @@ export const currentFile = writable('');
  * if it hasn't been loaded in yet
  */
 export const me: Writable<User> = writable({
-    id: -1,
-    username: "Loading..",
-    avatar_url: "https://cdn.discordapp.com/embed/avatars/0.png",
-    groups: [],
-    permissions: [],
+	id: -1,
+	username: 'Loading..',
+	avatar_url: 'https://cdn.discordapp.com/embed/avatars/0.png',
+	groups: [],
+	permissions: []
 });

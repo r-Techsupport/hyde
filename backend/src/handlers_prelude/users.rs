@@ -50,12 +50,7 @@ pub async fn get_users_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Vec<UserResponse>>, (StatusCode, String)> {
-    require_perms(
-        State(&state),
-        headers,
-        &[Permission::ManageUsers],
-    )
-    .await?;
+    require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
     match state.db.get_all_users().await {
         Ok(users) => {
@@ -129,12 +124,7 @@ pub async fn delete_user_membership_handler(
     Path(user_id): Path<i64>,
     Json(body): Json<UpdateUserGroupsRequestBody>,
 ) -> Result<Json<UserResponse>, (StatusCode, String)> {
-    require_perms(
-        State(&state),
-        headers,
-        &[Permission::ManageUsers],
-    )
-    .await?;
+    require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
     for group_id in body.group_ids {
         state
@@ -159,12 +149,7 @@ pub async fn delete_user_handler(
     headers: HeaderMap,
     Path(user_id): Path<i64>,
 ) -> Result<(), (StatusCode, String)> {
-    require_perms(
-        State(&state),
-        headers,
-        &[Permission::ManageUsers],
-    )
-    .await?;
+    require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
     state
         .db

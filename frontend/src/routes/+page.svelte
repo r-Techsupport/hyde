@@ -16,7 +16,7 @@
 	import SettingsMenu from './components/SettingsMenu.svelte';
 	import AdminDashboard from './components/dashboard/AdminDashboard.svelte';
 	import Editor from './components/Editor.svelte';
-	import { type User, Permission } from '$lib/types.d';
+	import { Permission } from '$lib/types.d';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -110,11 +110,8 @@
 		}
 	};
 
-
 	onMount(async () => {
-		me.set(await (
-			await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' })
-		).json());
+		me.set(await (await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' })).json());
 		me.subscribe((me) => {
 			if (me.id === -1) {
 				return;
@@ -123,7 +120,7 @@
 			if (me.permissions.includes(Permission.ManageContent)) {
 				showEditor = true;
 			}
-		})
+		});
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
 		if (!document.cookie.includes('username')) {
 			addToast({
