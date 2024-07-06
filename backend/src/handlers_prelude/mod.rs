@@ -52,6 +52,10 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
             cookies.insert(name, value);
         }
     }
+    trace!(
+        "Looking for a user given a request with the following cookies: {:?}",
+        cookies
+    );
     if let Some(token) = cookies.get("access-token") {
         trace!("Request was made that contains an access-token cookie");
         if let Some(user) = state.db.get_user_from_token(token.to_string()).await? {

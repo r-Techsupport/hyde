@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 27.9.4, SVG Export Plug-In . SVG Version: 9.03 Build 54784)  -->
+<svg version="1.1" id="Background" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 203.5 117.2" style="enable-background:new 0 0 203.5 117.2;" xml:space="preserve">
+<style type="text/css">
+	.st0{display:none;fill:#2A2A2A;}
+	
+		.st1{clip-path:url(#Mask_00000105411719351072892830000015891986454999595662_);fill:none;stroke:#854C9E;stroke-width:3;stroke-miterlimit:10;}
+	.st2{clip-path:url(#Mask_00000105411719351072892830000015891986454999595662_);}
+	.st3{fill:#E6E7E8;}
+	
+		.st4{clip-path:url(#Mask_00000121251109108992504070000016944644824933730433_);fill:none;stroke:#E6E7E8;stroke-width:3;stroke-miterlimit:10;}
+	.st5{clip-path:url(#Mask_00000121251109108992504070000016944644824933730433_);}
+	.st6{fill:#854C9E;}
+</style>
+<rect id="Background_00000001646550414253714250000001728898964290274495_" x="0" class="st0" width="203.5" height="117.2"/>
+<g id="Left_Half__x28_jekyll_x29_">
+	<defs>
+		<rect id="Mask" x="-32.7" y="2.6" transform="matrix(0.9659 0.2588 -0.2588 0.9659 11.8615 1.4007)" width="66.7" height="86.3"/>
+	</defs>
+	<clipPath id="Mask_00000013907191741484329030000010577216548371252624_">
+		<use xlink:href="#Mask"  style="overflow:visible;"/>
+	</clipPath>
+	
+		<path id="H_box" style="clip-path:url(#Mask_00000013907191741484329030000010577216548371252624_);fill:none;stroke:#854C9E;stroke-width:3;stroke-miterlimit:10;" d="
+		M57.6,83.5H10.5c-0.4,0-0.8-0.4-0.8-0.8V21.3c0-0.4,0.4-0.8,0.8-0.8h47.1c0.4,0,0.8,0.4,0.8,0.8v61.4C58.4,83.1,58,83.5,57.6,83.5z
+		"/>
+	<g style="clip-path:url(#Mask_00000013907191741484329030000010577216548371252624_);">
+		<g>
+			<path class="st3" d="M15.4,26h6.7v22h24.4V26h6.7v52.5h-6.7V53.8H22.1v24.7h-6.7V26z"/>
+		</g>
+	</g>
+</g>
+<g id="Right_half__x28_Hyde_x29_">
+	<defs>
+		
+			<rect id="Mask_00000072277964468054848090000018225560989341185961_" x="34.3" y="14.7" transform="matrix(0.9659 0.2588 -0.2588 0.9659 17.2722 -15.5284)" width="66.7" height="86.3"/>
+	</defs>
+	<clipPath id="Mask_00000114787082816469894950000012424296878966225851_">
+		<use xlink:href="#Mask_00000072277964468054848090000018225560989341185961_"  style="overflow:visible;"/>
+	</clipPath>
+	
+		<path id="H_box_00000153670833373357475190000016118353345702633624_" style="clip-path:url(#Mask_00000114787082816469894950000012424296878966225851_);fill:none;stroke:#E6E7E8;stroke-width:3;stroke-miterlimit:10;" d="
+		M57.6,83.5H10.5c-0.4,0-0.8-0.4-0.8-0.8V21.3c0-0.4,0.4-0.8,0.8-0.8h47.1c0.4,0,0.8,0.4,0.8,0.8v61.4C58.4,83.1,58,83.5,57.6,83.5z
+		"/>
+	<g style="clip-path:url(#Mask_00000114787082816469894950000012424296878966225851_);">
+		<g>
+			<path class="st6" d="M15.2,26h6.7v22h24.4V26H53v52.5h-6.7V53.8H21.9v24.7h-6.7V26z"/>
+		</g>
+	</g>
+</g>
+<g>
+	<g>
+		<path class="st3" d="M101.2,28.8L86.1,58.3v20.2h-7V58.3L64,28.8h7.8l10.9,22.4l10.9-22.4H101.2z"/>
+		<path class="st3" d="M106.4,78.5V28.8h7v49.7H106.4z M111.1,78.5v-6.6h11.2c3.7,0,6.5-1,8.5-2.9c2-1.9,3-4.6,3-8V46.3
+			c0-3.5-1-6.1-3-8c-2-1.9-4.9-2.9-8.5-2.9h-11.2v-6.6h11c6,0,10.7,1.6,14,4.7S141,41,141,46.6v14.1c0,3.8-0.7,7-2.2,9.6
+			c-1.5,2.7-3.6,4.7-6.5,6.1c-2.8,1.4-6.2,2.1-10.3,2.1H111.1z"/>
+		<path class="st3" d="M152.3,78.5V28.8h7v49.7H152.3z M155.7,35.4v-6.6h28.5v6.6H155.7z M155.7,57.1v-6.6h24.8v6.6H155.7z
+			 M155.7,78.5v-6.6h28.5v6.6H155.7z"/>
+	</g>
+</g>
+</svg>

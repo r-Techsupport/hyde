@@ -12,8 +12,8 @@ pub enum Permission {
 impl From<Permission> for String {
     fn from(value: Permission) -> Self {
         match value {
-            Permission::ManageContent => "manage_content",
-            Permission::ManageUsers => "manage_users",
+            Permission::ManageContent => "ManageContent",
+            Permission::ManageUsers => "ManageUsers",
         }
         .to_string()
     }
@@ -23,8 +23,8 @@ impl TryInto<Permission> for &str {
     type Error = &'static str;
     fn try_into(self) -> Result<Permission, Self::Error> {
         match self {
-            "manage_content" => Ok(Permission::ManageContent),
-            "manage_users" => Ok(Permission::ManageUsers),
+            "ManageContent" => Ok(Permission::ManageContent),
+            "ManageUsers" => Ok(Permission::ManageUsers),
             _ => Err("Not a valid permission level"),
         }
     }

@@ -1,9 +1,21 @@
 <script lang="ts">
 	import { blur } from 'svelte/transition';
-	import { createEventDispatcher } from 'svelte';
-	// TODO: This
-	export let visible = false;
+	import { createEventDispatcher, onMount } from 'svelte';
+	import { apiAddress } from '$lib/net';
+	import { Permission, type User } from '$lib/types.d';
 
+	export let visible = false;
+	let showAdminDashboard = false;
+	onMount(async () => {
+		// This could probably be generalized into a single call that loads
+		// into a svelte store or something, rather than this call being made multiple times
+		const currentUser: User = await (
+			await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' })
+		).json();
+		if (currentUser.permissions.includes(Permission.ManageUsers)) {
+			showAdminDashboard = true;
+		}
+	});
 	const dispatch = createEventDispatcher();
 </script>
 
@@ -25,26 +37,27 @@
 			<hr />
 		</div>
 		<!-- Admin Dashboard -->
-		<!-- TODO: only display this when the currently signed in user has the manage_users permission -->
-		<div>
-			<button
-				on:click={() => {
-					dispatch('showadmindashboard');
-				}}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					height="1.5rem"
-					viewBox="0 -960 960 960"
-					width="1.5rem"
-					fill="#e8eaed"
-					><path
-						d="M756-120 537-339l84-84 219 219-84 84Zm-552 0-84-84 276-276-68-68-28 28-51-51v82l-28 28-121-121 28-28h82l-50-50 142-142q20-20 43-29t47-9q24 0 47 9t43 29l-92 92 50 50-28 28 68 68 90-90q-4-11-6.5-23t-2.5-24q0-59 40.5-99.5T701-841q15 0 28.5 3t27.5 9l-99 99 72 72 99-99q7 14 9.5 27.5T841-701q0 59-40.5 99.5T701-561q-12 0-24-2t-23-7L204-120Z"
-					/></svg
+		{#if showAdminDashboard}
+			<div>
+				<button
+					on:click={() => {
+						dispatch('showadmindashboard');
+					}}
 				>
-				Admin Dashboard
-			</button>
-		</div>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						height="1.5rem"
+						viewBox="0 -960 960 960"
+						width="1.5rem"
+						fill="#e8eaed"
+						><path
+							d="M756-120 537-339l84-84 219 219-84 84Zm-552 0-84-84 276-276-68-68-28 28-51-51v82l-28 28-121-121 28-28h82l-50-50 142-142q20-20 43-29t47-9q24 0 47 9t43 29l-92 92 50 50-28 28 68 68 90-90q-4-11-6.5-23t-2.5-24q0-59 40.5-99.5T701-841q15 0 28.5 3t27.5 9l-99 99 72 72 99-99q7 14 9.5 27.5T841-701q0 59-40.5 99.5T701-561q-12 0-24-2t-23-7L204-120Z"
+						/></svg
+					>
+					Admin Dashboard
+				</button>
+			</div>
+		{/if}
 		<!-- TODO: theme toggle -->
 	</div>
 {/if}

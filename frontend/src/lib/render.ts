@@ -70,7 +70,5 @@ export function stripFrontMatter(input: TokensList) {
 				dismissible: false
 			});
 		}
-
-		console.warn('No frontmatter header found');
 	}
 }
