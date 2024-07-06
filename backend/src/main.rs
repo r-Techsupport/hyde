@@ -11,7 +11,7 @@ pub mod perms;
 
 use axum::{
     http::HeaderValue,
-    routing::{delete, get, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use clap::{
@@ -138,7 +138,7 @@ async fn main() -> Result<()> {
         .route("/api/users", get(get_users_handler))
         .route(
             "/api/users/groups/:user_id",
-            put(put_user_membership_handler),
+            post(post_user_membership_handler),
         )
         .route(
             "/api/users/groups/:user_id",
@@ -152,11 +152,11 @@ async fn main() -> Result<()> {
                 // If this isn't set, cookies won't be sent across ports
                 .allow_credentials(true)
                 .allow_origin("http://localhost:5173".parse::<HeaderValue>()?)
-                .allow_methods([Method::GET, Method::PUT, Method::DELETE])
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
                 .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
         } else {
             CorsLayer::new()
-                .allow_methods([Method::GET, Method::PUT, Method::DELETE])
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
                 .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
         })
         .with_state(state)

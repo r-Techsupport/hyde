@@ -87,7 +87,7 @@ pub struct UpdateUserGroupsRequestBody {
     group_ids: Vec<i64>,
 }
 
-pub async fn put_user_membership_handler(
+pub async fn post_user_membership_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(user_id): Path<i64>,
