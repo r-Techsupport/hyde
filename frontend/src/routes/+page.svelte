@@ -9,7 +9,7 @@
 	import LoadingIcon from './LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from './Toasts.svelte';
-	import { currentFile } from '$lib/main';
+	import { currentFile, me } from '$lib/main';
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
@@ -110,14 +110,20 @@
 		}
 	};
 
+
 	onMount(async () => {
-		// TODO: when /users/@me or whatever exists, redirect if the user doesn't have the manage doc permission
-		const currentUser: User = await (
+		me.set(await (
 			await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' })
-		).json();
-		if (currentUser.permissions.includes(Permission.ManageContent)) {
-			showEditor = true;
-		}
+		).json());
+		me.subscribe((me) => {
+			if (me.id === -1) {
+				return;
+			}
+			console.log(me);
+			if (me.permissions.includes(Permission.ManageContent)) {
+				showEditor = true;
+			}
+		})
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
 		if (!document.cookie.includes('username')) {
 			addToast({

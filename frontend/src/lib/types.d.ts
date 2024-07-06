@@ -6,6 +6,7 @@ export enum Permission {
 export interface User {
 	id: number;
 	username: string;
+	avatar_url: string;
 	groups: Group[];
 	permissions: Permission[];
 }

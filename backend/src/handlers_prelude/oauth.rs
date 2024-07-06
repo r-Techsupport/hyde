@@ -11,7 +11,6 @@ use log::{debug, error, info, warn};
 use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl};
 use oauth2::{CsrfToken, TokenResponse};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::AppState;
 
@@ -19,6 +18,13 @@ use crate::AppState;
 pub struct GetOAuthQuery {
     pub code: String,
     pub state: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DiscordUserObject {
+    username: String,
+    id: String,
+    avatar: Option<String>,
 }
 
 /// This endpoint is used for authentication, and it's required to implement oauth2. Users
@@ -93,17 +99,18 @@ async fn get_oath_processor(
         )
         .send()
         .await?;
-    // While there's no actual infrastructure to make use of this information,
-    // we got it (hooray)
-    let discord_user_json: Value = serde_json::from_slice(&response.bytes().await?)?;
-    let username = discord_user_json
-        .get("username")
-        .wrap_err("Discord API response did not contain a `username` field")?
-        .as_str()
-        .wrap_err("The `username` field from the discord api response did not contain a string")?;
+    // https://discord.com/developers/docs/resources/user#user-object
+    let user: DiscordUserObject = serde_json::from_slice(&response.bytes().await?)?;
+    let avatar_url = if let Some(hash) = user.avatar {
+        format!("https://cdn.discordapp.com/avatars/{}/{hash}.png", user.id)
+    } else {
+        "https://cdn.discordapp.com/embed/avatars/0.png".to_string()
+    };
+    println!("{avatar_url}");
+    // https://discord.com/developers/docs/reference#image-formatting
     let all_users = state.db.get_all_users().await?;
     // If the user doesn't already exist, create one
-    if !all_users.iter().any(|u| u.username == username) {
+    if !all_users.iter().any(|u| u.username == user.username) {
         let expiration_date = Utc::now()
             + token_data
                 .expires_in()
@@ -111,12 +118,16 @@ async fn get_oath_processor(
         state
             .db
             .create_user(
-                username.to_string(),
+                user.username.to_string(),
                 token.to_string(),
                 expiration_date.to_rfc3339(),
+                avatar_url,
             )
             .await?;
-        info!("New user {username:?} authenticated, entry added to database");
+        info!(
+            "New user {:?} authenticated, entry added to database",
+            user.username
+        );
     }
     // If the user is the admin specified in the config, give them the admin role
     if let Ok(admin_username) = env::var("ADMIN_USERNAME") {
@@ -162,7 +173,8 @@ async fn get_oath_processor(
     headers.append(
         "Set-Cookie",
         format!(
-            "username={username}; Path=/; Max-Age={}",
+            "username={}; Path=/; Max-Age={}",
+            user.username,
             token_data.expires_in().unwrap().as_secs()
         )
         .parse()?,

@@ -17,6 +17,8 @@ pub struct User {
     pub token: String,
     /// ISO-8601/RFC-3339 string
     pub expiration_date: String,
+    /// The CDN url to the user's profile picture
+    pub avatar_url: String,
 }
 
 #[derive(Debug, PartialEq, Eq, sqlx::FromRow, Serialize, Deserialize)]
@@ -71,22 +73,24 @@ impl Database {
         Ok(Self { pool })
     }
 
-    /// Add a new user to the database, returning the created user.
+    /// Add a new user to the database, returning the created user. This does not overwrite an existing user
     pub async fn create_user(
         &self,
         username: String,
         token: String,
         expiration_date: String,
+        avatar_url: String,
     ) -> Result<User> {
         let query_results: User = sqlx::query_as(
             r"
-            INSERT INTO users (username, token, expiration_date)
-            VALUES (?, ?, ?) RETURNING *;
+            INSERT INTO users (username, token, expiration_date, avatar_url)
+            VALUES (?, ?, ?, ?) RETURNING *;
             ",
         )
         .bind(username)
         .bind(token)
         .bind(expiration_date)
+        .bind(avatar_url)
         .fetch_one(&self.pool)
         .await?;
 
@@ -449,7 +453,12 @@ mod tests {
         let mock_db = Database::from_url(":memory:").await.unwrap();
 
         let mock_user = mock_db
-            .create_user(s!("username"), s!("token"), s!("expiration_date"))
+            .create_user(
+                s!("username"),
+                s!("token"),
+                s!("expiration_date"),
+                s!("https://foo.bar"),
+            )
             .await
             .unwrap();
 
@@ -464,6 +473,10 @@ mod tests {
         assert_eq!(
             mock_user.expiration_date, "expiration_date",
             "create_user: The new user's expiration date should be the input"
+        );
+        assert_eq!(
+            mock_user.avatar_url, "https://foo.bar",
+            "create_user: the new user's expiration date should be the input"
         );
 
         let fetched_user = mock_db.get_user(mock_user.id).await.unwrap().unwrap();
@@ -480,7 +493,12 @@ mod tests {
         assert_eq!(token_user, mock_user, "get_user_from_token: should work");
 
         let mut mock_user2 = mock_db
-            .create_user(s!("username2"), s!("token2"), s!("expiration_date2"))
+            .create_user(
+                s!("username2"),
+                s!("token2"),
+                s!("expiration_date2"),
+                s!("https://foo.bar"),
+            )
             .await
             .unwrap();
         let all_users = mock_db.get_all_users().await.unwrap();
@@ -530,7 +548,12 @@ mod tests {
         let mock_db = Database::from_url(":memory:").await.unwrap();
 
         let user1 = mock_db
-            .create_user(s!("username1"), s!("token1"), s!("exp1"))
+            .create_user(
+                s!("username1"),
+                s!("token1"),
+                s!("exp1"),
+                s!("https://foo.bar"),
+            )
             .await
             .unwrap();
         let group1 = mock_db.create_group(s!("groupname1")).await.unwrap();
@@ -573,7 +596,12 @@ mod tests {
         );
 
         let user2 = mock_db
-            .create_user(s!("username2"), s!("token2"), s!("exp2"))
+            .create_user(
+                s!("username2"),
+                s!("token2"),
+                s!("exp2"),
+                s!("https://foo.bar"),
+            )
             .await
             .unwrap();
         let address1 = mock_db

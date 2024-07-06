@@ -18,6 +18,7 @@ use crate::{
 pub struct UserResponse {
     id: i64,
     username: String,
+    avatar_url: String,
     groups: Vec<Group>,
     permissions: Vec<Permission>,
 }
@@ -39,6 +40,7 @@ pub async fn create_user_response(
     Ok(UserResponse {
         id: user.id,
         username: user.username,
+        avatar_url: user.avatar_url,
         groups,
         permissions,
     })
