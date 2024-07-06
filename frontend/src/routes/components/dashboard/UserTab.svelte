@@ -1,27 +1,28 @@
 <!-- TODO: none of these changes are synced to the database -->
 <script lang="ts">
+	import { apiAddress } from '$lib/net';
+	import { addToast, ToastType } from '$lib/toast';
+	import type { Group, User } from '$lib/types';
 	import { onMount } from 'svelte';
 
-	const allGroups = ['Admin', 'Group 1', 'Group 2', 'Group 3'];
-	const users = [
+	// const allGroups = [{'Admin', 'Group 1', 'Group 2', 'Group 3'];
+	const allGroups: Group[] = [
 		{
-			username: 'mock_user_1',
 			id: 0,
-			groups: ['Admin', 'Group 1', 'Group 2']
+			name: 'Admin'
 		},
 		{
-			username: 'mock_user_2',
 			id: 1,
-			groups: ['Group 1']
+			name: 'Mock group 2'
 		}
 	];
+	let users: User[] = [];
 	let selectedUser = 0;
-	// E must be defined as any because for some reason typescript thinks parentElement doesn't exist on e.target
 	function userSelectHandler(e: MouseEvent) {
 		const target = e.target as HTMLElement;
 		selectedUser = Number(target.parentElement!.id);
 		for (const group of allGroups) {
-			const element = document.getElementById(group) as HTMLInputElement;
+			const element = document.getElementById(group.name) as HTMLInputElement;
 			if (users[selectedUser].groups.includes(group)) {
 				element.checked = true;
 			} else {
@@ -30,23 +31,82 @@
 		}
 	}
 
-	function checkboxToggleHandler(e: Event) {
+	async function checkboxToggleHandler(e: Event) {
 		const target = e.target as HTMLInputElement;
 		if (target.checked) {
-			console.log(
-				`The ${target.id} role was added to the user user ${users[selectedUser].username}`
-			);
+			const groupToAdd = allGroups.find((g) => g.name === target.id);
+			if (groupToAdd) {
+				users[selectedUser].groups.push(groupToAdd);
+				const r = await fetch(`${apiAddress}/api/users/groups/${users[selectedUser].id}`, {
+					credentials: 'include',
+					method: 'PUT',
+					headers: {
+						"Content-Type": "application/json"
+					},
+					body: JSON.stringify({
+						group_ids: [
+						groupToAdd.id
+					]}),
+				});
+				if (r.ok) {
+					addToast({
+						message: `The ${target.id} group was added to the user ${users[selectedUser].username}`,
+						type: ToastType.Info,
+						dismissible: true,
+						timeout: 1500
+					});
+				} else {
+					console.error(
+						`Add group to user operation failed with status code ${r.status}: ${await r.text()}`
+					);
+				}
+			} else {
+					addToast({
+						message:
+							"Wasn't able to add the selected group to that user because that checkbox has an ID tied to a group that does not exist, \
+						please report this to the developer.",
+						type: ToastType.Error,
+						dismissible: true
+					});
+				}
 		} else {
-			console.log(
-				`The ${target.id} role was removed from the user user ${users[selectedUser].username}`
-			);
+				const groupToRemove = allGroups.find((g) => g.name === target.id);
+				if (groupToRemove) {
+					users[selectedUser].groups = users[selectedUser].groups.filter(g => g.id !== groupToRemove.id)
+					const r = await fetch(`${apiAddress}/api/users/groups/${users[selectedUser].id}`, {
+						credentials: 'include',
+						method: 'DELETE',
+						headers: {
+							"Content-Type": "application/json"
+						},
+						body: JSON.stringify({
+							group_ids: [
+								groupToRemove.id
+							]
+						})
+					});
+					if (r.ok) {
+						addToast({
+							message: `The ${target.id} group was removed from ${users[selectedUser].username}`,
+							type: ToastType.Info,
+							dismissible: true,
+							timeout: 1500
+						});
+					} else {
+						console.error(
+							`Remove group from user operation failed with status code ${r.status}: ${await r.text()}`
+						);
+					}
+				}
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
+		// You were trying to make it so that a user's roles would already be selected on load
+		users = await (await fetch(`${apiAddress}/api/users`, { credentials: 'include' })).json();
 		for (const group of allGroups) {
-			const element = document.getElementById(group) as HTMLInputElement;
-			if (users[selectedUser].groups.includes(group)) {
+			const element = document.getElementById(group.name) as HTMLInputElement;
+			if (users[selectedUser].groups.some((g) => g.name === group.name)) {
 				element.checked = true;
 			} else {
 				element.checked = false;
@@ -58,8 +118,8 @@
 <div class="container">
 	<ul class="user-menu">
 		<li class="header"><u>Users</u></li>
-		{#each users as user}
-			<li class={selectedUser == user.id ? 'selected-user' : ''} id={user.id.toString()}>
+		{#each users.entries() as [index, user]}
+			<li class={selectedUser == index ? 'selected-user' : ''} id={index.toString()}>
 				<button on:click={userSelectHandler}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -77,13 +137,18 @@
 		{/each}
 	</ul>
 	<ul class="group-menu">
-		<!-- Shhhhh -->
-		<li class="header" style="margin-left: 30%; justify-content: left;"><u>Permissions</u></li>
-		{#each allGroups as group}
+		<!-- Shush -->
+		<li class="header" style="margin-left: 30%; justify-content: left;"><u>Groups</u></li>
+		{#each allGroups.entries() as [index, group]}
 			<li>
-				<label for={group} class="checkbox-label">
-					<input on:change={checkboxToggleHandler} id={group} type="checkbox" name={group} />
-					{group}
+				<label for={group.name} class="checkbox-label">
+					<input
+						on:change={checkboxToggleHandler}
+						id={group.name}
+						type="checkbox"
+						name={group.name}
+					/>
+					{group.name}
 				</label>
 			</li>
 		{/each}

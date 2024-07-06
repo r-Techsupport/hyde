@@ -106,11 +106,16 @@
 	</ul>
 	<ul class="permission-menu">
 		<li class="header" style="justify-content: left; margin-left: 30%;"><u>Permissions</u></li>
-		{#each allPermissions as group}
+		{#each allPermissions as permission}
 			<li>
-				<label for={group} class="checkbox-label">
-					<input on:change={checkboxToggleHandler} id={group} type="checkbox" name={group} />
-					{group}
+				<label for={permission} class="checkbox-label">
+					<input
+						on:change={checkboxToggleHandler}
+						id={permission}
+						type="checkbox"
+						name={permission}
+					/>
+					{permission}
 				</label>
 			</li>
 		{/each}
