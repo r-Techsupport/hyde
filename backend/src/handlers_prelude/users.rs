@@ -54,13 +54,13 @@ pub async fn get_users_handler(
 
     match state.db.get_all_users().await {
         Ok(users) => {
-            let mut get_user_response = Vec::new();
+            let mut get_users_response = Vec::new();
 
             for user in users {
-                get_user_response.push(create_user_response(&state.db, user).await?);
+                get_users_response.push(create_user_response(&state.db, user).await?);
             }
 
-            Ok(Json(get_user_response))
+            Ok(Json(get_users_response))
         }
         Err(e) => {
             error!("An error was encountered fetching all users: {e:?}");
@@ -87,18 +87,13 @@ pub struct UpdateUserGroupsRequestBody {
     group_ids: Vec<i64>,
 }
 
-pub async fn put_user_membership_handler(
+pub async fn post_user_membership_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(user_id): Path<i64>,
     Json(body): Json<UpdateUserGroupsRequestBody>,
 ) -> Result<Json<UserResponse>, (StatusCode, String)> {
-    require_perms(
-        axum::extract::State(&state),
-        headers,
-        &[Permission::ManageUsers],
-    )
-    .await?;
+    require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
     for group_id in body.group_ids {
         state

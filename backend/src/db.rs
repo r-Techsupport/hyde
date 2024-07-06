@@ -9,7 +9,7 @@ use sqlx::SqlitePool;
 pub const DATABASE_URL: &str = "file:hyde-data/data.db?mode=rwc";
 
 // the ids have to be i64 because that's what sql uses
-#[derive(Debug, PartialEq, Eq, sqlx::FromRow)]
+#[derive(Debug, PartialEq, Eq, sqlx::FromRow, Serialize, Deserialize)]
 pub struct User {
     pub id: i64,
     pub username: String,

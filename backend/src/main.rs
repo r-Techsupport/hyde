@@ -11,7 +11,7 @@ pub mod perms;
 
 use axum::{
     http::HeaderValue,
-    routing::{delete, get, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use clap::{
@@ -138,7 +138,7 @@ async fn main() -> Result<()> {
         .route("/api/users", get(get_users_handler))
         .route(
             "/api/users/groups/:user_id",
-            put(put_user_membership_handler),
+            post(post_user_membership_handler),
         )
         .route(
             "/api/users/groups/:user_id",
@@ -147,16 +147,23 @@ async fn main() -> Result<()> {
         .route("/api/users/:user_id", delete(delete_user_handler))
         .route("/api/users/me", get(get_current_user_handler))
         .route("/api/users/me", delete(delete_current_user))
+        .route("/api/groups", get(get_groups_handler))
+        .route("/api/groups", post(post_group_handler))
+        .route(
+            "/api/groups/:group_id/permissions",
+            put(put_group_permissions_handler),
+        )
+        .route("/api/groups/:group_id", delete(delete_group_handler))
         .layer(if cfg!(debug_assertions) {
             CorsLayer::new()
                 // If this isn't set, cookies won't be sent across ports
                 .allow_credentials(true)
                 .allow_origin("http://localhost:5173".parse::<HeaderValue>()?)
-                .allow_methods([Method::GET, Method::PUT, Method::DELETE])
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
                 .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
         } else {
             CorsLayer::new()
-                .allow_methods([Method::GET, Method::PUT, Method::DELETE])
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
                 .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
         })
         .with_state(state)
