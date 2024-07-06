@@ -147,6 +147,13 @@ async fn main() -> Result<()> {
         .route("/api/users/:user_id", delete(delete_user_handler))
         .route("/api/users/me", get(get_current_user_handler))
         .route("/api/users/me", delete(delete_current_user))
+        .route("/api/groups", get(get_groups_handler))
+        .route("/api/groups", post(post_group_handler))
+        .route(
+            "/api/groups/:group_id/permissions",
+            put(put_group_permissions_handler),
+        )
+        .route("/api/groups/:group_id", delete(delete_group_handler))
         .layer(if cfg!(debug_assertions) {
             CorsLayer::new()
                 // If this isn't set, cookies won't be sent across ports
