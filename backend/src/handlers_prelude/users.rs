@@ -93,12 +93,7 @@ pub async fn post_user_membership_handler(
     Path(user_id): Path<i64>,
     Json(body): Json<UpdateUserGroupsRequestBody>,
 ) -> Result<Json<UserResponse>, (StatusCode, String)> {
-    require_perms(
-        axum::extract::State(&state),
-        headers,
-        &[Permission::ManageUsers],
-    )
-    .await?;
+    require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
     for group_id in body.group_ids {
         state
