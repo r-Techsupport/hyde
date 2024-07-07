@@ -8,18 +8,25 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::{Database, Group, User},
+    db::{Database, Group},
     eyre_to_axum_err,
     perms::Permission,
     require_perms, AppState,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct Member {
+    id: i64,
+    username: String,
+    avatar_url: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct GroupResponse {
     id: i64,
     name: String,
     permissions: Vec<Permission>,
-    members: Vec<User>,
+    members: Vec<Member>,
 }
 
 pub async fn create_group_response(
@@ -40,7 +47,14 @@ pub async fn create_group_response(
         id: group.id,
         name: group.name,
         permissions,
-        members,
+        members: members
+            .into_iter()
+            .map(|m| Member {
+                id: m.id,
+                username: m.username,
+                avatar_url: m.avatar_url,
+            })
+            .collect::<Vec<_>>(),
     })
 }
 
