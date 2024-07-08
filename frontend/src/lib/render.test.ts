@@ -3,7 +3,6 @@ import { stripFrontMatter } from './render';
 import { marked, type TokensList } from 'marked';
 
 const mocks = vi.hoisted(() => {
-
 	return {
 		addToast: vi.fn()
 	};
@@ -13,7 +12,7 @@ vi.mock('./toast', async (importOriginal) => {
 	const mod = await importOriginal<typeof import('./toast')>();
 	return {
 		...mod,
-		addToast: mocks.addToast,
+		addToast: mocks.addToast
 	};
 });
 
@@ -23,14 +22,13 @@ vi.mock('./main', async (importOriginal) => {
 	// A mock writeable store
 	const currentFile = {
 		subscribe: (func: (m: string) => undefined) => {
-			func("foo/bar")
+			func('foo/bar');
 			// The code that accesses this usually uses `get()`, which calls subscribe, then calls `unsubscribe`,
 			// which is the function returned by a `subscribe` call
 			// https://svelte.dev/docs/svelte-store#writable
 			return () => {};
-		},
-		
-	}
+		}
+	};
 	return {
 		...mod,
 		currentFile
