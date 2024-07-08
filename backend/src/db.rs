@@ -330,7 +330,7 @@ impl Database {
         Ok(())
     }
 
-    /// Delete the provided group (by id). This will also delete all members of that group.
+    /// Delete the provided group (by id). All users that were a member of that group will be removed from the group upon deletion.
     pub async fn delete_group(&self, group_id: i64) -> Result<()> {
         let query_result = sqlx::query(r"DELETE FROM groups WHERE id = ?")
             .bind(group_id)

@@ -122,11 +122,6 @@ export async function removePermissionFromGroup(group: GroupListEntry, permissio
  * @param group The group to delete
  */
 export async function deleteGroup(group: GroupListEntry) {
-	const usersToRemove = structuredClone(group.members);
-	for (const user of usersToRemove) {
-		console.log(`Removing ${group.name} in preparation for group deletion from `, user);
-		await removeUserFromGroup(user, group);
-	}
 	await fetch(`${apiAddress}/api/groups/${group.id}`, { credentials: 'include', method: 'DELETE' });
 	addToast({
 		message: `The ${group.name} group was deleted.`,
