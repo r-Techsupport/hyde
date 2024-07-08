@@ -117,7 +117,7 @@ pub async fn require_perms(
         },
         None => Err((
             StatusCode::UNAUTHORIZED,
-            "No valid user is authenticated.".to_string(),
+            "No valid user is authenticated, perhaps you forgot to add `{credentials: \"include\"}` in your fetch options?.".to_string(),
         )),
     }
 }

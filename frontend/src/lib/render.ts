@@ -6,6 +6,8 @@ import { Renderer, marked, type TokensList } from 'marked';
 import DOMPurify from 'dompurify';
 import { ToastType, addToast, dismissToast } from './toast';
 import { dev } from '$app/environment';
+import { get } from 'svelte/store';
+import { currentFile } from './main';
 
 let toastId = -1;
 /**
@@ -61,14 +63,16 @@ export function stripFrontMatter(input: TokensList) {
 			toastId = -1;
 		}
 	} else {
-		// -1 means the toast isn't displayed
-		if (toastId === -1) {
-			toastId = addToast({
-				message:
-					'No valid frontmatter header was found, please ensure all documents have a frontmatter header',
-				type: ToastType.Error,
-				dismissible: false
-			});
+		if (get(currentFile) !== '') {
+			// -1 means the toast isn't displayed
+			if (toastId === -1) {
+				toastId = addToast({
+					message:
+						'No valid frontmatter header was found, please ensure all documents have a frontmatter header',
+					type: ToastType.Error,
+					dismissible: false
+				});
+			}
 		}
 	}
 }

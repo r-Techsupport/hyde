@@ -116,7 +116,6 @@
 			if (me.id === -1) {
 				return;
 			}
-			console.log(me);
 			if (me.permissions.includes(Permission.ManageContent)) {
 				showEditor = true;
 			}

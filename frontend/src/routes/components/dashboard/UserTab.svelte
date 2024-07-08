@@ -1,18 +1,18 @@
-<!-- TODO: none of these changes are synced to the database -->
 <script lang="ts">
+	import { addUserToGroup, removeUserFromGroup } from '$lib/groups';
 	import { apiAddress } from '$lib/net';
 	import { addToast, ToastType } from '$lib/toast';
 	import type { Group, User } from '$lib/types';
 	import { onMount } from 'svelte';
 
 	// const allGroups = [{'Admin', 'Group 1', 'Group 2', 'Group 3'];
-	const allGroups: Group[] = [
+	let allGroups: Group[] = [
 		{
-			id: 0,
+			id: 1,
 			name: 'Admin'
 		},
 		{
-			id: 1,
+			id: 2,
 			name: 'Mock group 2'
 		}
 	];
@@ -23,7 +23,7 @@
 		selectedUser = Number(target.parentElement!.id);
 		for (const group of allGroups) {
 			const element = document.getElementById(group.name) as HTMLInputElement;
-			if (users[selectedUser].groups.includes(group)) {
+			if (users[selectedUser].groups!.includes(group)) {
 				element.checked = true;
 			} else {
 				element.checked = false;
@@ -36,29 +36,7 @@
 		if (target.checked) {
 			const groupToAdd = allGroups.find((g) => g.name === target.id);
 			if (groupToAdd) {
-				users[selectedUser].groups.push(groupToAdd);
-				const r = await fetch(`${apiAddress}/api/users/groups/${users[selectedUser].id}`, {
-					credentials: 'include',
-					method: 'PUT',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						group_ids: [groupToAdd.id]
-					})
-				});
-				if (r.ok) {
-					addToast({
-						message: `The ${target.id} group was added to the user ${users[selectedUser].username}`,
-						type: ToastType.Info,
-						dismissible: true,
-						timeout: 1500
-					});
-				} else {
-					console.error(
-						`Add group to user operation failed with status code ${r.status}: ${await r.text()}`
-					);
-				}
+				await addUserToGroup(users[selectedUser], groupToAdd);
 			} else {
 				addToast({
 					message:
@@ -71,41 +49,17 @@
 		} else {
 			const groupToRemove = allGroups.find((g) => g.name === target.id);
 			if (groupToRemove) {
-				users[selectedUser].groups = users[selectedUser].groups.filter(
-					(g) => g.id !== groupToRemove.id
-				);
-				const r = await fetch(`${apiAddress}/api/users/groups/${users[selectedUser].id}`, {
-					credentials: 'include',
-					method: 'DELETE',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						group_ids: [groupToRemove.id]
-					})
-				});
-				if (r.ok) {
-					addToast({
-						message: `The ${target.id} group was removed from ${users[selectedUser].username}`,
-						type: ToastType.Info,
-						dismissible: true,
-						timeout: 1500
-					});
-				} else {
-					console.error(
-						`Remove group from user operation failed with status code ${r.status}: ${await r.text()}`
-					);
-				}
+				await removeUserFromGroup(users[selectedUser], groupToRemove);
 			}
 		}
 	}
 
 	onMount(async () => {
-		// You were trying to make it so that a user's roles would already be selected on load
+		allGroups = await (await fetch(`${apiAddress}/api/groups`, { credentials: 'include' })).json();
 		users = await (await fetch(`${apiAddress}/api/users`, { credentials: 'include' })).json();
 		for (const group of allGroups) {
 			const element = document.getElementById(group.name) as HTMLInputElement;
-			if (users[selectedUser].groups.some((g) => g.name === group.name)) {
+			if (users[selectedUser].groups!.some((g) => g.name === group.name)) {
 				element.checked = true;
 			} else {
 				element.checked = false;

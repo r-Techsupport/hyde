@@ -1,22 +1,15 @@
 <!-- TODO: none of these changes are synced to the database -->
 <script lang="ts">
+	import { apiAddress } from '$lib/net';
+	import { addToast, ToastType } from '$lib/toast';
+	import { allPermissions, Permission } from '$lib/types.d';
 	import { onMount } from 'svelte';
 	import { tick } from 'svelte';
+	import { addPermissionToGroup, deleteGroup, removePermissionFromGroup } from '$lib/groups';
+	import { type GroupListEntry } from '$lib/groups';
 
-	const allPermissions = ['Manage Content', 'Manage Users'];
-	let groups = [
-		{
-			id: 0,
-			name: 'Admin',
-			permissions: ['Manage Content', 'Manage Users']
-		},
-		{
-			id: 1,
-			name: 'Group 1',
-			permissions: ['Manage Users']
-		}
-	];
-	let selectedGroup = 0;
+	let groups: GroupListEntry[] = [];
+	let selectedGroup = 1;
 
 	let showNewGroupInput = false;
 	let newGroupInput: HTMLInputElement;
@@ -24,7 +17,7 @@
 	function userSelectHandler(e: MouseEvent) {
 		const target = e.target as HTMLElement;
 		selectedGroup = Number(target.parentElement!.id);
-		for (const permission of allPermissions) {
+		for (const permission of allPermissions.keys()) {
 			const element = document.getElementById(permission) as HTMLInputElement;
 			if (groups[selectedGroup].permissions.includes(permission)) {
 				element.checked = true;
@@ -34,21 +27,18 @@
 		}
 	}
 
-	function checkboxToggleHandler(e: Event) {
+	async function checkboxToggleHandler(e: Event) {
 		const target = e.target as HTMLInputElement;
 		if (target.checked) {
-			console.log(
-				`The ${target.id} permission was added to the group ${groups[selectedGroup].name}`
-			);
+			addPermissionToGroup(groups[selectedGroup], target.id as Permission);
 		} else {
-			console.log(
-				`The ${target.id} permission was removed from the group ${groups[selectedGroup].name}`
-			);
+			removePermissionFromGroup(groups[selectedGroup], target.id as Permission);
 		}
 	}
 
-	onMount(() => {
-		for (const permission of allPermissions) {
+	onMount(async () => {
+		groups = await (await fetch(`${apiAddress}/api/groups`, { credentials: 'include' })).json();
+		for (const permission of allPermissions.keys()) {
 			const element = document.getElementById(permission) as HTMLInputElement;
 			if (groups[selectedGroup].permissions.includes(permission)) {
 				element.checked = true;
@@ -62,12 +52,35 @@
 <div class="container">
 	<ul class="group-menu">
 		<li class="header"><u>Groups</u></li>
-		{#each groups as group}
-			<li class={selectedGroup == group.id ? 'selected-group' : ''} id={group.id.toString()}>
-				<button on:click={userSelectHandler}>
-					<span>{group.name}</span>
-				</button>
-			</li>
+		{#each groups.entries() as [index, group]}
+			<!-- Prevent people from modifying the permissions on the admin group -->
+			{#if group.name !== 'Admin'}
+				<li class={selectedGroup == index ? 'selected-group' : ''} id={index.toString()}>
+					<button on:click={userSelectHandler}>
+						<!-- TODO: trashcan on right, label on center -->
+						<span>{group.name}</span>
+						<svg
+							on:click={async () => {
+								await deleteGroup(group);
+								groups = groups.filter((g) => g.name !== group.name);
+							}}
+							on:keydown={async () => {
+								await deleteGroup(group);
+								groups = groups.filter((g) => g.name !== group.name);
+							}}
+							role="button"
+							tabindex="0"
+							xmlns="http://www.w3.org/2000/svg"
+							height="24px"
+							viewBox="0 -960 960 960"
+							width="24px"
+							><path
+								d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"
+							/></svg
+						>
+					</button>
+				</li>
+			{/if}
 		{/each}
 		<!-- When a user is creating a new group, this is the input field -->
 		{#if showNewGroupInput}
@@ -77,12 +90,24 @@
 					on:blur={() => {
 						showNewGroupInput = false;
 					}}
-					on:keydown={(e) => {
+					on:keydown={async (e) => {
 						if (e.key === 'Enter') {
-							groups = [
-								...groups,
-								{ id: groups.length, name: newGroupInput.value, permissions: [] }
-							];
+							// TODO: migrate to a createGroup function
+							const newGroup = await (
+								await fetch(`${apiAddress}/api/groups`, {
+									method: 'POST',
+									credentials: 'include',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ group_name: newGroupInput.value })
+								})
+							).json();
+							groups = [...groups, newGroup];
+							addToast({
+								message: `The ${newGroup.name} group was created successfully`,
+								type: ToastType.Info,
+								dismissible: true,
+								timeout: 1500
+							});
 							showNewGroupInput = false;
 						}
 					}}
@@ -106,7 +131,7 @@
 	</ul>
 	<ul class="permission-menu">
 		<li class="header" style="justify-content: left; margin-left: 30%;"><u>Permissions</u></li>
-		{#each allPermissions as permission}
+		{#each allPermissions as [permission, label]}
 			<li>
 				<label for={permission} class="checkbox-label">
 					<input
@@ -115,7 +140,7 @@
 						type="checkbox"
 						name={permission}
 					/>
-					{permission}
+					{label}
 				</label>
 			</li>
 		{/each}
@@ -170,6 +195,21 @@
 	.group-menu button:hover {
 		background-color: var(--background-3);
 		cursor: pointer;
+	}
+
+	.group-menu svg {
+		margin-right: 0.3rem;
+		fill: transparent;
+	}
+
+	.group-menu button:hover svg {
+		fill: var(--background-4);
+	}
+
+	.group-menu button:hover svg:hover {
+		background-color: var(--background-3);
+		fill: var(--red);
+		border-radius: 0.2rem;
 	}
 
 	.selected-group {

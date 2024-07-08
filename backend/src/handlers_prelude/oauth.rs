@@ -106,7 +106,6 @@ async fn get_oath_processor(
     } else {
         "https://cdn.discordapp.com/embed/avatars/0.png".to_string()
     };
-    println!("{avatar_url}");
     // https://discord.com/developers/docs/reference#image-formatting
     let all_users = state.db.get_all_users().await?;
     // If the user doesn't already exist, create one
