@@ -23,7 +23,7 @@
 		selectedUser = Number(target.parentElement!.id);
 		for (const group of allGroups) {
 			const element = document.getElementById(group.name) as HTMLInputElement;
-			if (users[selectedUser].groups!.includes(group)) {
+			if (users[selectedUser].groups!.some(g => g.name === group.name)) {
 				element.checked = true;
 			} else {
 				element.checked = false;
