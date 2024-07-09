@@ -25,7 +25,7 @@
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-plugin-svelte": "^2.41.0",
 		"jsdom": "^24.1.0",
-		"prettier": "^3.3.1",
+		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.5",
 		"stylelint": "^16.6.1",
 		"stylelint-config-html": "^1.1.0",
