@@ -14,12 +14,11 @@ env:
   IMAGE: hyde
 
 jobs:
-  docker:
+  image-builder:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
-      attestations: write
       id-token: write
     steps:
       - name: Checkout
@@ -75,3 +74,26 @@ jobs:
           format: spdx-json
           upload-artifact: true
           upload-artifact-retention: 7
+
+  deploy-aca:
+      runs-on: ubuntu-latest
+      needs: image-builder
+      env:
+        RESOURCE_GROUP: rts-infra
+        CONTAINER_APP: hyde
+
+      steps:
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy container
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          registryUrl: ${{ env.REGISTRY }}
+          imageToDeploy: ${{ env.REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          targetPort: 8080
+          ingress: external
+          containerAppName: ${{ env.CONTAINER_APP }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
