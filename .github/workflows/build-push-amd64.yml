@@ -93,7 +93,7 @@ jobs:
         uses: azure/container-apps-deploy-action@v1
         with:
           registryUrl: ${{ env.REGISTRY }}
-          imageToDeploy: ${{ env.REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          imageToDeploy: ${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
           targetPort: 8080
           ingress: external
           containerAppName: ${{ env.CONTAINER_APP }}
