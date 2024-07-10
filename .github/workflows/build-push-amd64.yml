@@ -89,12 +89,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy container
-        uses: azure/container-apps-deploy-action@v1
+      - name: Add revision to ACA
+        uses: Azure/aca-review-apps@v0.2.0
+        id: aca_new_revision
         with:
-          registryUrl: ${{ env.REGISTRY }}
-          imageToDeploy: ${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
-          targetPort: 8080
-          ingress: external
-          containerAppName: ${{ env.CONTAINER_APP }}
-          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          name: ${{ env.CONTAINER_APP }}
+          revision-name-suffix: ${{ github.sha }}
+          image: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
