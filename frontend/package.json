@@ -15,17 +15,17 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.2",
-		"@sveltejs/kit": "^2.5.10",
+		"@sveltejs/kit": "^2.5.18",
 		"@sveltejs/vite-plugin-svelte": "^3.1.1",
 		"@types/dompurify": "^3.0.5",
 		"@types/eslint": "^8.56.0",
 		"@typescript-eslint/eslint-plugin": "^7.15.0",
-		"@typescript-eslint/parser": "^7.14.1",
+		"@typescript-eslint/parser": "^7.15.0",
 		"eslint": "^8.56.0",
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-plugin-svelte": "^2.41.0",
 		"jsdom": "^24.1.0",
-		"prettier": "^3.3.1",
+		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.5",
 		"stylelint": "^16.6.1",
 		"stylelint-config-html": "^1.1.0",
@@ -34,12 +34,12 @@
 		"svelte-check": "^3.8.1",
 		"tslib": "^2.6.3",
 		"typescript": "^5.5.3",
-		"vite": "^5.3.1",
+		"vite": "^5.3.3",
 		"vitest": "^1.6.0"
 	},
 	"type": "module",
 	"dependencies": {
-		"dompurify": "^3.1.5",
+		"dompurify": "^3.1.6",
 		"marked": "^13.0.0",
 		"marked-base-url": "^1.1.4"
 	}

@@ -61,7 +61,10 @@ jobs:
     needs: 
       - backend-build
       - frontend-build
-    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' 
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - name: Dependabot metadata

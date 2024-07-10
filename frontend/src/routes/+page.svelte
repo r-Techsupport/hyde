@@ -111,15 +111,6 @@
 	};
 
 	onMount(async () => {
-		me.set(await (await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' })).json());
-		me.subscribe((me) => {
-			if (me.id === -1) {
-				return;
-			}
-			if (me.permissions.includes(Permission.ManageContent)) {
-				showEditor = true;
-			}
-		});
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
 		if (!document.cookie.includes('username')) {
 			addToast({
@@ -137,6 +128,15 @@
 			}, 800);
 			return;
 		}
+		me.set(await (await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' })).json());
+		me.subscribe((me) => {
+			if (me.id === -1) {
+				return;
+			}
+			if (me.permissions.includes(Permission.ManageContent)) {
+				showEditor = true;
+			}
+		});
 	});
 </script>
 
