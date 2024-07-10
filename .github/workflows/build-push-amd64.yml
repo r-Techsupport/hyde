@@ -96,4 +96,4 @@ jobs:
           inlineScript: |
             az containerapp revision copy -n hyde -g rts-infra \
               --image ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE}}:${{ github.sha }} \
-              --revision-suffix ${{ github.sha }}
+              --revision-suffix ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
