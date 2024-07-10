@@ -5,8 +5,8 @@ npm run build
 Set-Location ..
 
 Write-Host "Copying frontend files..."
-New-Item -Path "target\web" -ItemType Directory
-Copy-Item -Path "frontend\build\*" -Destination "target\web"
+New-Item -Path "target\web" -ItemType Directory -ErrorAction SilentlyContinue
+Copy-Item -Path "frontend\build\*" -Destination "target\web" -Force
 
 Write-Host "Building the backend..."
 Set-Location backend
@@ -14,4 +14,4 @@ cargo build --release
 Set-Location ..
 
 Write-Host "Copying backend files..."
-Copy-Item -Path "backend\target\release\hyde-backend.exe" -Destination "target\hyde.exe"
+Copy-Item -Path "backend\target\release\hyde-backend.exe" -Destination "target\hyde.exe" -Force
