@@ -89,11 +89,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Add revision to ACA
-        uses: Azure/aca-review-apps@v0.2.0
-        id: aca_new_revision
+      - name: Run Azure CLI script
+        uses: azure/CLI@v1
         with:
-          resource-group: ${{ env.RESOURCE_GROUP }}
-          name: ${{ env.CONTAINER_APP }}
-          revision-name-suffix: ${{ github.sha }}
-          image: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
+          azcliversion: 2.61.0
+          inlineScript: |
+            az containerapp revision copy -n hyde -g rts-infra \
+              --image ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE}}:${{ github.sha }} \
+              --revision-suffix ${{ github.sha }}
