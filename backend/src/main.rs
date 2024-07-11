@@ -130,6 +130,7 @@ async fn main() -> Result<()> {
     // Initialize the handler and router
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello world" }))
+        .route("/api/logout", get(get_logout_handler))
         .route("/api/doc", get(get_doc_handler))
         .route("/api/doc", put(put_doc_handler))
         .route("/api/tree", get(get_tree_handler))
