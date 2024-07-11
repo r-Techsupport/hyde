@@ -1,4 +1,4 @@
-name: Publish Docker amd64 image
+name: Build image and push to ACA
 
 on:
   push:
