@@ -1,4 +1,4 @@
-name: Publish Docker amd64 image
+name: Container build and push to ACA
 
 on:
   push:
@@ -16,6 +16,8 @@ env:
 jobs:
   image-builder:
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     permissions:
       packages: write
     steps:
@@ -70,7 +72,7 @@ jobs:
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE}}
-          subject-digest: ${{ steps.push.outputs.digest }}
+          subject-digest: ${{ jobs.image-builder.outputs.digest }}
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
