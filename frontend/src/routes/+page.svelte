@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SideBar from './components/SideBar.svelte';
-	import FileNavigation from './components/FileNavigation.svelte';
-	import TopBar from './components/TopBar.svelte';
+	import SideBar from '$lib/components/SideBar.svelte';
+	import FileNavigation from '$lib/components/FileNavigation.svelte';
+	import TopBar from '$lib/components/TopBar.svelte';
 	import ChangeDialogue from './ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
@@ -13,9 +13,9 @@
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
-	import SettingsMenu from './components/SettingsMenu.svelte';
-	import AdminDashboard from './components/dashboard/AdminDashboard.svelte';
-	import Editor from './components/Editor.svelte';
+	import SettingsMenu from '$lib/components/SettingsMenu.svelte';
+	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
+	import Editor from '$lib/components/Editor.svelte';
 	import { Permission } from '$lib/types.d';
 
 	/** The text currently displayed in the editing window */
