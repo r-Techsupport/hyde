@@ -89,11 +89,18 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Run Azure CLI script
+      - name: Copy revision
         uses: azure/CLI@v1
         with:
           azcliversion: 2.61.0
           inlineScript: |
-            az containerapp revision copy -n hyde -g rts-infra \
+            az containerapp revision copy -n ${{ env.CONTAINER_APP }} -g ${{ env.RESOURCE_GROUP }} \
               --image ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE}}:${{ github.sha }} \
               --revision-suffix ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Activate revision
+        uses: azure/CLI@v1
+        with:
+          azcliversion: 2.61.0
+          inlineScript: |
+            az containerapp revision activate -n ${{ env.CONTAINER_APP }} -g ${{ env.RESOURCE_GROUP }} \
+            --revision ${{ env.IMAGE }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
