@@ -2,11 +2,9 @@ name: Build image and push to ACA
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "*"
   workflow_dispatch:
-  schedule:
-    - cron: "0 13 * * *"
 
 env:
   REGISTRY: ghcr.io
