@@ -72,7 +72,7 @@ jobs:
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE}}
-          subject-digest: ${{ jobs.image-builder.outputs.digest }}
+          subject-digest: ${{ needs.image-builder.outputs.digest }}
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
