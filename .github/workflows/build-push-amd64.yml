@@ -17,10 +17,8 @@ jobs:
   image-builder:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
       packages: write
       id-token: write
-      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,6 +59,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           file: Containerfile
 
+  sbom-attestation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      attestations: write
+    steps:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v1
         with:
