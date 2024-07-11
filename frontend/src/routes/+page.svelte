@@ -91,9 +91,9 @@
 			})
 		});
 		showLoadingIcon = false;
+		cache.flush();
 		switch (response.status) {
 			case 201:
-				// TODO: Show created message, flush cache
 				addToast({
 					message: 'Changes synced successfully.',
 					type: ToastType.Success,

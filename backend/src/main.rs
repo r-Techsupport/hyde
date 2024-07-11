@@ -184,8 +184,13 @@ async fn main() -> Result<()> {
 
     // `localhost` works on macos, but 0.0.0.0 breaks it, but 0.0.0.0 works everywhere but macos and in production
     // TODO: figure it out
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", cli_args.port)).await?;
-    info!("Application starting, listening on port {}", cli_args.port);
+    let address = if cfg!(debug_assertions) {
+        format!("localhost:{}", cli_args.port)
+    } else {
+        format!("0.0.0.0:{}", cli_args.port)
+    };
+    let listener = tokio::net::TcpListener::bind(&address).await?;
+    info!("Application starting, listening at {:?}", address);
     axum::serve(listener, app).await?;
 
     Ok(())
