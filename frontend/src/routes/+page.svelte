@@ -159,8 +159,15 @@
 				adminDashboardDialog.showModal();
 			}}
 		/>
-		{#if showEditor}
+		{#if showEditor && $currentFile !== ''}
 			<Editor bind:saveChangesHandler bind:editorText bind:previewWindow />
+		{:else}
+			<span class="nofile-placeholder">
+				<p>
+					No file selected, please select a file to start editing. If you're unable to select a
+					file, you might be missing the required permissions.
+				</p>
+			</span>
 		{/if}
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
@@ -174,5 +181,15 @@
 	.container {
 		background-color: var(--background-0);
 		display: flex;
+	}
+
+	.nofile-placeholder {
+		color: var(--foreground-3);
+		display: flex;
+	}
+
+	.nofile-placeholder p {
+		margin: 10%;
+		margin-top: 5%;
 	}
 </style>
