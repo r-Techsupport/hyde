@@ -103,4 +103,4 @@ jobs:
           azcliversion: 2.61.0
           inlineScript: |
             az containerapp revision activate -n ${{ env.CONTAINER_APP }} -g ${{ env.RESOURCE_GROUP }} \
-            --revision ${{ env.CONTAINER_APP }}-${{ github.run_id }}-${{ github.run_attempt }}
+            --revision ${{ env.CONTAINER_APP }}-${{ github.run_id }}${{ github.run_attempt }}
