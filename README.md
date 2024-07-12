@@ -37,7 +37,7 @@ nvm
 ### Running the project in development mode
 You can run the backend with `cargo run` from the `backend` folder. This will compile and launch a debug executable, listening on port 8080.
 
-Once the backend is running, in a separate terminal window, run `npm run dev` from the `frontend` folder to start the frontend, listening on `localhost:5173`.
+Once the backend is running, in a separate terminal window, run `npm run dev` from the `frontend` folder to start the frontend, listening on `localhost:5173`, viewable from your web browser.
 
 It's recommended that you configure your `rust-analyzer` installation to run `clippy` instead of `check`. See <https://users.rust-lang.org/t/how-to-use-clippy-in-vs-code-with-rust-analyzer/41881/2> for a guide, set `Check On Save: Command` to `clippy`. At the very least, run `cargo clippy` before committing to make sure your code passes lint.
 
@@ -56,7 +56,7 @@ Certain behaviors do differ between development and production builds, so be awa
 
 Hyde's logging can be configured by setting the `RUST_LOG` environment variable or using the `-v`/`--verbosity` command line flag. Possible values are: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, and `OFF`.
 
-Upon startup, Hyde will attempt to open a wiki repository found at `./repo` (relevant to the path of the running executable), and pull any upstream changes, or clone the repo into `./repo` if no repo was detected there.
+Upon startup, Hyde will attempt to open a wiki repository found at `./repo` (relevant to the path of the running executable), and pull any upstream changes, or clone the repo into `./repo` if no repo was detected there. The final product can be found by navigating to <http://localhost:8080> in your web browser.
 
 ## Testing
 To run the backend tests, navigate to `./backend`, and run `cargo test`.
