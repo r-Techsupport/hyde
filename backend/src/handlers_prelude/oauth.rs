@@ -7,12 +7,12 @@ use axum::{
 };
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl};
 use oauth2::{CsrfToken, TokenResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::AppState;
+use crate::{db::User, AppState};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetOAuthQuery {
@@ -100,24 +100,42 @@ async fn get_oath_processor(
         .send()
         .await?;
     // https://discord.com/developers/docs/resources/user#user-object
-    let user: DiscordUserObject = serde_json::from_slice(&response.bytes().await?)?;
-    let avatar_url = if let Some(hash) = user.avatar {
-        format!("https://cdn.discordapp.com/avatars/{}/{hash}.png", user.id)
+    let discord_user_info: DiscordUserObject = serde_json::from_slice(&response.bytes().await?)?;
+    let avatar_url = if let Some(hash) = discord_user_info.avatar {
+        format!(
+            "https://cdn.discordapp.com/avatars/{}/{hash}.png",
+            discord_user_info.id
+        )
     } else {
         "https://cdn.discordapp.com/embed/avatars/0.png".to_string()
     };
     // https://discord.com/developers/docs/reference#image-formatting
     let all_users = state.db.get_all_users().await?;
-    // If the user doesn't already exist, create one
-    if !all_users.iter().any(|u| u.username == user.username) {
-        let expiration_date = Utc::now()
-            + token_data
-                .expires_in()
-                .wrap_err("Discord OAuth2 response didn't include an expiration date")?;
+    let expiration_date = Utc::now()
+        + token_data
+            .expires_in()
+            .wrap_err("Discord OAuth2 response didn't include an expiration date")?;
+    // Update the user entry if one is already there, otherwise create a user
+    if let Some(existing_user) = all_users
+        .iter()
+        .find(|u| u.username == discord_user_info.username)
+    {
+        state
+            .db
+            .update_user(&User {
+                id: existing_user.id,
+                username: existing_user.username.clone(),
+                token: token.to_string(),
+                expiration_date: expiration_date.to_rfc3339(),
+                avatar_url,
+            })
+            .await?;
+        info!("User {:?} re-authenticated", existing_user.username);
+    } else {
         state
             .db
             .create_user(
-                user.username.to_string(),
+                discord_user_info.username.to_string(),
                 token.to_string(),
                 expiration_date.to_rfc3339(),
                 avatar_url,
@@ -125,7 +143,7 @@ async fn get_oath_processor(
             .await?;
         info!(
             "New user {:?} authenticated, entry added to database",
-            user.username
+            discord_user_info.username
         );
     }
     // If the user is the admin specified in the config, give them the admin role
@@ -147,7 +165,7 @@ async fn get_oath_processor(
                     .db
                     .add_group_membership(admin_group.id, admin_user.id)
                     .await?;
-                debug!("User {admin_username:?} was automatically added to the admin group based off of the server config");
+                info!("User {admin_username:?} was automatically added to the admin group based off of the server config");
             }
         }
     } else {
@@ -173,7 +191,7 @@ async fn get_oath_processor(
         "Set-Cookie",
         format!(
             "username={}; Path=/; Max-Age={}",
-            user.username,
+            discord_user_info.username,
             token_data.expires_in().unwrap().as_secs()
         )
         .parse()?,

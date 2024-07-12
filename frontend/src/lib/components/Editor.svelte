@@ -1,12 +1,38 @@
 <script lang="ts">
+	import { currentFile } from '$lib/main';
+	import { addToast, ToastType } from '$lib/toast';
+	import { get } from 'svelte/store';
+	import { cache } from '$lib/cache';
+
 	export let saveChangesHandler: () => Promise<void>;
+	async function cancelChangesHandler() {
+		if (editorText !== get(currentFile)) {
+			editorText =
+				(await cache.get(get(currentFile))) ??
+				"The current file doesn't exist in cache, please report to the developer";
+			addToast({
+				message: `Cancelled edits to "${get(currentFile)}""`,
+				type: ToastType.Success,
+				timeout: 1000,
+				dismissible: true
+			});
+		} else {
+			// TODO: The button should actually be disabled when there are no unsaved changes
+			addToast({
+				message: `There are no unsaved changes to "${get(currentFile)}""`,
+				type: ToastType.Error,
+				timeout: 1000,
+				dismissible: true
+			});
+		}
+	}
 	export let editorText: string;
 	export let previewWindow: HTMLElement;
 </script>
 
 <div class="editor-controls">
 	<!-- Cancel -->
-	<button class="cancel" title="Cancel Changes">
+	<button on:click={cancelChangesHandler} class="cancel" title="Cancel Changes">
 		<span>Cancel Changes</span>
 		<svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px">
 			<title>Cancel Changes</title>

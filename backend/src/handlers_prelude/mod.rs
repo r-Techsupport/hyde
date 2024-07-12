@@ -14,6 +14,8 @@ mod users;
 pub use users::*;
 mod groups;
 pub use groups::*;
+mod logout;
+pub use logout::*;
 
 use color_eyre::{
     eyre::{Context, ContextCompat},

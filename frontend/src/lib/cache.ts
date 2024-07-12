@@ -54,6 +54,13 @@ class AssetCache {
 
 		this.values.set(path, value);
 	}
+
+	/**
+	 * Completely empty the cache of all entries.
+	 */
+	flush() {
+		this.values.clear();
+	}
 }
 
 export const cache: AssetCache = new AssetCache();

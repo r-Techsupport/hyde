@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SideBar from './components/SideBar.svelte';
-	import FileNavigation from './components/FileNavigation.svelte';
-	import TopBar from './components/TopBar.svelte';
+	import SideBar from '$lib/components/SideBar.svelte';
+	import FileNavigation from '$lib/components/FileNavigation.svelte';
+	import TopBar from '$lib/components/TopBar.svelte';
 	import ChangeDialogue from './ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
@@ -13,9 +13,9 @@
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
-	import SettingsMenu from './components/SettingsMenu.svelte';
-	import AdminDashboard from './components/dashboard/AdminDashboard.svelte';
-	import Editor from './components/Editor.svelte';
+	import SettingsMenu from '$lib/components/SettingsMenu.svelte';
+	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
+	import Editor from '$lib/components/Editor.svelte';
 	import { Permission } from '$lib/types.d';
 
 	/** The text currently displayed in the editing window */
@@ -91,9 +91,9 @@
 			})
 		});
 		showLoadingIcon = false;
+		cache.flush();
 		switch (response.status) {
 			case 201:
-				// TODO: Show created message, flush cache
 				addToast({
 					message: 'Changes synced successfully.',
 					type: ToastType.Success,
@@ -159,8 +159,15 @@
 				adminDashboardDialog.showModal();
 			}}
 		/>
-		{#if showEditor}
+		{#if showEditor && $currentFile !== ''}
 			<Editor bind:saveChangesHandler bind:editorText bind:previewWindow />
+		{:else}
+			<span class="nofile-placeholder">
+				<p>
+					No file selected, please select a file to start editing. If you're unable to select a
+					file, you might be missing the required permissions.
+				</p>
+			</span>
 		{/if}
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
@@ -174,5 +181,15 @@
 	.container {
 		background-color: var(--background-0);
 		display: flex;
+	}
+
+	.nofile-placeholder {
+		color: var(--foreground-3);
+		display: flex;
+	}
+
+	.nofile-placeholder p {
+		margin: 10%;
+		margin-top: 5%;
 	}
 </style>
