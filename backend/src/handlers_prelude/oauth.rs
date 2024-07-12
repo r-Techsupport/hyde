@@ -7,10 +7,10 @@ use axum::{
 };
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat};
-use log::{error, info, warn};
 use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl};
 use oauth2::{CsrfToken, TokenResponse};
 use serde::{Deserialize, Serialize};
+use tracing::{error, info, warn};
 
 use crate::{db::User, AppState};
 

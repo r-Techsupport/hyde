@@ -3,9 +3,9 @@ use axum::{
     http::HeaderMap,
     Json,
 };
-use log::error;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 use crate::{
     db::{Database, Group},

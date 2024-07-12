@@ -2,7 +2,6 @@
 
 use color_eyre::{eyre::Context, Result};
 use git2::{Repository, Signature};
-use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -12,6 +11,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+use tracing::{debug, info, warn};
 
 #[derive(Clone)]
 pub struct Interface {
@@ -40,31 +40,7 @@ impl Interface {
             warn!("The `DOC_PATH` environment variable was not set, defaulting to `docs/`");
             "docs".to_string()
         }));
-        if let Ok(repo) = Repository::open("./repo") {
-            info!("Existing repository detected, fetching latest changes...");
-            let mut remote = repo.find_remote("origin")?;
-            remote.fetch(&["master"], None, None)?;
-            // Stuff with C bindings will sometimes require manual dropping if
-            // there's references and stuff
-            drop(remote);
-            info!("Successfully fetched latest changes");
-            return Ok(Self {
-                repo: Arc::new(Mutex::new(repo)),
-                doc_path,
-            });
-        }
-
-        let repository_url = env::var("REPO_URL")
-            .wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
-        let output_path = Path::new("./repo");
-        info!(
-            "No repo detected, cloning {repository_url:?} into {:?}...",
-            output_path.display()
-        );
-        // https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#about-authentication-as-a-github-app-installation
-        // TODO
-        let repo = Repository::clone(&repository_url, "./repo")?;
-        info!("Successfully cloned repo");
+        let repo = load_repository("./repo")?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
@@ -167,7 +143,7 @@ impl Interface {
             )
         })?;
         let sig = Signature::now("Hyde", "hyde")?;
-        let msg = format!("[CMS]: {message}");
+        let msg = format!("[Hyde]: {message}");
         // adapted from https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html
         let mut index = repo.index()?;
         // File paths are relative to the root of the repository for `add_path`
@@ -204,6 +180,34 @@ impl Interface {
         debug!("Commit cleanup completed");
         Ok(())
     }
+}
+
+/// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
+/// If not, clone into the provided path.
+#[tracing::instrument]
+fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Repository> {
+    if let Ok(repo) = Repository::open("./repo") {
+        info!("Existing repository detected, fetching latest changes...");
+        let mut remote = repo.find_remote("origin")?;
+        // TODO: configure branch via environment variables
+        remote.fetch(&["master"], None, None)?;
+        // Stuff with C bindings will sometimes require manual dropping if
+        // there's references and stuff
+        drop(remote);
+        info!("Successfully fetched latest changes");
+        return Ok(repo);
+    }
+
+    let repository_url = env::var("REPO_URL")
+        .wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
+    let output_path = Path::new("./repo");
+    info!(
+        "No repo detected, cloning {repository_url:?} into {:?}...",
+        output_path.display()
+    );
+    let repo = Repository::clone(&repository_url, "./repo")?;
+    info!("Successfully cloned repo");
+    Ok(repo)
 }
 
 /// This function is needed because a lot of git functionality (adding new commits, et cetera) requires knowing the latest commit.

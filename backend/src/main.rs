@@ -10,7 +10,9 @@ mod handlers_prelude;
 pub mod perms;
 
 use axum::{
-    http::HeaderValue,
+    extract::MatchedPath,
+    http::{HeaderValue, Request},
+    response::Response,
     routing::{delete, get, post, put},
     Router,
 };
@@ -24,19 +26,22 @@ use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
 #[cfg(target_family = "unix")]
-use log::error;
-use log::{debug, info, warn, LevelFilter};
+use tracing::{debug, error, info, info_span, warn};
+// use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
     Client, Method,
 };
 use std::env::{self, current_exe};
+use std::time::Duration;
 #[cfg(target_family = "unix")]
 use tokio::signal::unix::{signal, SignalKind};
+use tracing::{trace_span, Level, Span};
 
 use tokio::task;
 use tower_http::cors::CorsLayer;
+use tower_http::trace::TraceLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
 /// Global app state passed to handlers by axum
@@ -56,12 +61,12 @@ struct Args {
     #[arg(
         short = 'v',
         long = "verbosity",
-        default_value_t = LevelFilter::Info,
+        default_value_t = Level::INFO,
         help = "The logging level for the server.",
         value_parser = PossibleValuesParser::new(["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF"])
-            .map(|s| s.to_lowercase().parse::<LevelFilter>().unwrap())
+            .map(|s| s.to_lowercase().parse::<Level>().unwrap())
     )]
-    logging_level: LevelFilter,
+    logging_level: Level,
     #[arg(
         short,
         long,
@@ -85,8 +90,9 @@ async fn main() -> Result<()> {
         env::set_var(key, value);
     }
     // Initialize logging
-    env_logger::builder()
-        .filter(None, cli_args.logging_level)
+    tracing_subscriber::fmt()
+        .with_max_level(cli_args.logging_level)
+        .without_time()
         .init();
     debug!("Initialized logging");
     dotenvy::from_path(dotenv_path).unwrap_or_else(|_| {
@@ -181,7 +187,35 @@ async fn main() -> Result<()> {
                 .precompressed_gzip(),
         )
         // Enable support for routes that have or don't have a trailing slash
-        .layer(NormalizePathLayer::trim_trailing_slash());
+        .layer(NormalizePathLayer::trim_trailing_slash())
+        // https://github.com/tokio-rs/axum/blob/main/examples/tracing-aka-logging/src/main.rs
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &Request<_>| {
+                    // Log the matched route's path (with placeholders not filled in).
+                    // Use request.uri() or OriginalUri if you want the real path.
+                    let matched_path = request
+                        .extensions()
+                        .get::<MatchedPath>()
+                        .map(MatchedPath::as_str);
+
+                    trace_span!(
+                        "http_request",
+                        method = ?request.method(),
+                        path=matched_path,
+                        some_other_field = tracing::field::Empty,
+                    )
+                })
+                .on_request(|_request: &Request<_>, _span: &Span| {
+                    // You can use `_span.record("some_other_field", value)` in one of these
+                    // closures to attach a value to the initially empty field in the info_span
+                    // created above.
+                })
+                .on_response(|response: &Response, latency: Duration, _span: &Span| {
+                    let latency_ms = format!("{}ms", latency.as_millis());
+                    info!(latency=%latency_ms, status=%response.status(), "Handled request");
+                }),
+        );
 
     // `localhost` works on macos, but 0.0.0.0 breaks it, but 0.0.0.0 works everywhere but macos and in production
     // TODO: figure it out

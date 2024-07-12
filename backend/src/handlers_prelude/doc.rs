@@ -4,8 +4,8 @@ use axum::{
     http::{HeaderMap, StatusCode},
     Json,
 };
-use log::{error, warn};
 use serde::{Deserialize, Serialize};
+use tracing::{error, warn};
 
 use crate::{perms::Permission, require_perms, AppState};
 
