@@ -42,7 +42,7 @@ Once the backend is running, in a separate terminal window, run `npm run dev` fr
 It's recommended that you configure your `rust-analyzer` installation to run `clippy` instead of `check`. See <https://users.rust-lang.org/t/how-to-use-clippy-in-vs-code-with-rust-analyzer/41881/2> for a guide, set `Check On Save: Command` to `clippy`. At the very least, run `cargo clippy` before committing to make sure your code passes lint.
 
 
-### Running the project in release mode (production)
+### Building the project in release mode (production)
 While build scripts exist for Windows (`./build.ps1`) and *nix (`./build.sh`), you may find it helpful to understand what a production build of Hyde looks like.
 
 Build scripts should assemble the final product into `./target`. It consists of:
@@ -57,6 +57,19 @@ Certain behaviors do differ between development and production builds, so be awa
 Hyde's logging can be configured by setting the `RUST_LOG` environment variable or using the `-v`/`--verbosity` command line flag. Possible values are: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, and `OFF`.
 
 Upon startup, Hyde will attempt to open a wiki repository found at `./repo` (relevant to the path of the running executable), and pull any upstream changes, or clone the repo into `./repo` if no repo was detected there. The final product can be found by navigating to <http://localhost:8080> in your web browser.
+
+### Building a containerized version of the project
+This does not require that you have language tooling installed (Rust, JavaScript), only requiring an OCI implementation of your choice.
+
+Docker:
+```sh
+docker build -t hyde .
+```
+
+Podman:
+```sh
+podman build -t hyde .
+```
 
 ## Testing
 To run the backend tests, navigate to `./backend`, and run `cargo test`.
