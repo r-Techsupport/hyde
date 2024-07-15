@@ -49,13 +49,12 @@
 
 <style>
 	.top-bar {
-		/* float: right; */
 		display: flex;
 		background-color: var(--background-2);
 		height: 4rem;
 		justify-content: right;
 		align-items: center;
-		width: calc(100vw - var(--sidebar-width));
+		width: 100%;
 	}
 
 	.top-bar * {

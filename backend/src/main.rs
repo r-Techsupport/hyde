@@ -234,7 +234,7 @@ async fn main() -> Result<()> {
 
 /// Initialize an instance of [`AppState`]
 async fn init_state() -> Result<AppState> {
-    let git = task::spawn(async { git::Interface::lazy_init() });
+    let git = task::spawn(async { git::Interface::new() });
     let oauth = {
         let client_id = env::var("OAUTH_CLIENT_ID").unwrap_or_else(|_| {
             warn!("The `OAUTH_CLIENT_ID` environment variable is not set, oauth functionality will be broken");

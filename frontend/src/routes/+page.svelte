@@ -148,7 +148,7 @@
 			<FileNavigation on:fileselect={fileSelectionHandler} {...rootNode} />
 		</div>
 	</SideBar>
-	<div style="display: flex; flex-direction: column; height: 100vh;">
+	<div style="display: flex; flex-direction: column; height: 100vh; width: 100%;">
 		<TopBar
 			on:settingsopen={() => {
 				showSettingsMenu = true;
