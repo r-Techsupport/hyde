@@ -1,7 +1,9 @@
 <!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, tick } from 'svelte';
 	import { currentFile } from '$lib/main';
+	import { cache } from '$lib/cache';
+	import { get } from 'svelte/store';
 	interface INode {
 		name: string;
 		children: INode[];
@@ -13,10 +15,14 @@
 	export let path = name;
 	let selected = false;
 	let open = false;
+	let showOptionsMenu = false;
+	let optionsMenu: HTMLDivElement;
+	let showNewFileInput = false;
+	let newFileInput: HTMLInputElement;
 
 	const dispatch = createEventDispatcher();
 
-	function clickHandler() {
+	function fileClickHandler() {
 		// If it's a directory, hide and show children
 		if (children.length > 0) {
 			open = !open;
@@ -36,16 +42,22 @@
 			selected = false;
 		}
 	});
+
+	async function createDocumentHandler() {
+		showOptionsMenu = false;
+		showNewFileInput = true;
+		await tick();
+		newFileInput.value = ".md";
+		newFileInput.setSelectionRange(0, 0);
+		newFileInput.focus();
+	}
 </script>
 
-<!-- {#if selected} -->
-<button
-	on:click={clickHandler}
-	style="padding-left: {indent}rem"
-	class={selected ? 'selected' : ''}
->
-	<span class="container">
+<span class={'container' + (selected ? ' selected' : '')}>
+	<button on:click={fileClickHandler} style="padding-left: {indent}rem" class="entry-button">
 		{#if children.length > 0}
+			<!-- Rendering if the navigation item is a directory -->
+			<!-- The chevron -->
 			{#if !open}
 				<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"
 					><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" /></svg
@@ -60,10 +72,91 @@
 					width="24px"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" /></svg
 				>
 			{/if}
+
+			{name}
+		{:else}
+			<!-- Rendering if the navigation item is a file -->
+			{name}
 		{/if}
-		{name}
+	</button>
+	<!-- The options button for add new file et cetera -->
+	<button
+		on:click={async () => {
+			showOptionsMenu = true;
+			await tick();
+			optionsMenu.focus();
+		}}
+		class="entry-option-menu"
+	>
+		<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px"
+			><path
+				d="M240-400q-33 0-56.5-23.5T160-480q0-33 23.5-56.5T240-560q33 0 56.5 23.5T320-480q0 33-23.5 56.5T240-400Zm240 0q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm240 0q-33 0-56.5-23.5T640-480q0-33 23.5-56.5T720-560q33 0 56.5 23.5T800-480q0 33-23.5 56.5T720-400Z"
+			/></svg
+		>
+	</button>
+</span>
+
+{#if showNewFileInput}
+	<span>
+		<input
+			on:keydown={(e) => {
+				if (e.key === 'Enter') {
+					open = true;
+					children = [...children, { name: newFileInput.value, children: [] }];
+					showNewFileInput = false;
+					const now = new Date(Date.now());
+					cache.set(path + newFileInput.value, 
+`---
+layout: default
+title: Your Document Title Here
+nav_exclude: false
+has_children: false
+parent: Parent Folder Name Here
+search_exclude: false
+last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
+---\n\n`
+				);
+					currentFile.set(path + newFileInput.value);
+					console.log(cache.get(get(currentFile)));
+				}
+				if (e.key === 'Escape') {
+					showNewFileInput = false;	
+				}
+			}}
+			on:blur={() => {
+				showNewFileInput = false;
+			}}
+			bind:this={newFileInput}
+			class="newfile-input"
+			type="text"
+		/>
 	</span>
-</button>
+{/if}
+
+{#if showOptionsMenu}
+	<div on:click={() => {showOptionsMenu = false;}} on:keydown={(e) => {
+		if (e.key === "Escape") {
+			showOptionsMenu = false;
+		}
+	}} role="button" tabindex="0" class="options-menu-backdrop"></div>
+	<div tabindex="-1" bind:this={optionsMenu} class="options-menu">
+		{#if children.length > 0}
+			<!-- Options for if the entry is a directory -->
+			<button on:click={createDocumentHandler}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					height="24px"
+					viewBox="0 -960 960 960"
+					width="24px"
+					fill="#e8eaed"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
+				>
+				Create New Document
+			</button>
+		{:else}
+			<!-- Options for if the entry is a file -->
+		{/if}
+	</div>
+{/if}
 
 {#if open}
 	{#each children as child}
@@ -78,7 +171,7 @@
 {/if}
 
 <style>
-	button {
+	.entry-button {
 		display: flex;
 		cursor: pointer;
 		user-select: none;
@@ -86,6 +179,9 @@
 		background: none;
 		color: var(--foreground-0);
 		font-size: inherit;
+		align-items: center;
+
+		/* Sizing, spacing */
 		width: 98%;
 		border-radius: 5px;
 		margin-left: 1%;
@@ -97,17 +193,29 @@
 		text-overflow: ellipsis;
 	}
 
-	button * {
+	.entry-button * {
 		text-overflow: ellipsis;
 		vertical-align: middle;
 	}
 
-	button:hover {
+	.container {
+		display: flex;
+		border-radius: 5px;
+		width: 98%;
+		margin: auto;
+	}
+
+	.container:hover {
 		background-color: var(--background-3);
+	}
+
+	.container svg {
+		fill: var(--foreground-5);
 	}
 
 	.selected {
 		background-color: var(--background-3);
+		border: none;
 		border-left: 3px solid var(--foreground-5);
 	}
 
@@ -115,12 +223,71 @@
 		background-color: var(--background-4);
 	}
 
-	svg {
-		fill: var(--background-4);
+	.entry-option-menu {
+		cursor: pointer;
+		fill: var(--foreground-0);
+		background: transparent;
+		border: none;
+		border-radius: 5px;
+		margin-left: auto;
 	}
 
-	.container {
+	.entry-option-menu svg {
+		fill: transparent;
+	}
+
+	.container:hover > .entry-option-menu > svg {
+		fill: var(--foreground-2);
+	}
+
+	.entry-option-menu:hover {
+		background: var(--foreground-5);
+	}
+
+	.options-menu {
+		position: absolute;
+		margin: 0.2rem;
+		width: 15rem;
+		background-color: var(--background-2);
+		border-radius: 5px;
+	}
+
+	.options-menu button {
 		display: flex;
+		color: var(--foreground-1);
+		/* font-size: 1rem; */
 		align-items: center;
+		padding-left: 1rem;
+		width: 100%;
+		height: 2rem;
+		border-radius: 0.5rem;
+		background-color: transparent;
+		border: none;
+	}
+
+	.options-menu svg {
+		margin-right: 0.3rem;
+		fill: var(--foreground-1);
+	}
+
+	.options-menu button:hover {
+		background-color: var(--background-3);
+		cursor: pointer;
+	}
+
+	.options-menu-backdrop {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100vw;
+		height: 100vh;
+	}
+
+	.newfile-input {
+		height: 2rem;
+		background-color: var(--background-2);
+		border: none;
+		color: var(--foreground-0);
+		width: 100%;
 	}
 </style>

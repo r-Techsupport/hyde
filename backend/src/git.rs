@@ -34,7 +34,7 @@ impl Interface {
     /// # Errors
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn lazy_init() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let mut doc_path = PathBuf::from("./repo");
         doc_path.push(env::var("DOC_PATH").unwrap_or_else(|_| {
             warn!("The `DOC_PATH` environment variable was not set, defaulting to `docs/`");
@@ -55,7 +55,8 @@ impl Interface {
     ///
     /// # Errors
     /// This function will return an error if filesystem operations fail.
-    pub fn get_doc<P: AsRef<Path>>(&self, path: P) -> Result<Option<String>> {
+    #[tracing::instrument(skip(self))]
+    pub fn get_doc<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<Option<String>> {
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
@@ -73,6 +74,7 @@ impl Interface {
     ///
     /// # Errors
     /// This function fails if filesystem ops fail (reading file, reading directory)
+    #[tracing::instrument(skip(self))]
     pub fn get_doc_tree(&self) -> Result<INode> {
         fn recurse_tree(dir: &Path, node: &mut INode) -> Result<()> {
             for entry in fs::read_dir(dir)? {
@@ -107,8 +109,9 @@ impl Interface {
         Ok(root_node)
     }
 
-    /// Replace the document at the provided path
-    /// (relative to the root of the documents folder) with a new document
+    /// Create or overwrite the document at the provided `path` and populate it with the value of `new_doc`.
+    /// `message` will be included in the commit message, and `token` is a valid github auth token.
+    /// 
     /// # Panics
     /// This function will panic if it's called when the repo mutex is already held by the current thread
     ///
@@ -117,7 +120,8 @@ impl Interface {
     // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
     // it creates errors that note the destructor for other values failing because of it (tree)
     #[allow(clippy::significant_drop_tightening)]
-    pub fn put_doc<P: AsRef<Path> + Copy>(
+    #[tracing::instrument(skip(self))]
+    pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
         path: P,
         new_doc: &str,
@@ -180,6 +184,7 @@ impl Interface {
         debug!("Commit cleanup completed");
         Ok(())
     }
+
 }
 
 /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
