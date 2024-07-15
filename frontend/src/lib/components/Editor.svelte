@@ -65,7 +65,7 @@
 <style>
 	.editor-controls {
 		padding-right: 0.5rem;
-		margin-top: 0.2rem;
+		margin: 0.2rem, 0;
 		border-bottom: 0.07rem var(--foreground-4) solid;
 		display: flex;
 		justify-content: right;

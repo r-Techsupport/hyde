@@ -64,6 +64,7 @@
 	async function fileSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if (get(currentFile) === '' || (await cache.get(get(currentFile))) === editorText) {
+			showEditor = true;
 			currentFile.set(e.detail.path);
 			editorText =
 				(await cache.get(e.detail.path)) ??
