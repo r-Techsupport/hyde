@@ -28,8 +28,8 @@
 	}
 	export let editorText: string;
 	currentFile.subscribe(async (v) => {
-		editorText = await cache.get(v) ?? "";
-	})
+		editorText = (await cache.get(v)) ?? '';
+	});
 	export let previewWindow: HTMLElement;
 </script>
 

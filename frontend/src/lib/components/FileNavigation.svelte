@@ -47,7 +47,7 @@
 		showOptionsMenu = false;
 		showNewFileInput = true;
 		await tick();
-		newFileInput.value = ".md";
+		newFileInput.value = '.md';
 		newFileInput.setSelectionRange(0, 0);
 		newFileInput.focus();
 	}
@@ -105,8 +105,9 @@
 					children = [...children, { name: newFileInput.value, children: [] }];
 					showNewFileInput = false;
 					const now = new Date(Date.now());
-					cache.set(path + newFileInput.value, 
-`---
+					cache.set(
+						path + newFileInput.value,
+						`---
 layout: default
 title: Your Document Title Here
 nav_exclude: false
@@ -115,12 +116,12 @@ parent: Parent Folder Name Here
 search_exclude: false
 last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 ---\n\n`
-				);
+					);
 					currentFile.set(path + newFileInput.value);
 					console.log(cache.get(get(currentFile)));
 				}
 				if (e.key === 'Escape') {
-					showNewFileInput = false;	
+					showNewFileInput = false;
 				}
 			}}
 			on:blur={() => {
@@ -134,11 +135,19 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 {/if}
 
 {#if showOptionsMenu}
-	<div on:click={() => {showOptionsMenu = false;}} on:keydown={(e) => {
-		if (e.key === "Escape") {
+	<div
+		on:click={() => {
 			showOptionsMenu = false;
-		}
-	}} role="button" tabindex="0" class="options-menu-backdrop"></div>
+		}}
+		on:keydown={(e) => {
+			if (e.key === 'Escape') {
+				showOptionsMenu = false;
+			}
+		}}
+		role="button"
+		tabindex="0"
+		class="options-menu-backdrop"
+	></div>
 	<div tabindex="-1" bind:this={optionsMenu} class="options-menu">
 		{#if children.length > 0}
 			<!-- Options for if the entry is a directory -->
@@ -236,10 +245,6 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 		fill: transparent;
 	}
 
-	.container:hover > .entry-option-menu > svg {
-		fill: var(--foreground-2);
-	}
-
 	.entry-option-menu:hover {
 		background: var(--foreground-5);
 	}
@@ -255,7 +260,6 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 	.options-menu button {
 		display: flex;
 		color: var(--foreground-1);
-		/* font-size: 1rem; */
 		align-items: center;
 		padding-left: 1rem;
 		width: 100%;
@@ -273,6 +277,10 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 	.options-menu button:hover {
 		background-color: var(--background-3);
 		cursor: pointer;
+	}
+
+	.container:hover > .entry-option-menu > svg {
+		fill: var(--foreground-2);
 	}
 
 	.options-menu-backdrop {
