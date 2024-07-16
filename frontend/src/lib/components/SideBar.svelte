@@ -63,6 +63,7 @@
 <style>
 	/* TODO: Resizeable sidebar, make file nav rendering more elegant */
 	.side-bar {
+		flex-shrink: 0;
 		background-color: var(--background-1);
 		width: var(--sidebar-width);
 		height: 100vh;
