@@ -111,7 +111,7 @@ impl Interface {
 
     /// Create or overwrite the document at the provided `path` and populate it with the value of `new_doc`.
     /// `message` will be included in the commit message, and `token` is a valid github auth token.
-    /// 
+    ///
     /// # Panics
     /// This function will panic if it's called when the repo mutex is already held by the current thread
     ///
@@ -184,7 +184,6 @@ impl Interface {
         debug!("Commit cleanup completed");
         Ok(())
     }
-
 }
 
 /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.

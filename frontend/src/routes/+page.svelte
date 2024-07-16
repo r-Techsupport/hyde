@@ -129,6 +129,24 @@
 			}, 800);
 			return;
 		}
+		const loginResponse = await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' });
+		// Unauthorized, need to login
+		if (loginResponse.status === 401) {
+			addToast({
+				message: 'Your login has expired, redirecting...',
+				type: ToastType.Error,
+				dismissible: false
+			});
+			setTimeout(() => {
+				// TODO: When .html stripping middleware is complete, change this to always redirect to /login`
+				if (dev) {
+					window.location.href = '/login';
+				} else {
+					window.location.href = '/login.html';
+				}
+			}, 800);
+			return;
+		}
 		me.set(await (await fetch(`${apiAddress}/api/users/me`, { credentials: 'include' })).json());
 		me.subscribe((me) => {
 			if (me.id === -1) {
