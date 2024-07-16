@@ -116,7 +116,10 @@ async fn get_oath_processor(
             .expires_in()
             .wrap_err("Discord OAuth2 response didn't include an expiration date")?;
     // Update the user entry if one is already there, otherwise create a user
-    if let Some(existing_user) = all_users.iter().find(|u| u.username == discord_user_info.username) {
+    if let Some(existing_user) = all_users
+        .iter()
+        .find(|u| u.username == discord_user_info.username)
+    {
         state
             .db
             .update_user(&User {

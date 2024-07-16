@@ -1,7 +1,8 @@
 //! Abstractions and interfaces over the git repository
 
+use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{Repository, Signature};
+use git2::{AnnotatedCommit, FetchOptions, Repository, Signature};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -40,7 +41,7 @@ impl Interface {
             warn!("The `DOC_PATH` environment variable was not set, defaulting to `docs/`");
             "docs".to_string()
         }));
-        let repo = load_repository("./repo")?;
+        let repo = Self::load_repository("./repo")?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
@@ -161,7 +162,7 @@ impl Interface {
             let oid = index.write_tree()?;
             repo.find_tree(oid)?
         };
-        let parent_commit = find_last_commit(&repo)?;
+        let parent_commit = Self::find_last_commit(&repo)?;
         // TODO: parent commit, staging?
         let commit_id = repo.commit(Some("HEAD"), &sig, &sig, &msg, &tree, &[&parent_commit])?;
         debug!("New commit made with ID: {:?}", commit_id);
@@ -184,41 +185,171 @@ impl Interface {
         debug!("Commit cleanup completed");
         Ok(())
     }
-}
 
-/// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
-/// If not, clone into the provided path.
-#[tracing::instrument]
-fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Repository> {
-    if let Ok(repo) = Repository::open("./repo") {
-        info!("Existing repository detected, fetching latest changes...");
-        let mut remote = repo.find_remote("origin")?;
+    /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
+    /// If not, clone into the provided path.
+    #[tracing::instrument]
+    fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Repository> {
+        if let Ok(repo) = Repository::open("./repo") {
+            Self::git_pull(&repo)?;
+            info!("Existing repository detected, fetching latest changes...");
+            return Ok(repo);
+        }
+
+        let repository_url = env::var("REPO_URL")
+            .wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
+        let output_path = Path::new("./repo");
+        info!(
+            "No repo detected, cloning {repository_url:?} into {:?}...",
+            output_path.display()
+        );
+        let repo = Repository::clone(&repository_url, "./repo")?;
+        info!("Successfully cloned repo");
+        Ok(repo)
+    }
+
+    // TODO: move commit code to separate function
+
+    /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
+    ///
+    /// Under the hood, `git pull` is shorthand for `git fetch`, followed by `git merge FETCH_HEAD`,
+    /// where`FETCH_HEAD` is a reference to the latest commit that has just been fetched from the remote repository.
+    fn git_pull(repo: &Repository) -> Result<()> {
+        // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs
         // TODO: configure branch via environment variables
-        remote.fetch(&["master"], None, None)?;
+        let fetch_head = Self::git_fetch(repo)?;
+        info!("Successfully fetched latest changes, merging...");
+        Self::git_merge(repo, "master", fetch_head)?;
+        info!("Successfully merged latest changes");
+        Ok(())
+    }
+
+    /// A code level re-implementation of `git fetch`. `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
+    /// merge those changes into `main`.
+    ///
+    /// This implementation fetches all branches.
+    ///
+    /// Returns a reference to the latest commit fetched from remote (`FETCH_HEAD`). This is done if you'd like to merge the remote changes into a local branch.
+    fn git_fetch(repo: &Repository) -> Result<AnnotatedCommit<'_>> {
+        let mut remote = repo.find_remote("origin")?;
+        // "Always fetch all tags."
+        // In Git, a `tag` is just a way to mark specific points in a repository's history. They're typically used for releases, eg `v1.0`.
+        let mut fetch_options = FetchOptions::new();
+        fetch_options.download_tags(git2::AutotagOption::All);
+        // https://git-scm.com/book/en/v2/Git-Internals-The-Refspec
+        remote.fetch(
+            &["+refs/heads/*:refs/remotes/origin/*"],
+            Some(&mut fetch_options),
+            None,
+        )?;
         // Stuff with C bindings will sometimes require manual dropping if
         // there's references and stuff
         drop(remote);
-        info!("Successfully fetched latest changes");
-        return Ok(repo);
+
+        let fetch_head = repo.find_reference("FETCH_HEAD")?;
+        Ok(repo.reference_to_annotated_commit(&fetch_head)?)
     }
 
-    let repository_url = env::var("REPO_URL")
-        .wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
-    let output_path = Path::new("./repo");
-    info!(
-        "No repo detected, cloning {repository_url:?} into {:?}...",
-        output_path.display()
-    );
-    let repo = Repository::clone(&repository_url, "./repo")?;
-    info!("Successfully cloned repo");
-    Ok(repo)
-}
+    /// A code level re-implementation of `git merge`. It accepts a [`git2::AnnotatedCommit`]. The interface
+    /// is specifically written as the second half of `git pull`, so it would probably need to be modified to support
+    /// more than that.
+    fn git_merge(repo: &Repository, remote_branch: &str, fetch_commit: AnnotatedCommit<'_>) -> Result<()> {
+        // First perform a merge analysis, this is done so that we know whether or not to fast forward
+        let analysis = repo.merge_analysis(&[&fetch_commit])?;
 
-/// This function is needed because a lot of git functionality (adding new commits, et cetera) requires knowing the latest commit.
-///
-/// <https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html>
-fn find_last_commit(repo: &Repository) -> Result<git2::Commit, git2::Error> {
-    let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
-    obj.into_commit()
-        .map_err(|_| git2::Error::from_str("Couldn't find commit"))
+        // Then select the appropriate merge, either a fast forward or a normal merge
+        if analysis.0.is_fast_forward() {
+
+            debug!("Performing fast forward merge");
+            let refname = format!("refs/heads/{}", remote_branch);
+            // This code will return early with an error if pulling into an empty repository.
+            // That *should* never happen, so that handling was omitted, but if it's needed, 
+            // an example can be found at:
+            // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs#L160
+            let mut reference = repo.find_reference(&refname)?;
+            Self::fast_forward(repo, &mut reference, &fetch_commit)?;
+        } else if analysis.0.is_normal() {
+            debug!("Performing normal merge");
+            let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
+            Self::normal_merge(repo, &fetch_commit, &head_commit)?;
+        } else {
+            debug!("No work needed to merge");
+        }
+        Ok(())
+    }
+
+    /// This is a helper function called by [`Self::git_merge`], you probably don't want to call this
+    /// directly.
+    ///
+    /// Merge the the `source` reference commit into on top of the reference `destination` commit.
+    /// This is considered a "normal merge", as opposed to a fast forward merge. See [`Self::fast_forward`]
+    /// for more info.
+    fn normal_merge(
+        repo: &Repository,
+        source: &AnnotatedCommit,
+        destination: &AnnotatedCommit,
+    ) -> Result<()> {
+        let source_tree = repo.find_commit(source.id())?.tree()?;
+        let destination_tree = repo.find_commit(destination.id())?.tree()?;
+        // The ancestor is the most recent commit that the source and destination share.
+        let ancestor = repo
+            .find_commit(repo.merge_base(source.id(), destination.id())?)?
+            .tree()?;
+        // A git index (or staging area) is where changes are written before they're committed.
+        let mut idx = repo.merge_trees(&ancestor, &source_tree, &destination_tree, None)?;
+        if idx.has_conflicts() {
+            bail!("Unable to merge changes from {:?} into {:?} because there are merge conflicts and method is currently implemented to handle merge conflicts.", source.refname().unwrap(), destination.refname().unwrap());
+        }
+        // Write the changes to disk, then create and attach a merge commit to that tree then update the working tree to the latest commit.
+        let result_tree = repo.find_tree(idx.write_tree()?)?;
+        let _merge_commit = {
+            let msg = format!("Merge: {} into {}", source.id(), destination.id());
+            let sig = repo.signature()?;
+            let destination_commit_parent = repo.find_commit(destination.id())?;
+            let source_commit_parent = repo.find_commit(source.id())?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                &msg,
+                &result_tree,
+                &[&destination_commit_parent, &source_commit_parent],
+            )?
+        };
+        // Now update the working tree
+        repo.checkout_head(None)?;
+
+        Ok(())
+    }
+
+    /// This is a helper function used by [`Self::git_merge`], you probably don't want to call it
+    /// directly.
+    ///
+    /// In some cases, a merge can be simplified by just moving the `HEAD` pointer forwards if the new
+    /// commits are direct ancestors of the old `HEAD`.
+    fn fast_forward(
+        repo: &Repository,
+        local_branch: &mut git2::Reference,
+        remote_commit: &AnnotatedCommit,
+    ) -> Result<()> {
+        let lb_name = local_branch.name().wrap_err("Local branch name isn't valid UTF-8")?.to_string();
+        let msg = format!(
+            "Fast forwarding: Setting {lb_name} to id: {}",
+            remote_commit.id()
+        );
+        debug!("{msg}");
+        local_branch.set_target(remote_commit.id(), &msg)?;
+        repo.set_head(&lb_name)?;
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
+        Ok(())
+    }
+
+    /// Returns the latest commit from `HEAD`.
+    ///
+    /// <https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html>
+    fn find_last_commit(repo: &Repository) -> Result<git2::Commit, git2::Error> {
+        let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
+        obj.into_commit()
+            .map_err(|_| git2::Error::from_str("Couldn't find commit"))
+    }
 }
