@@ -497,7 +497,7 @@ mod tests {
                 s!("username2"),
                 s!("token2"),
                 s!("expiration_date2"),
-                s!("https://foo.bar"),
+                s!("https://foo.bar/2"),
             )
             .await
             .unwrap();
