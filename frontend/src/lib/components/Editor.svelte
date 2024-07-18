@@ -10,20 +10,20 @@
 	let commitModal: HTMLElement;
 	let commitMessageInput: HTMLInputElement;
 
-	const openCommitModal = () => {
+	function openCommitModal() {
 		if (commitModal) {
 			commitModal.style.display = 'block';
 			commitMessageInput.value = '';
 		}
 	};
 
-	const closeCommitModal = () => {
+	function closeCommitModal() {
 		if (commitModal) {
 			commitModal.style.display = 'none';
 		}
 	};
 
-	const confirmCommitHandler = async () => {
+	async function confirmCommitHandler() {
 		const commitMessage = commitMessageInput.value.trim();
 		if (!commitMessage) {
 			alert('You need to write something!');
@@ -203,7 +203,7 @@
 	.preview-pane :global(img) {
 		width: 90%;
 	}
-	/* Modal container */
+
 	.modal {
 	display: none;
 	position: fixed;
@@ -218,7 +218,6 @@
 	background-color: rgba(0,0,0,0.4);
 	}
 
-	/* Modal content */
 	.modal-content {
 	background-color: #fefefe;
 	margin: auto;

@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, warn, info};
+use tracing::{error, warn};
 
 use crate::{perms::Permission, require_perms, AppState};
 
@@ -66,9 +66,6 @@ pub async fn put_doc_handler(
         &[Permission::ManageContent],
     )
     .await?;
-
-    // Log the received commit message
-    info!("Received commit message: {}", body.commit_message);
 
     let gh_token = match &state.gh_credentials.get(&state.reqwest_client).await {
         Ok(t) => t.clone(),
