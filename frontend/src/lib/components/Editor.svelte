@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, onDestroy } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
 	import { get } from 'svelte/store';
@@ -11,18 +11,42 @@
 	let showCommitModal = false;
 	let commitModal: HTMLElement;
 	let commitMessageInput: HTMLInputElement;
+	let charCount = 500;
+
+	let previousFile: string | null = null;
+
+	function updateCharCount() {
+		charCount = 500 - commitMessageInput.value.length;
+		const charCountElement = document.getElementById('charCount');
+		if (charCountElement) {
+			charCountElement.textContent = `${charCount} characters remaining`;
+		}
+	}
+
+	async function hasChanges(): Promise<boolean> {
+		const storedText = await cache.get(get(currentFile));
+		return editorText !== (storedText ?? '');
+	}
 
 	async function confirmCommitHandler() {
 		const commitMessage = commitMessageInput.value.trim();
-		if (!commitMessage) {
-			alert('You need to write something!');
+
+		if (!await hasChanges()) {
+			addToast({
+				message: `No changes detected to commit.`,
+				type: ToastType.Error,
+				timeout: 1000,
+				dismissible: true
+			});
 			return;
 		}
+
 		showCommitModal = false;
 		await saveChangesHandler(commitMessage);
 	};
 
 	export let saveChangesHandler: (commitMessage: string) => Promise<void>;
+
 	async function cancelChangesHandler() {
 		if (editorText !== get(currentFile)) {
 			editorText =
@@ -47,6 +71,18 @@
 
 	currentFile.subscribe(async (v) => {
 		editorText = (await cache.get(v)) ?? '';
+	});
+
+	const unsubscribe = currentFile.subscribe(async (file) => {
+		if (file !== previousFile && showCommitModal) {
+			showCommitModal = false;
+		}
+		previousFile = file;
+		editorText = (await cache.get(file)) ?? '';
+	});
+
+	onDestroy(() => {
+		unsubscribe();
 	});
 </script>
 
@@ -125,11 +161,13 @@
 					d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"
 				/>
 			</svg>
-			<h2>Enter Commit Message</h2>
-			<input type="text" id="commitMessage" placeholder="Enter your commit message here" bind:this={commitMessageInput}>
+			<h2>Confirm changes before committing:</h2>
+			<h5>Enter a commit message (optional)</h5>
+			<input type="text" id="commitMessage" placeholder="Enter your commit message here" bind:this={commitMessageInput} maxlength="500" on:input={updateCharCount}>
+			<div id="charCount">500 characters remaining</div>
 			<div class="commit-modal-buttons">
+				<button id="cancelBtn" on:click={() => showCommitModal = false}>Deny</button>
 				<button id="confirmBtn" on:click={confirmCommitHandler}>Confirm</button>
-				<button id="cancelBtn" on:click={() => showCommitModal = false}>Cancel</button>
 			</div>
 		</div>
 	</div>
@@ -236,8 +274,6 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-		width: 100vw;
-		height: 100vh;
 		background-color: var(--background-0);
 		opacity: 0.9;
 	}
@@ -247,16 +283,17 @@
 		top: 0;
 		display: flex;
 		align-self: center;
-		justify-self: center;
+		justify-content: center;
 		z-index: 1;
 		margin-top: 6rem;
-		width: 30%;
+		width: 50%;
+		height: 12rem;
 	}
 
 	.commit-modal-content {
 		margin: auto;
 		padding: 1rem;
-		width: 100%;
+		width: 90%;
 		flex-shrink: 0;
 
 		/* Appearance */
@@ -276,7 +313,7 @@
 		margin-bottom: 0.5rem;
 		padding-left: 0.5rem;
 		width: 98%;
-		height: 2rem;
+		height: 4rem;
 
 		background-color: transparent;
 		color: var(--foreground-0);
