@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, warn};
+use tracing::{error, warn, info};
 
 use crate::{perms::Permission, require_perms, AppState};
 
@@ -49,6 +49,7 @@ pub async fn get_doc_handler(
 pub struct PutDocRequestBody {
     contents: String,
     path: String,
+    commit_message: String,
 }
 
 #[debug_handler]
@@ -66,6 +67,9 @@ pub async fn put_doc_handler(
     )
     .await?;
 
+    // Log the received commit message
+    info!("Received commit message: {}", body.commit_message);
+
     let gh_token = match &state.gh_credentials.get(&state.reqwest_client).await {
         Ok(t) => t.clone(),
         Err(e) => {
@@ -76,10 +80,15 @@ pub async fn put_doc_handler(
             ));
         }
     };
+
+    // Generate commit message combining author and default update message
+    let default_commit_message = format!("{} updated {}", author.username, body.path);
+    let final_commit_message = format!("{}\n\n{}", default_commit_message, body.commit_message);
+
     match state.git.put_doc(
         &body.path,
         &body.contents,
-        &format!("{} updated {}", author.username, body.path),
+        &final_commit_message,
         &gh_token,
     ) {
         Ok(_) => Ok(StatusCode::CREATED),
