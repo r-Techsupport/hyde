@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
 	import { get } from 'svelte/store';
@@ -7,21 +8,9 @@
 	export let editorText: string;
 	export let previewWindow: HTMLElement;
 
+	let showCommitModal = false;
 	let commitModal: HTMLElement;
 	let commitMessageInput: HTMLInputElement;
-
-	function openCommitModal() {
-		if (commitModal) {
-			commitModal.style.display = 'block';
-			commitMessageInput.value = '';
-		}
-	};
-
-	function closeCommitModal() {
-		if (commitModal) {
-			commitModal.style.display = 'none';
-		}
-	};
 
 	async function confirmCommitHandler() {
 		const commitMessage = commitMessageInput.value.trim();
@@ -29,7 +18,7 @@
 			alert('You need to write something!');
 			return;
 		}
-		closeCommitModal();
+		showCommitModal = false;
 		await saveChangesHandler(commitMessage);
 	};
 
@@ -75,7 +64,12 @@
 		</svg>
 	</button>
 	<!-- Save -->
-	<button on:click={openCommitModal} class="publish" title="Publish Changes">
+	<button 
+	on:click={async () => {
+		showCommitModal = true;
+		await tick();
+	}}
+	class="publish" title="Publish Changes">
 		<span>Publish Changes</span>
 		<svg
 			role="button"
@@ -95,17 +89,51 @@
 	<div bind:this={previewWindow} class="preview-pane"></div>
 </div>
 
-<div id="commitModal" class="modal" bind:this={commitModal}>
-	<div class="modal-content">
-	    <button	class="close" on:click={closeCommitModal} aria-label="Close">
-			&times;
-		</button>
-	    <h2>Enter Commit Message</h2>
-	    <input type="text" id="commitMessage" placeholder="Enter your commit message here" bind:this={commitMessageInput}>
-	    <button id="confirmBtn" on:click={confirmCommitHandler}>Confirm</button>
-	    <button id="cancelBtn" on:click={closeCommitModal}>Cancel</button>
+{#if showCommitModal}
+	<div
+		on:click={() => {
+			showCommitModal = false;
+		}}
+		on:keydown={(e) => {
+			if (e.key === 'Escape') {
+				showCommitModal = false;
+			}
+		}}
+		role="button"
+		tabindex="0"
+		class="commit-modal-backdrop"
+	></div>
+	<div id="commitModal" class="commit-modal" bind:this={commitModal}>
+		<div class="commit-modal-content">
+			<svg
+				on:click={() => {
+					showCommitModal = false;
+				}}
+				on:keypress={() => {
+					showCommitModal = false;
+				}}
+				class="commit-modal-close"
+				role="button"
+				tabindex="0"
+				xmlns="http://www.w3.org/2000/svg"
+				height="24px"
+				viewBox="0 -960 960 960"
+				width="24px"
+				fill="#e8eaed"
+			>
+				<path
+					d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"
+				/>
+			</svg>
+			<h2>Enter Commit Message</h2>
+			<input type="text" id="commitMessage" placeholder="Enter your commit message here" bind:this={commitMessageInput}>
+			<div class="commit-modal-buttons">
+				<button id="confirmBtn" on:click={confirmCommitHandler}>Confirm</button>
+				<button id="cancelBtn" on:click={() => showCommitModal = false}>Cancel</button>
+			</div>
+		</div>
 	</div>
-</div>
+{/if}
 
 <style>
 	.editor-controls {
@@ -204,41 +232,94 @@
 		width: 90%;
 	}
 
-	.modal {
-	display: none;
-	position: fixed;
-	z-index: 1;
-	padding-top: 100px;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	overflow: auto;
-	background-color: rgb(0,0,0);
-	background-color: rgba(0,0,0,0.4);
+	.commit-modal-backdrop {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100vw;
+		height: 100vh;
+		background-color: var(--background-0);
+		opacity: 0.9;
 	}
 
-	.modal-content {
-	background-color: #fefefe;
-	margin: auto;
-	padding: 20px;
-	border: 1px solid #888;
-	width: 80%;
+	.commit-modal {
+		position: fixed;
+		top: 0;
+		display: flex;
+		align-self: center;
+		justify-self: center;
+		z-index: 1;
+		margin-top: 6rem;
+		width: 30%;
 	}
 
-	/* Close button */
-	.close {
-	color: #aaa;
-	float: right;
-	font-size: 28px;
-	font-weight: bold;
+	.commit-modal-content {
+		margin: auto;
+		padding: 1rem;
+		width: 100%;
+		flex-shrink: 0;
+
+		/* Appearance */
+		border: 1px solid var(--background-2);
+		border-radius: 5px;
+		background-color: var(--background-1);
+		color: var(--foreground-0);
+		font-family: var(--font-family);
 	}
 
-	.close:hover,
-	.close:focus {
-	color: black;
-	text-decoration: none;
-	cursor: pointer;
+	.commit-modal-content h2 {
+		margin: 0;
+		margin-bottom: 0.5rem;
+	}
+
+	.commit-modal-content input {
+		margin-bottom: 0.5rem;
+		padding-left: 0.5rem;
+		width: 98%;
+		height: 2rem;
+
+		background-color: transparent;
+		color: var(--foreground-0);
+		border-radius: 4px;
+		border: 1px solid;
+		border-color: var(--foreground-1);
+		font-family: var(--font-family);
+	}
+
+	.commit-modal-close {
+		position: sticky;
+		cursor: pointer;
+		margin-top: 0.2rem;
+		margin-right: 0.2rem;
+		float: right;
+	}
+	
+	.commit-modal-buttons {
+		display: flex;
+		justify-content: flex-end;
+		align-items: flex-end;
+		gap: 0.2rem;
+	}
+
+	.commit-modal-buttons button {
+		display: flex;
+		justify-content: flex-end;
+		align-items: flex-end;
+		gap: 0.2rem;
+
+		cursor: pointer;
+		height: 2rem;
+
+		background-color: transparent;
+		font-family: var(--font-family);
+		font-size: medium;
+		padding: 0.3rem;
+		margin: 0.1rem;
+		color: var(--foreground-2);
+		border-radius: 4px;
+		border: 1px solid;
+		border-color: var(--foreground-1);
+		font-family: var(--font-family);
 	}
 
 </style>
