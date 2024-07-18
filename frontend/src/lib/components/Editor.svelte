@@ -7,20 +7,18 @@
 	export let editorText: string;
 	export let previewWindow: HTMLElement;
 
-	let commitModal: HTMLElement; // Define the variable
+	let commitModal: HTMLElement;
 	let commitMessageInput: HTMLInputElement;
-	let showLoadingIcon = false;
-	const apiAddress = 'https://your.api.address'; // Replace with your actual API address
 
 	const openCommitModal = () => {
-		if (commitModal) { // Check if commitModal is defined
+		if (commitModal) {
 			commitModal.style.display = 'block';
 			commitMessageInput.value = '';
 		}
 	};
 
 	const closeCommitModal = () => {
-		if (commitModal) { // Check if commitModal is defined
+		if (commitModal) {
 			commitModal.style.display = 'none';
 		}
 	};
@@ -35,40 +33,7 @@
 		await saveChangesHandler(commitMessage);
 	};
 
-	export let saveChangesHandler = async (commitMessage: string): Promise<void> => {
-		showLoadingIcon = true;
-		let response = await fetch(`${apiAddress}/api/doc`, {
-			method: 'PUT',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				contents: editorText,
-				path: get(currentFile),
-				commit_message: commitMessage
-			})
-		});
-		showLoadingIcon = false;
-		cache.flush();
-		switch (response.status) {
-			case 201:
-				addToast({
-					message: 'Changes synced successfully.',
-					type: ToastType.Success,
-					dismissible: true,
-					timeout: 3000
-				});
-				break;
-			default:
-				addToast({
-					message: `An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
-					type: ToastType.Error,
-					dismissible: true
-				});
-		}
-	};
-
+	export let saveChangesHandler: (commitMessage: string) => Promise<void>;
 	async function cancelChangesHandler() {
 		if (editorText !== get(currentFile)) {
 			editorText =
@@ -132,11 +97,13 @@
 
 <div id="commitModal" class="modal" bind:this={commitModal}>
 	<div class="modal-content">
-	  <span class="close" on:click={closeCommitModal}>&times;</span>
-	  <h2>Enter Commit Message</h2>
-	  <input type="text" id="commitMessage" placeholder="Enter your commit message here" bind:this={commitMessageInput}>
-	  <button id="confirmBtn" on:click={confirmCommitHandler}>Confirm</button>
-	  <button id="cancelBtn" on:click={closeCommitModal}>Cancel</button>
+	    <button	class="close" on:click={closeCommitModal} aria-label="Close">
+			&times;
+		</button>
+	    <h2>Enter Commit Message</h2>
+	    <input type="text" id="commitMessage" placeholder="Enter your commit message here" bind:this={commitMessageInput}>
+	    <button id="confirmBtn" on:click={confirmCommitHandler}>Confirm</button>
+	    <button id="cancelBtn" on:click={closeCommitModal}>Cancel</button>
 	</div>
 </div>
 
