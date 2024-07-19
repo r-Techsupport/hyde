@@ -31,7 +31,7 @@
 	async function confirmCommitHandler() {
 		const commitMessage = commitMessageInput.value.trim();
 
-		if (!await hasChanges()) {
+		if (!(await hasChanges())) {
 			addToast({
 				message: `No changes detected to commit.`,
 				type: ToastType.Error,
@@ -43,7 +43,7 @@
 
 		showCommitModal = false;
 		await saveChangesHandler(commitMessage);
-	};
+	}
 
 	export let saveChangesHandler: (commitMessage: string) => Promise<void>;
 
@@ -86,8 +86,6 @@
 	});
 </script>
 
-
-
 <div class="editor-controls">
 	<!-- Cancel -->
 	<button on:click={cancelChangesHandler} class="cancel" title="Cancel Changes">
@@ -100,12 +98,14 @@
 		</svg>
 	</button>
 	<!-- Save -->
-	<button 
-	on:click={async () => {
-		showCommitModal = true;
-		await tick();
-	}}
-	class="publish" title="Publish Changes">
+	<button
+		on:click={async () => {
+			showCommitModal = true;
+			await tick();
+		}}
+		class="publish"
+		title="Publish Changes"
+	>
 		<span>Publish Changes</span>
 		<svg
 			role="button"
@@ -163,10 +163,17 @@
 			</svg>
 			<h2>Confirm changes before committing:</h2>
 			<h5>Enter a commit message (optional)</h5>
-			<input type="text" id="commitMessage" placeholder="Enter your commit message here" bind:this={commitMessageInput} maxlength="500" on:input={updateCharCount}>
+			<input
+				type="text"
+				id="commitMessage"
+				placeholder="Enter your commit message here"
+				bind:this={commitMessageInput}
+				maxlength="500"
+				on:input={updateCharCount}
+			/>
 			<div id="charCount">500 characters remaining</div>
 			<div class="commit-modal-buttons">
-				<button id="cancelBtn" on:click={() => showCommitModal = false}>Deny</button>
+				<button id="cancelBtn" on:click={() => (showCommitModal = false)}>Deny</button>
 				<button id="confirmBtn" on:click={confirmCommitHandler}>Confirm</button>
 			</div>
 		</div>
@@ -314,7 +321,6 @@
 		padding-left: 0.5rem;
 		width: 98%;
 		height: 4rem;
-
 		background-color: transparent;
 		color: var(--foreground-0);
 		border-radius: 4px;
@@ -330,7 +336,7 @@
 		margin-right: 0.2rem;
 		float: right;
 	}
-	
+
 	.commit-modal-buttons {
 		display: flex;
 		justify-content: flex-end;
@@ -343,12 +349,9 @@
 		justify-content: flex-end;
 		align-items: flex-end;
 		gap: 0.2rem;
-
 		cursor: pointer;
 		height: 2rem;
-
 		background-color: transparent;
-		font-family: var(--font-family);
 		font-size: medium;
 		padding: 0.3rem;
 		margin: 0.1rem;
@@ -358,5 +361,4 @@
 		border-color: var(--foreground-1);
 		font-family: var(--font-family);
 	}
-
 </style>
