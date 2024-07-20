@@ -12,7 +12,7 @@
 
 	let showCommitModal = false;
 	let commitModal: HTMLElement;
-	let inputValue = "";
+	let inputValue = '';
 
 	let previousFile: string | null = null;
 
@@ -159,7 +159,7 @@
 				type="text"
 				placeholder="Enter your commit message here"
 				bind:value={inputValue}
-				maxlength="{charCount}"
+				maxlength={charCount}
 			/>
 			<div>{500 - inputValue.length} characters remaining</div>
 			<div class="commit-modal-buttons">
