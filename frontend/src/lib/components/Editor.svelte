@@ -161,7 +161,7 @@
 				bind:value={inputValue}
 				maxlength={charCount}
 			/>
-			<div>{500 - inputValue.length} characters remaining</div>
+			<div>{charCount - inputValue.length} characters remaining</div>
 			<div class="commit-modal-buttons">
 				<button on:click={() => (showCommitModal = false)}>Deny</button>
 				<button on:click={confirmCommitHandler}>Confirm</button>
