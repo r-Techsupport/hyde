@@ -8,10 +8,11 @@
 	export let editorText: string;
 	export let previewWindow: HTMLElement;
 
+	const charCount = 500;
+
 	let showCommitModal = false;
 	let commitModal: HTMLElement;
 	let commitMessageInput: string = '';
-	const CHAR_COUNT = 500;
 
 	let previousFile: string | null = null;
 
@@ -158,9 +159,9 @@
 				type="text"
 				placeholder="Enter your commit message here"
 				bind:value={commitMessageInput}
-				maxlength={CHAR_COUNT}
+				maxlength={charCount}
 			/>
-			<div>{CHAR_COUNT - commitMessageInput.length} characters remaining</div>
+			<div>{charCount - commitMessageInput.length} characters remaining</div>
 			<div class="commit-modal-buttons">
 				<button on:click={() => (showCommitModal = false)}>Deny</button>
 				<button on:click={confirmCommitHandler}>Confirm</button>
