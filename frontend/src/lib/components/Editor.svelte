@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick, onDestroy } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
 	import { get } from 'svelte/store';
@@ -8,20 +8,13 @@
 	export let editorText: string;
 	export let previewWindow: HTMLElement;
 
+	const charCount = 500;
+
 	let showCommitModal = false;
 	let commitModal: HTMLElement;
-	let commitMessageInput: HTMLInputElement;
-	let charCount = 500;
+	let inputValue = "";
 
 	let previousFile: string | null = null;
-
-	function updateCharCount() {
-		charCount = 500 - commitMessageInput.value.length;
-		const charCountElement = document.getElementById('charCount');
-		if (charCountElement) {
-			charCountElement.textContent = `${charCount} characters remaining`;
-		}
-	}
 
 	async function hasChanges(): Promise<boolean> {
 		const storedText = await cache.get(get(currentFile));
@@ -29,7 +22,7 @@
 	}
 
 	async function confirmCommitHandler() {
-		const commitMessage = commitMessageInput.value.trim();
+		const commitMessage = inputValue.trim();
 
 		if (!(await hasChanges())) {
 			addToast({
@@ -101,7 +94,6 @@
 	<button
 		on:click={async () => {
 			showCommitModal = true;
-			await tick();
 		}}
 		class="publish"
 		title="Publish Changes"
@@ -139,7 +131,7 @@
 		tabindex="0"
 		class="commit-modal-backdrop"
 	></div>
-	<div id="commitModal" class="commit-modal" bind:this={commitModal}>
+	<div class="commit-modal" bind:this={commitModal}>
 		<div class="commit-modal-content">
 			<svg
 				on:click={() => {
@@ -165,16 +157,14 @@
 			<h5>Enter a commit message (optional)</h5>
 			<input
 				type="text"
-				id="commitMessage"
 				placeholder="Enter your commit message here"
-				bind:this={commitMessageInput}
-				maxlength="500"
-				on:input={updateCharCount}
+				bind:value={inputValue}
+				maxlength="{charCount}"
 			/>
-			<div id="charCount">500 characters remaining</div>
+			<div>{500 - inputValue.length} characters remaining</div>
 			<div class="commit-modal-buttons">
-				<button id="cancelBtn" on:click={() => (showCommitModal = false)}>Deny</button>
-				<button id="confirmBtn" on:click={confirmCommitHandler}>Confirm</button>
+				<button on:click={() => (showCommitModal = false)}>Deny</button>
+				<button on:click={confirmCommitHandler}>Confirm</button>
 			</div>
 		</div>
 	</div>
