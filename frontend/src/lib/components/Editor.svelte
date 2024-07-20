@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { onDestroy } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
 	import { get } from 'svelte/store';
@@ -8,8 +7,6 @@
 
 	export let editorText: string;
 	export let previewWindow: HTMLElement;
-
-	const charCount = 500;
 
 	let showCommitModal = false;
 	let commitModal: HTMLElement;
@@ -160,11 +157,10 @@
 			<input
 				type="text"
 				placeholder="Enter your commit message here"
-				bind:this={commitMessageInput}
-				maxlength="500"
-				on:input={updateCharCount}
+				bind:value={commitMessageInput}
+				maxlength={CHAR_COUNT}
 			/>
-			<div id="charCount">500 characters remaining</div>
+			<div>{CHAR_COUNT - commitMessageInput.length} characters remaining</div>
 			<div class="commit-modal-buttons">
 				<button on:click={() => (showCommitModal = false)}>Deny</button>
 				<button on:click={confirmCommitHandler}>Confirm</button>
