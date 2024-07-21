@@ -161,7 +161,7 @@
 				bind:value={commitMessageInput}
 				maxlength={charCount}
 			/>
-			<div>{charCount - commitMessageInput.length} characters remaining</div>
+			<p class="commit-modal-chars-remaining">{charCount - commitMessageInput.length} characters remaining</p>
 			<div class="commit-modal-buttons">
 				<button on:click={() => (showCommitModal = false)}>Deny</button>
 				<button on:click={confirmCommitHandler}>Confirm</button>
@@ -327,6 +327,13 @@
 		float: right;
 	}
 
+	.commit-modal-chars-remaining {
+		margin: 0;
+		padding-left: 0.1rem;
+		color: var(--foreground-4);
+		font-size: small;
+	}
+
 	.commit-modal-buttons {
 		display: flex;
 		justify-content: flex-end;
@@ -347,8 +354,12 @@
 		margin: 0.1rem;
 		color: var(--foreground-2);
 		border-radius: 4px;
-		border: 1px solid;
-		border-color: var(--foreground-1);
+		border: 1px solid var(--foreground-4);
 		font-family: var(--font-family);
+	}
+
+	.commit-modal-buttons button:hover {
+		background-color: var(--foreground-4);
+		color: var(--background-2);
 	}
 </style>
