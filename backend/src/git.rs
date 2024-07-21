@@ -121,7 +121,7 @@ impl Interface {
     // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
     // it creates errors that note the destructor for other values failing because of it (tree)
     #[allow(clippy::significant_drop_tightening)]
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
         path: P,
