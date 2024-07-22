@@ -4,6 +4,7 @@
 	import { currentFile } from '$lib/main';
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';
+	import ConfirmationDialogue from './ConfirmationDialogue.svelte';
 	interface INode {
 		name: string;
 		children: INode[];
@@ -13,12 +14,15 @@
 	export let children: INode[] = [];
 	export let indent = 1;
 	export let path = name;
+	export let siblings: INode[] | undefined = undefined;
+	let self: HTMLElement;
 	let selected = false;
 	let open = false;
 	let showOptionsMenu = false;
 	let optionsMenu: HTMLDivElement;
 	let showNewFileInput = false;
 	let newFileInput: HTMLInputElement;
+	let showDeleteFileDialogue = false;
 
 	const dispatch = createEventDispatcher();
 
@@ -51,9 +55,28 @@
 		newFileInput.setSelectionRange(0, 0);
 		newFileInput.focus();
 	}
-</script>
 
-<span class={'container' + (selected ? ' selected' : '')}>
+	async function deleteDocumentHandler() {
+		showOptionsMenu = false;
+		if (get(currentFile) === path) {
+			currentFile.set('');
+		}
+		if (siblings !== undefined) {
+			// siblings.filter((n) => n.name !== name);
+			const entryToRemove = siblings.findIndex(n => n.name === name);
+			console.log(siblings.splice(entryToRemove, 1));
+		}
+		// TODO: requisite backend work, eg create DELETE
+		// handler for documents.
+		
+		// While a re-render would happen when the directory
+		// is closed and re-opened, I nuke the current element here
+		// because I don't know how else to make it happen immediately
+		self.remove();
+		console.log(`Document "${path}" would be deleted`);
+	}
+</script>
+<span bind:this={self} class={'container' + (selected ? ' selected' : '')}>
 	<button on:click={fileClickHandler} style="padding-left: {indent}rem" class="entry-button">
 		{#if children.length > 0}
 			<!-- Rendering if the navigation item is a directory -->
@@ -95,7 +118,6 @@
 		>
 	</button>
 </span>
-
 {#if showNewFileInput}
 	<span>
 		<input
@@ -151,7 +173,7 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 	<div tabindex="-1" bind:this={optionsMenu} class="options-menu">
 		{#if children.length > 0}
 			<!-- Options for if the entry is a directory -->
-			<button on:click={createDocumentHandler}>
+			<button on:click={createDocumentHandler} title="Create New Document">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					height="24px"
@@ -163,18 +185,56 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 			</button>
 		{:else}
 			<!-- Options for if the entry is a file -->
+			<button
+				on:click={() => {
+					showDeleteFileDialogue = true;
+				}}
+				title="Delete Document"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"
+					><path
+						d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"
+					/></svg
+				>
+				Delete Document
+			</button>
 		{/if}
 	</div>
+{/if}
+
+{#if showDeleteFileDialogue}
+	<ConfirmationDialogue
+		confirmHandler={() => {
+			deleteDocumentHandler();
+		}}
+		bind:visible={showDeleteFileDialogue}
+	>
+		Are you sure you want to delete the file "{name}"?
+	</ConfirmationDialogue>
 {/if}
 
 {#if open}
 	{#each children as child}
 		{#if child.children.length === 0}
 			<!-- Treat path like file -->
-			<svelte:self on:fileselect {...child} indent={indent + 1.5} path={path + child.name} />
+			<svelte:self
+				on:fileselect
+				name={child.name}
+				children={child.children}
+				siblings={children}
+				indent={indent + 1.5}
+				path={path + child.name}
+			/>
 		{:else}
 			<!-- Treat path like directory -->
-			<svelte:self on:fileselect {...child} indent={indent + 1} path={path + child.name + '/'} />
+			<svelte:self
+				on:fileselect
+				name={child.name}
+				children={child.children}
+				siblings={children}
+				indent={indent + 1}
+				path={path + child.name + '/'}
+			/>
 		{/if}
 	{/each}
 {/if}
