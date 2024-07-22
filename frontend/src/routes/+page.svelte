@@ -78,7 +78,7 @@
 		}
 	}
 
-	let saveChangesHandler = async (): Promise<void> => {
+	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
 		let response = await fetch(`${apiAddress}/api/doc`, {
 			method: 'PUT',
@@ -88,7 +88,8 @@
 			},
 			body: JSON.stringify({
 				contents: editorText,
-				path: get(currentFile)
+				path: get(currentFile),
+				commit_message: commitMessage
 			})
 		});
 		showLoadingIcon = false;
