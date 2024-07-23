@@ -1,9 +1,12 @@
 //! Abstractions and interfaces over the git repository
 
-use color_eyre::eyre::{bail, ContextCompat};
+use color_eyre::eyre::{bail, ContextCompat, Report};
 use color_eyre::{eyre::Context, Result};
 use git2::{AnnotatedCommit, FetchOptions, Repository, Signature};
+use reqwest::{Client, StatusCode};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -224,6 +227,48 @@ impl Interface {
         Ok(())
     }
 
+    /// Create a pull request with the given title, body, base branch, and head branch.
+    ///
+    /// # Errors
+    /// This function returns an error if the HTTP request fails or if the JSON response is malformed.
+    #[tracing::instrument(skip(self))]
+    pub async fn git_pull_request(
+        &self,
+        title: &str,
+        body: &str,
+        base: &str,
+        head: &str,
+    ) -> Result<(), Report> {
+        let token = env::var("GITHUB_TOKEN")
+            .wrap_err("The `GITHUB_TOKEN` environment variable is not set")?;
+
+        let client = Client::new();
+        let url = format!(
+            "https://api.github.com/repos/{}/pulls",
+            env::var("GITHUB_REPO").wrap_err("The `GITHUB_REPO` environment variable is not set")?
+        );
+
+        let response = client
+            .post(&url)
+            .header(AUTHORIZATION, format!("token {}", token))
+            .header(CONTENT_TYPE, "application/json")
+            .json(&json!({
+                "title": title,
+                "body": body,
+                "base": base,
+                "head": head
+            }))
+            .send()
+            .await?;
+
+        if response.status() == StatusCode::CREATED {
+            info!("Pull request created successfully.");
+            Ok(())
+        } else {
+            let error_msg = response.text().await?;
+            Err(Report::msg(format!("Failed to create pull request: {}", error_msg)))
+        }
+    }
     /// A code level re-implementation of `git fetch`. `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
     /// merge those changes into `main`.
     ///

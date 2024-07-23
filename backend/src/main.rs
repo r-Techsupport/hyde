@@ -25,6 +25,7 @@ use color_eyre::Result;
 use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
+use handlers_prelude::pr::create_pull_request_handler;
 #[cfg(target_family = "unix")]
 use tracing::error;
 use tracing::{debug, info, warn};
@@ -36,11 +37,13 @@ use reqwest::{
 };
 use std::env::{self, current_exe};
 use std::time::Duration;
+use std::sync::Arc;
 #[cfg(target_family = "unix")]
 use tokio::signal::unix::{signal, SignalKind};
 use tracing::{trace_span, Level, Span};
 
 use tokio::task;
+use tower_http::add_extension::AddExtensionLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
@@ -105,7 +108,7 @@ async fn main() -> Result<()> {
         info!("Server running in release mode");
     }
     // Initialize app state
-    let state: AppState = init_state()
+    let state: Arc<AppState> = init_state()
         .await
         .wrap_err("Failed to initialize app state")?;
     debug!("Initialized app state");
@@ -162,19 +165,8 @@ async fn main() -> Result<()> {
             put(put_group_permissions_handler),
         )
         .route("/api/groups/:group_id", delete(delete_group_handler))
-        .layer(if cfg!(debug_assertions) {
-            CorsLayer::new()
-                // If this isn't set, cookies won't be sent across ports
-                .allow_credentials(true)
-                .allow_origin("http://localhost:5173".parse::<HeaderValue>()?)
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-                .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
-        } else {
-            CorsLayer::new()
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-                .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
-        })
-        .with_state(state)
+        .route("/api/create-pr", post(create_pull_request_handler))
+        .layer(AddExtensionLayer::new(state.clone())) // Provide the state as an Extension layer
         // Serve the assets folder from the repo
         .nest_service(
             &format!("/{asset_path}"),
@@ -233,7 +225,7 @@ async fn main() -> Result<()> {
 }
 
 /// Initialize an instance of [`AppState`]
-async fn init_state() -> Result<AppState> {
+async fn init_state() -> Result<Arc<AppState>> {
     let git = task::spawn(async { git::Interface::new() });
     let oauth = {
         let client_id = env::var("OAUTH_CLIENT_ID").unwrap_or_else(|_| {
@@ -261,13 +253,13 @@ async fn init_state() -> Result<AppState> {
         )
     };
     let reqwest_client = Client::new();
-    Ok(AppState {
+    Ok(Arc::new(AppState {
         git: git.await??,
         oauth,
         reqwest_client,
         gh_credentials: GithubAccessToken::new(),
         db: Database::new().await?,
-    })
+    }))
 }
 
 /// Parse a single key-value pair for clap list parsing

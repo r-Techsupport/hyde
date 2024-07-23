@@ -80,37 +80,81 @@
 
 	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
-		let response = await fetch(`${apiAddress}/api/doc`, {
-			method: 'PUT',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				contents: editorText,
-				path: get(currentFile),
-				commit_message: commitMessage
-			})
-		});
-		showLoadingIcon = false;
-		cache.flush();
-		switch (response.status) {
-			case 201:
-				addToast({
-					message: 'Changes synced successfully.',
-					type: ToastType.Success,
-					dismissible: true,
-					timeout: 3000
+
+		try {
+			// Save the changes to the document
+			let response = await fetch(`${apiAddress}/api/doc`, {
+				method: 'PUT',
+				credentials: 'include',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					contents: editorText,
+					path: get(currentFile),
+					commit_message: commitMessage
+				})
+			});
+
+			if (response.ok) { // Check for successful status code (200-299)
+				// Create a pull request
+				let prResponse = await fetch(`${apiAddress}/api/create-pr`, {
+					method: 'POST',
+					credentials: 'include',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						commit_message: commitMessage,
+						branch_name: `pr-${Date.now()}`, // Generate a unique branch name
+						pr_title: `Update: ${get(currentFile)}`, // Use the file name as the PR title
+						base_branch: 'main' // Or whatever your main branch is called
+					})
 				});
-				break;
-			default:
+
+				if (prResponse.ok) {
+					addToast({
+						message: 'Pull request created successfully.',
+						type: ToastType.Success,
+						dismissible: true,
+						timeout: 3000
+					});
+				} else {
+					addToast({
+						message: `Error creating pull request (Code ${prResponse.status}: "${prResponse.statusText}").`,
+						type: ToastType.Error,
+						dismissible: true
+					});
+				}
+			} else {
 				addToast({
-					message: `An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
+					message: `Error saving document (Code ${response.status}: "${response.statusText}").`,
 					type: ToastType.Error,
 					dismissible: true
 				});
+			}
+		} catch (error) {
+			// Type guard to check if error is an instance of Error
+			if (error instanceof Error) {
+				addToast({
+					message: `An unexpected error occurred: ${error.message}`,
+					type: ToastType.Error,
+					dismissible: true
+				});
+			} else {
+				// Handle unexpected error types
+				addToast({
+					message: `An unexpected error occurred.`,
+					type: ToastType.Error,
+					dismissible: true
+				});
+			}
+		} finally {
+			showLoadingIcon = false;
+			cache.flush();
 		}
 	};
+
 
 	onMount(async () => {
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
