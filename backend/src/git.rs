@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{AnnotatedCommit, FetchOptions, Repository, Signature};
+use git2::{AnnotatedCommit, FetchOptions, Index, Oid, Repository, Signature};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -147,41 +147,20 @@ impl Interface {
                 path.as_ref()
             )
         })?;
-        let sig = Signature::now("Hyde", "hyde")?;
         let msg = format!("[Hyde]: {message}");
-        // adapted from https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html
-        let mut index = repo.index()?;
-        // File paths are relative to the root of the repository for `add_path`
         let mut relative_path = PathBuf::from(
             env::var("DOC_PATH").wrap_err("The `DOC_PATH` environment variable was not set")?,
         );
-        let tree = {
-            // Standard practice is to stage commits by adding them to an index.
-            relative_path.push(path);
-            index.add_path(&relative_path)?;
-            let oid = index.write_tree()?;
-            repo.find_tree(oid)?
-        };
-        let parent_commit = Self::find_last_commit(&repo)?;
-        // TODO: parent commit, staging?
-        let commit_id = repo.commit(Some("HEAD"), &sig, &sig, &msg, &tree, &[&parent_commit])?;
+        // Standard practice is to stage commits by adding them to an index.
+        relative_path.push(path);
+        let _guard = Self::git_add(&repo, relative_path)?;
+        let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        // assuming github
-        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
-        let authenticated_url =
-            repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
-        repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
-        let mut remote = repo.find_remote("origin")?;
-        remote.connect(git2::Direction::Push)?;
-        // Push master here, to master there
-        remote.push(&["refs/heads/master:refs/heads/master"], None)?;
+        Self::git_push(&repo, token)?;
         info!(
             "Document {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
         );
-        remote.disconnect()?;
-        index.remove_path(&relative_path)?;
-        index.write()?;
         debug!("Commit cleanup completed");
         Ok(())
     }
@@ -208,7 +187,58 @@ impl Interface {
         Ok(repo)
     }
 
-    // TODO: move commit code to separate function
+    /// A code level re-implementation of `git add`.
+    ///
+    /// This function returns an RAII guard attached to the index, the file path specified
+    /// will only be in the index as long as that guard is in scope. As soon as the guard leaves scope,
+    /// the file path is removed from the index, and changes made will not be tracked.
+    fn git_add<P: AsRef<Path>>(repo: &Repository, path: P) -> Result<IndexPathGuard> {
+        let mut index = repo.index()?;
+        index.add_path(path.as_ref())?;
+        index.write()?;
+        Ok(IndexPathGuard {
+            index,
+            path: path.as_ref().into(),
+        })
+    }
+
+    /// A code level re-implementation of `git commit`.
+    ///
+    /// Writes the current index as a commit, updating HEAD. This means it will only commit changes
+    /// tracked by the index. If an author is not specified, the commit will be attributed to `Hyde`. Returns
+    /// the id (A full or partial hash associated with a git object) tied to that commit.
+    fn git_commit(repo: &Repository, message: String, author: Option<Signature>) -> Result<Oid> {
+        let sig = match author {
+            Some(sig) => sig,
+            None => Signature::now("Hyde", "Hyde")?,
+        };
+        let tree = {
+            let mut index = repo.index()?;
+            let oid = index.write_tree()?;
+            repo.find_tree(oid)?
+        };
+        let parent_commit = Self::find_last_commit(repo)?;
+        Ok(repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?)
+    }
+
+    /// A code level re-implementation of `git push`.
+    ///
+    /// Pushes the latest commit on the `master` branch to `origin/master`.
+    ///
+    /// `token` is a valid Github auth token.
+    // TODO: stop hardcoding refspec and make it an argument.
+    fn git_push(repo: &Repository, token: &str) -> Result<()> {
+        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
+        let authenticated_url =
+            repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
+        repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
+        let mut remote = repo.find_remote("origin")?;
+        remote.connect(git2::Direction::Push)?;
+        // Push master here, to master there
+        remote.push(&["refs/heads/master:refs/heads/master"], None)?;
+        remote.disconnect()?;
+        Ok(())
+    }
 
     /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
     ///
@@ -253,17 +283,20 @@ impl Interface {
     /// A code level re-implementation of `git merge`. It accepts a [`git2::AnnotatedCommit`]. The interface
     /// is specifically written as the second half of `git pull`, so it would probably need to be modified to support
     /// more than that.
-    fn git_merge(repo: &Repository, remote_branch: &str, fetch_commit: AnnotatedCommit<'_>) -> Result<()> {
+    fn git_merge(
+        repo: &Repository,
+        remote_branch: &str,
+        fetch_commit: AnnotatedCommit<'_>,
+    ) -> Result<()> {
         // First perform a merge analysis, this is done so that we know whether or not to fast forward
         let analysis = repo.merge_analysis(&[&fetch_commit])?;
 
         // Then select the appropriate merge, either a fast forward or a normal merge
         if analysis.0.is_fast_forward() {
-
             debug!("Performing fast forward merge");
             let refname = format!("refs/heads/{}", remote_branch);
             // This code will return early with an error if pulling into an empty repository.
-            // That *should* never happen, so that handling was omitted, but if it's needed, 
+            // That *should* never happen, so that handling was omitted, but if it's needed,
             // an example can be found at:
             // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs#L160
             let mut reference = repo.find_reference(&refname)?;
@@ -332,7 +365,10 @@ impl Interface {
         local_branch: &mut git2::Reference,
         remote_commit: &AnnotatedCommit,
     ) -> Result<()> {
-        let lb_name = local_branch.name().wrap_err("Local branch name isn't valid UTF-8")?.to_string();
+        let lb_name = local_branch
+            .name()
+            .wrap_err("Local branch name isn't valid UTF-8")?
+            .to_string();
         let msg = format!(
             "Fast forwarding: Setting {lb_name} to id: {}",
             remote_commit.id()
@@ -351,5 +387,19 @@ impl Interface {
         let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
         obj.into_commit()
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))
+    }
+}
+
+/// An RAII guard associated with a path currently added to the index.
+/// When dropped, the file is removed from the index.
+struct IndexPathGuard {
+    index: Index,
+    path: PathBuf,
+}
+
+impl Drop for IndexPathGuard {
+    fn drop(&mut self) {
+        self.index.remove_path(&self.path).unwrap();
+        self.index.write().unwrap();
     }
 }
