@@ -1,6 +1,6 @@
 | Field | Value |
 | ----- | ---- |
-| ADMIN_USERNAME | Your unique Discord Username, not your Display Name |
+| ADMIN_USERNAME | Your unique Discord Username, **not your Display Name** (see <https://support.discord.com/hc/en-us/articles/12620128861463-New-Usernames-Display-Names>) |
 | REPO_URL | The HTTPS cloning URL of the jekyll repository to interface with |
 | DOC_PATH | The location of the markdown files relative to the root of the repo |
 | ASSET_PATH | The location of the assets files relative to the root of the repo |
