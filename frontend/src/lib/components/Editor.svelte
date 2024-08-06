@@ -63,7 +63,9 @@
 	}
 
 	currentFile.subscribe(async (v) => {
-		editorText = (await cache.get(v)) ?? '';
+		if (v !== '') {
+			editorText = (await cache.get(v)) ?? '';
+		}
 	});
 
 	const unsubscribe = currentFile.subscribe(async (file) => {
