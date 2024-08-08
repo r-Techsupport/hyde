@@ -10,7 +10,7 @@
 	}
 
 	export let name = '';
-	export let children: INode[] = [];
+	export let children: INode[];
 	export let indent = 1;
 	export let path = name;
 	let selected = false;
@@ -19,6 +19,10 @@
 	let optionsMenu: HTMLDivElement;
 	let showNewFileInput = false;
 	let newFileInput: HTMLInputElement;
+
+	// Sort nodes alphabetically
+	// https://stackoverflow.com/questions/8900732/sort-objects-in-an-array-alphabetically-on-one-property-of-the-array
+	children = children.sort((a, b) => a.name.localeCompare(b.name))
 
 	const dispatch = createEventDispatcher();
 
