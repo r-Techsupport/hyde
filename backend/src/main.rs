@@ -27,7 +27,7 @@ use gh::GithubAccessToken;
 use handlers_prelude::*;
 #[cfg(target_family = "unix")]
 use tracing::error;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, info_span, warn};
 // use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
@@ -38,7 +38,7 @@ use std::env::{self, current_exe};
 use std::time::Duration;
 #[cfg(target_family = "unix")]
 use tokio::signal::unix::{signal, SignalKind};
-use tracing::{trace_span, Level, Span};
+use tracing::{Level, Span};
 
 use tokio::task;
 use tower_http::cors::CorsLayer;
@@ -138,6 +138,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello world" }))
         .route("/api/logout", get(get_logout_handler))
+        .route("/api/hooks/github", post(github_hook_handler))
         .route("/api/doc", get(get_doc_handler))
         .route("/api/doc", put(put_doc_handler))
         .route("/api/tree", get(get_tree_handler))
@@ -199,8 +200,8 @@ async fn main() -> Result<()> {
                         .extensions()
                         .get::<MatchedPath>()
                         .map(MatchedPath::as_str);
-
-                    trace_span!(
+                    println!("Path: {:?}", matched_path);
+                    info_span!(
                         "http_request",
                         method = ?request.method(),
                         path=matched_path,
@@ -212,9 +213,10 @@ async fn main() -> Result<()> {
                     // closures to attach a value to the initially empty field in the info_span
                     // created above.
                 })
-                .on_response(|response: &Response, latency: Duration, _span: &Span| {
+                .on_response(|response: &Response, latency: Duration, span: &Span| {
+                    let _span = span.clone().entered();
                     let latency_ms = format!("{}ms", latency.as_millis());
-                    info!(latency=%latency_ms, status=%response.status(), "Handled request");
+                    info!(latency=%latency_ms, status=%response.status());
                 }),
         );
 

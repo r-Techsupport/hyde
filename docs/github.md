@@ -11,9 +11,13 @@ Follow the [Github Documentation](https://docs.github.com/en/apps/creating-githu
  - Metadata: Read only
  - Contents: Read and write
 
+### Webhook URL
+Under the Webhook header,
+set the Webhook URL to `[YOUR_HYDE_URL]/api/hooks/github`.  As an example, if your URL was `https://hyde.rtech.support`, your Webhook URL would be `https://hyde.rtech.support/api/hooks/github`. This is done so that Hyde can automatically pull new changes when they're pushed to Github.
+
+The Webhook Secret value is left empty.
+
 ### Notes
-- There is no Callback URL for Hyde
-- Untick "Webhook > Active"
 - If you want to use this in an organization or on a repo you do not own you must tick "Any Account" under "Where can this GitHub App be installed?"
 
 ## Installing the GithubApp
