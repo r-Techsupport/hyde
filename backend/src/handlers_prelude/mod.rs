@@ -16,6 +16,8 @@ mod groups;
 pub use groups::*;
 mod logout;
 pub use logout::*;
+mod github_hook;
+pub use github_hook::*;
 
 use color_eyre::{
     eyre::{Context, ContextCompat},

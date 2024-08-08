@@ -1,7 +1,7 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
 use chrono::DateTime;
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{bail, Context};
 use color_eyre::Result;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
@@ -138,9 +138,12 @@ async fn get_installation_id(req_client: &Client) -> Result<String> {
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await?;
-    let deserialized_response =
-        &serde_json::from_slice::<Vec<InstallationIdResponse>>(&response.bytes().await?)?[0];
-    Ok(deserialized_response.id.to_string())
+    // Validate that there's only one repo the app is installed on
+    let repo_list = &serde_json::from_slice::<Vec<InstallationIdResponse>>(&response.bytes().await?)?;
+    if repo_list.len() != 1 {
+        bail!("Hyde must only be installed on one repo, Github currently reports {} repos", repo_list.len());
+    }
+    Ok(repo_list[0].id.to_string())
 }
 
 /// Generate a new JWT token for use with github api interactions.

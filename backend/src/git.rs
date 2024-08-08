@@ -187,6 +187,12 @@ impl Interface {
         Ok(repo)
     }
 
+    /// Pull changes from upstream
+    pub fn pull(&self) -> Result<()> {
+        let guard = self.repo.lock().unwrap();
+        Self::git_pull(&guard)
+    }
+
     /// A code level re-implementation of `git add`.
     ///
     /// This function returns an RAII guard attached to the index, the file path specified
