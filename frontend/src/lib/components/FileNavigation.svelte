@@ -3,7 +3,6 @@
 	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { cache } from '$lib/cache';
-	import { get } from 'svelte/store';
 	interface INode {
 		name: string;
 		children: INode[];
