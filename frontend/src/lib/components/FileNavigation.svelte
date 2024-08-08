@@ -1,6 +1,6 @@
 <!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
 <script lang="ts">
-	import { createEventDispatcher, tick } from 'svelte';
+	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';
@@ -19,10 +19,6 @@
 	let optionsMenu: HTMLDivElement;
 	let showNewFileInput = false;
 	let newFileInput: HTMLInputElement;
-
-	// Sort nodes alphabetically
-	// https://stackoverflow.com/questions/8900732/sort-objects-in-an-array-alphabetically-on-one-property-of-the-array
-	children = children.sort((a, b) => a.name.localeCompare(b.name))
 
 	const dispatch = createEventDispatcher();
 
@@ -55,6 +51,12 @@
 		newFileInput.setSelectionRange(0, 0);
 		newFileInput.focus();
 	}
+
+	onMount(async () => {
+		// Sort nodes alphabetically
+		// https://stackoverflow.com/questions/8900732/sort-objects-in-an-array-alphabetically-on-one-property-of-the-array
+		children = children.sort((a, b) => a.name.localeCompare(b.name));
+	});
 </script>
 
 <span class={'container' + (selected ? ' selected' : '')}>
@@ -122,7 +124,6 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 ---\n\n`
 					);
 					currentFile.set(path + newFileInput.value);
-					console.log(cache.get(get(currentFile)));
 				}
 				if (e.key === 'Escape') {
 					showNewFileInput = false;

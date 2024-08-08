@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{AnnotatedCommit, FetchOptions, Index, Oid, Repository, Signature};
+use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -153,7 +153,7 @@ impl Interface {
         );
         // Standard practice is to stage commits by adding them to an index.
         relative_path.push(path);
-        let _guard = Self::git_add(&repo, relative_path)?;
+        Self::git_add(&repo, relative_path)?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
         Self::git_push(&repo, token)?;
@@ -194,18 +194,11 @@ impl Interface {
     }
 
     /// A code level re-implementation of `git add`.
-    ///
-    /// This function returns an RAII guard attached to the index, the file path specified
-    /// will only be in the index as long as that guard is in scope. As soon as the guard leaves scope,
-    /// the file path is removed from the index, and changes made will not be tracked.
-    fn git_add<P: AsRef<Path>>(repo: &Repository, path: P) -> Result<IndexPathGuard> {
+    fn git_add<P: AsRef<Path>>(repo: &Repository, path: P) -> Result<()> {
         let mut index = repo.index()?;
         index.add_path(path.as_ref())?;
         index.write()?;
-        Ok(IndexPathGuard {
-            index,
-            path: path.as_ref().into(),
-        })
+        Ok(())
     }
 
     /// A code level re-implementation of `git commit`.
@@ -393,19 +386,5 @@ impl Interface {
         let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
         obj.into_commit()
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))
-    }
-}
-
-/// An RAII guard associated with a path currently added to the index.
-/// When dropped, the file is removed from the index.
-struct IndexPathGuard {
-    index: Index,
-    path: PathBuf,
-}
-
-impl Drop for IndexPathGuard {
-    fn drop(&mut self) {
-        self.index.remove_path(&self.path).unwrap();
-        self.index.write().unwrap();
     }
 }

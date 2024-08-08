@@ -200,7 +200,6 @@ async fn main() -> Result<()> {
                         .extensions()
                         .get::<MatchedPath>()
                         .map(MatchedPath::as_str);
-                    println!("Path: {:?}", matched_path);
                     info_span!(
                         "http_request",
                         method = ?request.method(),
