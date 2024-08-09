@@ -6,6 +6,7 @@ use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
+use std::ops::DerefMut;
 use std::path::Path;
 use std::{
     env,
@@ -182,9 +183,33 @@ impl Interface {
             "No repo detected, cloning {repository_url:?} into {:?}...",
             output_path.display()
         );
-        let repo = Repository::clone(&repository_url, "./repo")?;
+        let repo = Repository::clone(&repository_url, output_path)?;
         info!("Successfully cloned repo");
         Ok(repo)
+    }
+
+    /// Completely clone and open a new repository, deleting the old one.
+    #[tracing::instrument(skip_all)]
+    pub fn reclone(&self) -> Result<()> {
+        // First clone a repo into `repo__tmp`, open that, swap out
+        // TODO: nuke `repo__tmp` if it exists already
+        let repo_path = Path::new("./repo");
+        let tmp_path = Path::new("./repo__tmp");
+        info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
+        let repository_url = env::var("REPO_URL")
+            .wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
+        let tmp_repo = Repository::clone(&repository_url, tmp_path)?;
+        info!("Pointing changes to new temp repository");
+        let mut lock = self.repo.lock().unwrap();
+        *lock = tmp_repo;
+        info!("Deleting the old repo...");
+        fs::remove_dir_all(repo_path)?;
+        info!("Moving the temp repo to take the place of the old one");
+        fs::rename(tmp_path, repo_path)?;
+        *lock = Repository::open(repo_path)?;
+        info!("Re-clone succeeded");
+        drop(lock);
+        Ok(())
     }
 
     /// Pull changes from upstream
