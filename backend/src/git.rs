@@ -6,7 +6,6 @@ use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
-use std::ops::DerefMut;
 use std::path::Path;
 use std::{
     env,
