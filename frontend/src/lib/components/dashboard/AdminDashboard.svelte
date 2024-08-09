@@ -4,7 +4,6 @@
 
 	export let dialog: HTMLDialogElement;
 	let selectedTab = 0;
-	$: selectedTab;
 	let tabs = [
 		{ name: 'User Management', id: 0, component: UserTab },
 		{ name: 'Group Management', id: 1, component: GroupTab }

@@ -199,6 +199,7 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 		padding-top: 0.4rem;
 		padding-bottom: 0.4rem;
 		white-space: nowrap;
+		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
@@ -233,12 +234,14 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 	}
 
 	.entry-option-menu {
+		position: relative;
 		cursor: pointer;
 		fill: var(--foreground-0);
 		background: transparent;
 		border: none;
 		border-radius: 5px;
-		margin-left: auto;
+		right: 0;
+		z-index: 1;
 	}
 
 	.entry-option-menu svg {
