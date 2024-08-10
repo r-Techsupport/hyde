@@ -193,6 +193,7 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello world" }))
         .route("/api/logout", get(get_logout_handler))
+        .route("/api/reclone", post(post_reclone_handler))
         .route("/api/hooks/github", post(github_hook_handler))
         .route("/api/doc", get(get_doc_handler))
         .route("/api/doc", put(put_doc_handler))
@@ -267,11 +268,12 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
                     // closures to attach a value to the initially empty field in the info_span
                     // created above.
                 })
-                .on_response(|response: &Response, latency: Duration, span: &Span| {
+                .on_response(|_response: &Response, _latency: Duration, _span: &Span| {
                     // I don't know if this is strictly needed, should be tested
-                    let _span = span.clone().entered();
-                    let latency_ms = format!("{}ms", latency.as_millis());
-                    info!(latency=%latency_ms, status=%response.status());
+                    // Commented out because it was creating duplicate logs for endpoints
+                    // let _span = span.clone().entered();
+                    // let latency_ms = format!("{}ms", latency.as_millis());
+                    // info!(latency=%latency_ms, status=%response.status());
                 }),
         );
 

@@ -1,12 +1,14 @@
 <script lang="ts">
 	import GroupTab from './GroupTab.svelte';
 	import UserTab from './UserTab.svelte';
+	import ServerTab from './ServerTab.svelte';
 
 	export let dialog: HTMLDialogElement;
 	let selectedTab = 0;
 	let tabs = [
 		{ name: 'User Management', id: 0, component: UserTab },
-		{ name: 'Group Management', id: 1, component: GroupTab }
+		{ name: 'Group Management', id: 1, component: GroupTab },
+		{ name: 'Server Management', id: 2, component: ServerTab }
 	];
 
 	// E must be defined as any because for some reason typescript thinks parentElement doesn't exist on e.target
@@ -72,7 +74,8 @@
 		margin-bottom: 0;
 		padding-left: 0;
 		height: 100%;
-		width: 33.33%;
+		min-width: 8rem;
+		max-width: 8rem;
 		border-right: 1.5px solid var(--background-3);
 		list-style-type: none;
 	}
