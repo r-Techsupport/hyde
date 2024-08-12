@@ -41,6 +41,6 @@
 	"dependencies": {
 		"dompurify": "^3.1.6",
 		"marked": "^13.0.3",
-		"marked-base-url": "^1.1.4"
+		"marked-base-url": "^1.1.5"
 	}
 }
