@@ -83,7 +83,7 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
 }
 
 /// This function is used to add permissions to endpoints.
-/// 
+///
 /// When placed at the top of an Axum handler, you can specify permission(s)
 /// to require. If they are missing from the user, it will return an error,
 /// which you can propagate through the handler with `?`.

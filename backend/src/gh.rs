@@ -139,9 +139,13 @@ async fn get_installation_id(req_client: &Client) -> Result<String> {
         .send()
         .await?;
     // Validate that there's only one repo the app is installed on
-    let repo_list = &serde_json::from_slice::<Vec<InstallationIdResponse>>(&response.bytes().await?)?;
+    let repo_list =
+        &serde_json::from_slice::<Vec<InstallationIdResponse>>(&response.bytes().await?)?;
     if repo_list.len() != 1 {
-        bail!("Hyde must only be installed on one repo, Github currently reports {} repos", repo_list.len());
+        bail!(
+            "Hyde must only be installed on one repo, Github currently reports {} repos",
+            repo_list.len()
+        );
     }
     Ok(repo_list[0].id.to_string())
 }
