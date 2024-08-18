@@ -17,6 +17,8 @@ set the Webhook URL to `[YOUR_HYDE_URL]/api/hooks/github`.  As an example, if yo
 
 The Webhook Secret value is left empty.
 
+You'll need to subscribe to the Push event.
+
 ### Notes
 - If you want to use this in an organization or on a repo you do not own you must tick "Any Account" under "Where can this GitHub App be installed?"
 
