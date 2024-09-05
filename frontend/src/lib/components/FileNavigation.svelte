@@ -70,7 +70,10 @@
 		}
 		// TODO: requisite backend work, eg create DELETE
 		// handler for documents.
-		const r = await fetch(`${apiAddress}/api/doc?path=${path}`, {method: "DELETE", credentials: "include"});
+		const r = await fetch(`${apiAddress}/api/doc?path=${path}`, {
+			method: 'DELETE',
+			credentials: 'include'
+		});
 		if (r.ok) {
 			addToast({
 				message: `The file "${path}" was deleted successfully."`,
