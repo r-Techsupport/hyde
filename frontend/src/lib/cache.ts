@@ -45,7 +45,7 @@ class AssetCache {
 	 * @param path The key to store the entry under
 	 * @param value The entry
 	 */
-	async set(path: string, value: CacheEntry) {
+	set(path: string, value: CacheEntry) {
 		// evict the least recently used item if necessary
 		if (this.values.size >= this.maxEntries) {
 			const keyToDelete = this.values.keys().next().value;
@@ -53,6 +53,17 @@ class AssetCache {
 		}
 
 		this.values.set(path, value);
+	}
+
+	/**
+	 * Remove the specified item from cache.
+	 *
+	 * This operation is **not write-through**, so changes
+	 * are not synced to the backend.
+	 * @param path
+	 */
+	delete(path: string) {
+		this.values.delete(path);
 	}
 
 	/**
