@@ -9,6 +9,8 @@ use tracing::{error, warn};
 
 use crate::{perms::Permission, require_perms, AppState};
 
+use super::eyre_to_axum_err;
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetDocQuery {
     pub path: String,
@@ -95,4 +97,22 @@ pub async fn put_doc_handler(
             ))
         }
     }
+}
+
+pub async fn delete_doc_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<GetDocQuery>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let author = require_perms(
+        axum::extract::State(&state),
+        headers,
+        &[Permission::ManageContent],
+    )
+    .await?;
+
+    let gh_token = state.gh_credentials.get(&state.reqwest_client).await.unwrap();
+    state.git.delete_doc(&query.path, &format!("{} deleted {}", author.username, query.path), &gh_token).map_err(eyre_to_axum_err)?;
+
+    Ok(StatusCode::NO_CONTENT)
 }

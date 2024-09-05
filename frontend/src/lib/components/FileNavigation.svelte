@@ -5,6 +5,8 @@
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';
 	import ConfirmationDialogue from './ConfirmationDialogue.svelte';
+	import { apiAddress } from '$lib/net';
+	import { addToast, ToastType } from '$lib/toast';
 	interface INode {
 		name: string;
 		children: INode[];
@@ -68,7 +70,22 @@
 		}
 		// TODO: requisite backend work, eg create DELETE
 		// handler for documents.
-
+		const r = await fetch(`${apiAddress}/api/doc?path=${path}`, {method: "DELETE", credentials: "include"});
+		if (r.ok) {
+			addToast({
+				message: `The file "${path}" was deleted successfully."`,
+				type: ToastType.Info,
+				dismissible: true,
+				timeout: 1500
+			});
+		} else {
+			addToast({
+				message: `Deletion failed, please report to the developer`,
+				type: ToastType.Error,
+				dismissible: true,
+				timeout: 1500
+			});
+		}
 		// While a re-render would happen when the directory
 		// is closed and re-opened, I nuke the current element here
 		// because I don't know how else to make it happen immediately

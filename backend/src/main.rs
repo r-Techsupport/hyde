@@ -197,6 +197,7 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
         .route("/api/hooks/github", post(github_hook_handler))
         .route("/api/doc", get(get_doc_handler))
         .route("/api/doc", put(put_doc_handler))
+        .route("/api/doc", delete(delete_doc_handler))
         .route("/api/tree", get(get_tree_handler))
         .route("/api/oauth", get(get_oauth2_handler))
         .route("/api/oauth/url", get(get_oauth2_url))
