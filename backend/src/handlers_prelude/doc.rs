@@ -9,6 +9,8 @@ use tracing::{error, warn};
 
 use crate::{perms::Permission, require_perms, AppState};
 
+use super::eyre_to_axum_err;
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetDocQuery {
     pub path: String,
@@ -82,12 +84,10 @@ pub async fn put_doc_handler(
     let default_commit_message = format!("{} updated {}", author.username, body.path);
     let final_commit_message = format!("{}\n\n{}", default_commit_message, body.commit_message);
 
-    match state.git.put_doc(
-        &body.path,
-        &body.contents,
-        &final_commit_message,
-        &gh_token,
-    ) {
+    match state
+        .git
+        .put_doc(&body.path, &body.contents, &final_commit_message, &gh_token)
+    {
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
             error!("Failed to complete put_doc call with error: {e:?}");
@@ -97,4 +97,22 @@ pub async fn put_doc_handler(
             ))
         }
     }
+}
+
+pub async fn delete_doc_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<GetDocQuery>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let author = require_perms(
+        axum::extract::State(&state),
+        headers,
+        &[Permission::ManageContent],
+    )
+    .await?;
+
+    let gh_token = state.gh_credentials.get(&state.reqwest_client).await.unwrap();
+    state.git.delete_doc(&query.path, &format!("{} deleted {}", author.username, query.path), &gh_token).map_err(eyre_to_axum_err)?;
+
+    Ok(StatusCode::NO_CONTENT)
 }

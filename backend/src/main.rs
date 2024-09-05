@@ -27,7 +27,7 @@ use gh::GithubAccessToken;
 use handlers_prelude::*;
 #[cfg(target_family = "unix")]
 use tracing::error;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, info_span, warn};
 // use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
@@ -38,7 +38,8 @@ use std::env::{self, current_exe};
 use std::time::Duration;
 #[cfg(target_family = "unix")]
 use tokio::signal::unix::{signal, SignalKind};
-use tracing::{trace_span, Level, Span};
+use tracing::{Level, Span};
+use tracing_subscriber::fmt::format::FmtSpan;
 
 use tokio::task;
 use tower_http::cors::CorsLayer;
@@ -87,13 +88,13 @@ async fn main() -> Result<()> {
     // Read environment variables from dotenv file
     let dotenv_path = "hyde-data/.env";
     // Load in any config settings passed by cli
-    for (key, value) in cli_args.cfg {
+    for (key, value) in &cli_args.cfg {
         env::set_var(key, value);
     }
     // Initialize logging
     tracing_subscriber::fmt()
         .with_max_level(cli_args.logging_level)
-        .without_time()
+        .with_span_events(FmtSpan::CLOSE)
         .init();
     debug!("Initialized logging");
     dotenvy::from_path(dotenv_path).unwrap_or_else(|_| {
@@ -126,6 +127,60 @@ async fn main() -> Result<()> {
         }
     }
 
+    start_server(state, cli_args).await?;
+    Ok(())
+}
+
+/// Initialize an instance of [`AppState`]
+#[tracing::instrument]
+async fn init_state() -> Result<AppState> {
+    let git = task::spawn(async { git::Interface::new() });
+    let oauth = {
+        let client_id = env::var("OAUTH_CLIENT_ID").unwrap_or_else(|_| {
+            warn!("The `OAUTH_CLIENT_ID` environment variable is not set, oauth functionality will be broken");
+            String::new()
+        });
+        let client_secret = env::var("OAUTH_SECRET").unwrap_or_else(|_| {
+            warn!("The `OAUTH_SECRET` environment variable is not set, oauth functionality will be broken");
+            String::new()
+        });
+        // The oauth constructor does some url parsing on startup so these need valid urls
+        let auth_url = env::var("OAUTH_URL").unwrap_or_else(|_| {
+            warn!("The `OAUTH_URL` environment variable is not set, oauth functionality will be broken");
+            String::from("https://example.com/")
+        });
+        let token_url = env::var("OAUTH_TOKEN_URL").unwrap_or_else(|_| {
+            warn!("The `OAUTH_TOKEN_URL` environment variable is not set, oauth functionality will be broken");
+            String::from("https://example.com/")
+        });
+        BasicClient::new(
+            ClientId::new(client_id),
+            Some(ClientSecret::new(client_secret)),
+            AuthUrl::new(auth_url)?,
+            Some(TokenUrl::new(token_url)?),
+        )
+    };
+    let reqwest_client = Client::new();
+    Ok(AppState {
+        git: git.await??,
+        oauth,
+        reqwest_client,
+        gh_credentials: GithubAccessToken::new(),
+        db: Database::new().await?,
+    })
+}
+
+/// Parse a single key-value pair for clap list parsing
+///
+/// https://github.com/clap-rs/clap_derive/blob/master/examples/keyvalue.rs
+fn parse_key_val(s: &str) -> Result<(String, String), String> {
+    let pos = s
+        .find('=')
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
+    Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
+}
+
+async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
     // files are served relative to the location of the executable, not where the
     // executable was run from
     let mut frontend_dir = current_exe()?;
@@ -138,8 +193,11 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello world" }))
         .route("/api/logout", get(get_logout_handler))
+        .route("/api/reclone", post(post_reclone_handler))
+        .route("/api/hooks/github", post(github_hook_handler))
         .route("/api/doc", get(get_doc_handler))
         .route("/api/doc", put(put_doc_handler))
+        .route("/api/doc", delete(delete_doc_handler))
         .route("/api/tree", get(get_tree_handler))
         .route("/api/oauth", get(get_oauth2_handler))
         .route("/api/oauth/url", get(get_oauth2_url))
@@ -199,8 +257,7 @@ async fn main() -> Result<()> {
                         .extensions()
                         .get::<MatchedPath>()
                         .map(MatchedPath::as_str);
-
-                    trace_span!(
+                    info_span!(
                         "http_request",
                         method = ?request.method(),
                         path=matched_path,
@@ -212,9 +269,12 @@ async fn main() -> Result<()> {
                     // closures to attach a value to the initially empty field in the info_span
                     // created above.
                 })
-                .on_response(|response: &Response, latency: Duration, _span: &Span| {
-                    let latency_ms = format!("{}ms", latency.as_millis());
-                    info!(latency=%latency_ms, status=%response.status(), "Handled request");
+                .on_response(|_response: &Response, _latency: Duration, _span: &Span| {
+                    // I don't know if this is strictly needed, should be tested
+                    // Commented out because it was creating duplicate logs for endpoints
+                    // let _span = span.clone().entered();
+                    // let latency_ms = format!("{}ms", latency.as_millis());
+                    // info!(latency=%latency_ms, status=%response.status());
                 }),
         );
 
@@ -228,54 +288,5 @@ async fn main() -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&address).await?;
     info!("Application starting, listening at {:?}", address);
     axum::serve(listener, app).await?;
-
-    Ok(())
-}
-
-/// Initialize an instance of [`AppState`]
-async fn init_state() -> Result<AppState> {
-    let git = task::spawn(async { git::Interface::new() });
-    let oauth = {
-        let client_id = env::var("OAUTH_CLIENT_ID").unwrap_or_else(|_| {
-            warn!("The `OAUTH_CLIENT_ID` environment variable is not set, oauth functionality will be broken");
-            String::new()
-        });
-        let client_secret = env::var("OAUTH_SECRET").unwrap_or_else(|_| {
-            warn!("The `OAUTH_SECRET` environment variable is not set, oauth functionality will be broken");
-            String::new()
-        });
-        // The oauth constructor does some url parsing on startup so these need valid urls
-        let auth_url = env::var("OAUTH_URL").unwrap_or_else(|_| {
-            warn!("The `OAUTH_URL` environment variable is not set, oauth functionality will be broken");
-            String::from("https://example.com/")
-        });
-        let token_url = env::var("OAUTH_TOKEN_URL").unwrap_or_else(|_| {
-            warn!("The `OAUTH_TOKEN_URL` environment variable is not set, oauth functionality will be broken");
-            String::from("https://example.com/")
-        });
-        BasicClient::new(
-            ClientId::new(client_id),
-            Some(ClientSecret::new(client_secret)),
-            AuthUrl::new(auth_url)?,
-            Some(TokenUrl::new(token_url)?),
-        )
-    };
-    let reqwest_client = Client::new();
-    Ok(AppState {
-        git: git.await??,
-        oauth,
-        reqwest_client,
-        gh_credentials: GithubAccessToken::new(),
-        db: Database::new().await?,
-    })
-}
-
-/// Parse a single key-value pair for clap list parsing
-///
-/// https://github.com/clap-rs/clap_derive/blob/master/examples/keyvalue.rs
-fn parse_key_val(s: &str) -> Result<(String, String), String> {
-    let pos = s
-        .find('=')
-        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
-    Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
+    unreachable!();
 }

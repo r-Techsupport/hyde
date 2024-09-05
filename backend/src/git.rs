@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{AnnotatedCommit, FetchOptions, Repository, Signature};
+use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -16,8 +16,10 @@ use tracing::{debug, info, warn};
 
 #[derive(Clone)]
 pub struct Interface {
-    #[allow(dead_code)] // Will be used later
     repo: Arc<Mutex<Repository>>,
+    /// The path to the documents folder, relative to the server executable.
+    /// 
+    /// EG: `./repo/docs`
     doc_path: PathBuf,
 }
 
@@ -36,12 +38,12 @@ impl Interface {
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
     pub fn new() -> Result<Self> {
-        let mut doc_path = PathBuf::from("./repo");
+        let mut doc_path = PathBuf::from("repo");
         doc_path.push(env::var("DOC_PATH").unwrap_or_else(|_| {
             warn!("The `DOC_PATH` environment variable was not set, defaulting to `docs/`");
             "docs".to_string()
         }));
-        let repo = Self::load_repository("./repo")?;
+        let repo = Self::load_repository("repo")?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
@@ -147,41 +149,62 @@ impl Interface {
                 path.as_ref()
             )
         })?;
-        let sig = Signature::now("Hyde", "hyde")?;
         let msg = format!("[Hyde]: {message}");
-        // adapted from https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html
-        let mut index = repo.index()?;
-        // File paths are relative to the root of the repository for `add_path`
+        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
         let mut relative_path = PathBuf::from(
             env::var("DOC_PATH").wrap_err("The `DOC_PATH` environment variable was not set")?,
         );
-        let tree = {
-            // Standard practice is to stage commits by adding them to an index.
-            relative_path.push(path);
-            index.add_path(&relative_path)?;
-            let oid = index.write_tree()?;
-            repo.find_tree(oid)?
-        };
-        let parent_commit = Self::find_last_commit(&repo)?;
-        // TODO: parent commit, staging?
-        let commit_id = repo.commit(Some("HEAD"), &sig, &sig, &msg, &tree, &[&parent_commit])?;
+        // Standard practice is to stage commits by adding them to an index.
+        relative_path.push(path);
+        Self::git_add(&repo, relative_path)?;
+        let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        // assuming github
-        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
-        let authenticated_url =
-            repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
-        repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
-        let mut remote = repo.find_remote("origin")?;
-        remote.connect(git2::Direction::Push)?;
-        // Push master here, to master there
-        remote.push(&["refs/heads/master:refs/heads/master"], None)?;
+        Self::git_push(&repo, token)?;
         info!(
             "Document {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
         );
-        remote.disconnect()?;
-        index.remove_path(&relative_path)?;
-        index.write()?;
+        debug!("Commit cleanup completed");
+        Ok(())
+    }
+
+    /// Delete the document at the specified `path`.
+    /// `message` will be included in the commit message, and `token` is a valid github auth token.
+    ///
+    /// # Panics
+    /// This function will panic if it's called when the repo mutex is already held by the current thread
+    ///
+    /// # Errors
+    /// This function will return an error if filesystem operations fail, or if any of the git operations fail
+    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
+    // it creates errors that note the destructor for other values failing because of it (tree)
+    pub fn delete_doc<P: AsRef<Path> + Copy>(
+        &self,
+        path: P,
+        message: &str,
+        token: &str,
+    ) -> Result<()> {
+        let repo = self.repo.lock().unwrap();
+        let mut path_to_doc: PathBuf = PathBuf::new();
+        path_to_doc.push(&self.doc_path);
+        path_to_doc.push(path);
+        let msg = format!("[Hyde]: {message}");
+        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
+        let mut relative_path = PathBuf::from(
+            env::var("DOC_PATH").wrap_err("The `DOC_PATH` environment variable was not set")?,
+        );
+        // Standard practice is to stage commits by adding them to an index.
+        relative_path.push(path);
+        fs::remove_file(&path_to_doc).wrap_err_with(|| format!("Failed to remove document the document at {path_to_doc:?}"))?;
+        Self::git_add(&repo, ".")?;
+        let commit_id = Self::git_commit(&repo, msg, None)?;
+        debug!("New commit made with ID: {:?}", commit_id);
+        Self::git_push(&repo, token)?;
+        drop(repo);
+        info!(
+            "Document {:?} removed and changes synced to Github with message: {message:?}",
+            path.as_ref()
+        );
         debug!("Commit cleanup completed");
         Ok(())
     }
@@ -203,12 +226,114 @@ impl Interface {
             "No repo detected, cloning {repository_url:?} into {:?}...",
             output_path.display()
         );
-        let repo = Repository::clone(&repository_url, "./repo")?;
+        let repo = Repository::clone(&repository_url, output_path)?;
         info!("Successfully cloned repo");
         Ok(repo)
     }
 
-    // TODO: move commit code to separate function
+    /// Completely clone and open a new repository, deleting the old one.
+    #[tracing::instrument(skip_all)]
+    pub fn reclone(&self) -> Result<()> {
+        // First clone a repo into `repo__tmp`, open that, swap out
+        // TODO: nuke `repo__tmp` if it exists already
+        let repo_path = Path::new("./repo");
+        let tmp_path = Path::new("./repo__tmp");
+        info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
+        let repository_url = env::var("REPO_URL")
+            .wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
+        let tmp_repo = Repository::clone(&repository_url, tmp_path)?;
+        info!("Pointing changes to new temp repository");
+        let mut lock = self.repo.lock().unwrap();
+        *lock = tmp_repo;
+        info!("Deleting the old repo...");
+        fs::remove_dir_all(repo_path)?;
+        info!("Moving the temp repo to take the place of the old one");
+        fs::rename(tmp_path, repo_path)?;
+        *lock = Repository::open(repo_path)?;
+        info!("Re-clone succeeded");
+        drop(lock);
+        Ok(())
+    }
+
+    /// Pull changes from upstream
+    pub fn pull(&self) -> Result<()> {
+        let guard = self.repo.lock().unwrap();
+        Self::git_pull(&guard)
+    }
+
+    /// A code level re-implementation of `git add`.
+    #[tracing::instrument(skip(repo))]
+    fn git_add<P: AsRef<Path> + std::fmt::Debug>(repo: &Repository, path: P) -> Result<()> {
+        let mut index = repo.index()?;
+        // index.add_path(path.as_ref())?;
+        let callback = &mut |path: &Path, _matched_spec: &[u8]| -> i32 {
+            let status = repo.status_file(path).unwrap();
+            let actions = vec![
+                (Status::WT_DELETED, "deleted"),
+                (Status::WT_MODIFIED, "modified"),
+                (Status::WT_NEW, "added"),
+                (Status::WT_RENAMED, "renamed")
+            ];
+
+           for (action, msg) in actions {
+                if status.contains(action) {
+                    info!("Index updated, {path:?} will be {msg} in the next commit");
+                }
+            }
+            0
+        };
+
+        index.update_all([path.as_ref()], Some(callback))?;
+        index.write()?;
+        Ok(())
+    }
+
+    // /// A code level re-implementation of `git rm`.
+    // fn git_rm<P: AsRef<Path>>(repo: &Repository, path: P) -> Result<()> {
+    //     let mut index = repo.index()?;
+    //     // index.add_path(path.as_ref())?;
+    //     index.remove(path.as_ref(), 1)?;
+    //     index.write()?;
+    //     Ok(())
+    // }
+
+    /// A code level re-implementation of `git commit`.
+    ///
+    /// Writes the current index as a commit, updating HEAD. This means it will only commit changes
+    /// tracked by the index. If an author is not specified, the commit will be attributed to `Hyde`. Returns
+    /// the id (A full or partial hash associated with a git object) tied to that commit.
+    fn git_commit(repo: &Repository, message: String, author: Option<Signature>) -> Result<Oid> {
+        let sig = match author {
+            Some(sig) => sig,
+            None => Signature::now("Hyde", "Hyde")?,
+        };
+        let tree = {
+            let mut index = repo.index()?;
+            let oid = index.write_tree()?;
+            repo.find_tree(oid)?
+        };
+        let parent_commit = Self::find_last_commit(repo)?;
+        Ok(repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?)
+    }
+
+    /// A code level re-implementation of `git push`.
+    ///
+    /// Pushes the latest commit on the `master` branch to `origin/master`.
+    ///
+    /// `token` is a valid Github auth token.
+    // TODO: stop hardcoding refspec and make it an argument.
+    fn git_push(repo: &Repository, token: &str) -> Result<()> {
+        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
+        let authenticated_url =
+            repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
+        repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
+        let mut remote = repo.find_remote("origin")?;
+        remote.connect(git2::Direction::Push)?;
+        // Push master here, to master there
+        remote.push(&["refs/heads/master:refs/heads/master"], None)?;
+        remote.disconnect()?;
+        Ok(())
+    }
 
     /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
     ///
@@ -242,8 +367,6 @@ impl Interface {
             Some(&mut fetch_options),
             None,
         )?;
-        // Stuff with C bindings will sometimes require manual dropping if
-        // there's references and stuff
         drop(remote);
 
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
@@ -253,17 +376,20 @@ impl Interface {
     /// A code level re-implementation of `git merge`. It accepts a [`git2::AnnotatedCommit`]. The interface
     /// is specifically written as the second half of `git pull`, so it would probably need to be modified to support
     /// more than that.
-    fn git_merge(repo: &Repository, remote_branch: &str, fetch_commit: AnnotatedCommit<'_>) -> Result<()> {
+    fn git_merge(
+        repo: &Repository,
+        remote_branch: &str,
+        fetch_commit: AnnotatedCommit<'_>,
+    ) -> Result<()> {
         // First perform a merge analysis, this is done so that we know whether or not to fast forward
         let analysis = repo.merge_analysis(&[&fetch_commit])?;
 
         // Then select the appropriate merge, either a fast forward or a normal merge
         if analysis.0.is_fast_forward() {
-
             debug!("Performing fast forward merge");
             let refname = format!("refs/heads/{}", remote_branch);
             // This code will return early with an error if pulling into an empty repository.
-            // That *should* never happen, so that handling was omitted, but if it's needed, 
+            // That *should* never happen, so that handling was omitted, but if it's needed,
             // an example can be found at:
             // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs#L160
             let mut reference = repo.find_reference(&refname)?;
@@ -332,7 +458,10 @@ impl Interface {
         local_branch: &mut git2::Reference,
         remote_commit: &AnnotatedCommit,
     ) -> Result<()> {
-        let lb_name = local_branch.name().wrap_err("Local branch name isn't valid UTF-8")?.to_string();
+        let lb_name = local_branch
+            .name()
+            .wrap_err("Local branch name isn't valid UTF-8")?
+            .to_string();
         let msg = format!(
             "Fast forwarding: Setting {lb_name} to id: {}",
             remote_commit.id()

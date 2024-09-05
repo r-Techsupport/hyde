@@ -57,13 +57,13 @@ class AssetCache {
 
 	/**
 	 * Remove the specified item from cache.
-	 * 
+	 *
 	 * This operation is **not write-through**, so changes
 	 * are not synced to the backend.
-	 * @param path 
+	 * @param path
 	 */
 	delete(path: string) {
-		this.values.delete(path)
+		this.values.delete(path);
 	}
 
 	/**

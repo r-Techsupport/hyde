@@ -1,17 +1,19 @@
 <!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
 <script lang="ts">
-	import { createEventDispatcher, tick } from 'svelte';
+	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';
 	import ConfirmationDialogue from './ConfirmationDialogue.svelte';
+	import { apiAddress } from '$lib/net';
+	import { addToast, ToastType } from '$lib/toast';
 	interface INode {
 		name: string;
 		children: INode[];
 	}
 
 	export let name = '';
-	export let children: INode[] = [];
+	export let children: INode[];
 	export let indent = 1;
 	export let path = name;
 	export let siblings: INode[] | undefined = undefined;
@@ -63,20 +65,45 @@
 		}
 		if (siblings !== undefined) {
 			// siblings.filter((n) => n.name !== name);
-			const entryToRemove = siblings.findIndex(n => n.name === name);
+			const entryToRemove = siblings.findIndex((n) => n.name === name);
 			console.log(siblings.splice(entryToRemove, 1));
 		}
 		// TODO: requisite backend work, eg create DELETE
 		// handler for documents.
-		
+		const r = await fetch(`${apiAddress}/api/doc?path=${path}`, {
+			method: 'DELETE',
+			credentials: 'include'
+		});
+		if (r.ok) {
+			addToast({
+				message: `The file "${path}" was deleted successfully."`,
+				type: ToastType.Info,
+				dismissible: true,
+				timeout: 1500
+			});
+		} else {
+			addToast({
+				message: `Deletion failed, please report to the developer`,
+				type: ToastType.Error,
+				dismissible: true,
+				timeout: 1500
+			});
+		}
 		// While a re-render would happen when the directory
 		// is closed and re-opened, I nuke the current element here
 		// because I don't know how else to make it happen immediately
 		self.remove();
 		console.log(`Document "${path}" would be deleted`);
 	}
+
+	onMount(async () => {
+		// Sort nodes alphabetically
+		// https://stackoverflow.com/questions/8900732/sort-objects-in-an-array-alphabetically-on-one-property-of-the-array
+		children = children.sort((a, b) => a.name.localeCompare(b.name));
+	});
 </script>
-<span bind:this={self} class={'container' + (selected ? ' selected' : '')}>
+
+<span class={'container' + (selected ? ' selected' : '')}>
 	<button on:click={fileClickHandler} style="padding-left: {indent}rem" class="entry-button">
 		{#if children.length > 0}
 			<!-- Rendering if the navigation item is a directory -->
@@ -140,7 +167,6 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 ---\n\n`
 					);
 					currentFile.set(path + newFileInput.value);
-					console.log(cache.get(get(currentFile)));
 				}
 				if (e.key === 'Escape') {
 					showNewFileInput = false;
@@ -259,6 +285,7 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 		padding-top: 0.4rem;
 		padding-bottom: 0.4rem;
 		white-space: nowrap;
+		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
@@ -293,12 +320,14 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 	}
 
 	.entry-option-menu {
+		position: relative;
 		cursor: pointer;
 		fill: var(--foreground-0);
 		background: transparent;
 		border: none;
 		border-radius: 5px;
-		margin-left: auto;
+		right: 0;
+		z-index: 1;
 	}
 
 	.entry-option-menu svg {
