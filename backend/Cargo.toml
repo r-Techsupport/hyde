@@ -8,6 +8,7 @@ repository = "https://github.com/r-Techsupport/hyde"
 readme = "../README.md"
 keywords = ["cms", "wiki"]
 categories = ["server-backend"]
+rust-version = "1.75.0"
 
 
 [dependencies]
