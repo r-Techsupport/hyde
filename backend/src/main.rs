@@ -101,9 +101,9 @@ async fn main() -> Result<()> {
         warn!("Failed to read dotenv file located at {dotenv_path}, please ensure all config values are manually set");
     });
     if cfg!(debug_assertions) {
-        info!("Server running in development mode");
+        info!("Server running in development mode, version v{}", env!("CARGO_PKG_VERSION"));
     } else {
-        info!("Server running in release mode");
+        info!("Server running in release mode, version v{}", env!("CARGO_PKG_VERSION"));
     }
     // Initialize app state
     let state: AppState = init_state()
