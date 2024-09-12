@@ -5,7 +5,6 @@ import { apiAddress } from './net';
  */
 type CacheEntry = string;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class AssetCache {
 	// This will probably need to be updated to add support for non-text
 	// stuff
