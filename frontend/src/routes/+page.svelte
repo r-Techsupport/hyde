@@ -15,51 +15,18 @@
 	import { dev } from '$app/environment';
 	import SettingsMenu from '$lib/components/SettingsMenu.svelte';
 	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
-	import Editor from '$lib/components/Editor.svelte';
+	import DocumentEditor from '$lib/components/DocumentEditor.svelte';
 	import { Permission } from '$lib/types.d';
+	import AssetSelector from '$lib/components/AssetSelector.svelte';
+	import MockDirectory from '$lib/components/MockDirectory.svelte';
+	import { SelectedMode } from '$lib/main';
 
+
+	let mode = SelectedMode.Documents;
 	/** The text currently displayed in the editing window */
 	let editorText = '';
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement;
-	/** The width of the sidebar */
-	export let sidebarWidth = '14rem';
-	/**
-	 * The time in milliseconds that must pass after a keypress
-	 * before markdown is rendered
-	 */
-	const DEBOUNCE_TIME: number = 500;
-	let lastKeyPressedTime = Date.now();
-
-	/** The base directory for filesystem navigation */
-	let rootNode = {
-		name: '',
-		children: []
-	};
-	onMount(async () => {
-		const response = await fetch(`${apiAddress}/api/tree`);
-		rootNode = await response.json();
-	});
-
-	/**
-	 * This function is called whenever a key is pressed.
-	 *
-	 * @see https://svelte.dev/repl/162005fa12cc4feb9f668e09260595a7?version=3.24.1
-	 */
-	async function onKeyDown() {
-		lastKeyPressedTime = Date.now();
-		setTimeout(() => {
-			if (lastKeyPressedTime + DEBOUNCE_TIME >= Date.now()) {
-				renderMarkdown(editorText, previewWindow);
-			}
-		}, DEBOUNCE_TIME);
-	}
-
-	let showChangeDialogue: boolean;
-	let showLoadingIcon: boolean;
-	let showSettingsMenu: boolean;
-	let adminDashboardDialog: HTMLDialogElement;
-	let showEditor: boolean = false;
 
 	async function fileSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
@@ -111,6 +78,24 @@
 				});
 		}
 	};
+	/** The width of the sidebar */
+	export let sidebarWidth = '14rem';
+
+	/** The base directory for filesystem navigation */
+	let rootNode = {
+		name: '',
+		children: []
+	};
+	onMount(async () => {
+		const response = await fetch(`${apiAddress}/api/tree`);
+		rootNode = await response.json();
+	});
+
+	let showChangeDialogue: boolean;
+	let showLoadingIcon: boolean;
+	let showSettingsMenu: boolean;
+	let adminDashboardDialog: HTMLDialogElement;
+	let showEditor: boolean = false;
 
 	onMount(async () => {
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
@@ -164,7 +149,28 @@
 	<Toasts />
 	<SideBar bind:sidebarWidth>
 		<div class="directory-nav">
-			<FileNavigation on:fileselect={fileSelectionHandler} {...rootNode} />
+			<!-- TODO: Temporary -->
+			{#if mode === SelectedMode.Documents}
+				<FileNavigation on:fileselect={fileSelectionHandler} {...rootNode} />
+			{:else}
+				<!-- Display a button that switches the mode to docs -->
+				<MockDirectory
+					on:click={() => {
+						mode = SelectedMode.Documents;
+					}}
+					label="documents"
+				/>
+			{/if}
+			{#if mode === SelectedMode.Assets}
+				<AssetSelector bind:mode />
+			{:else}
+				<MockDirectory
+					on:click={() => {
+						mode = SelectedMode.Assets;
+					}}
+					label="assets"
+				/>
+			{/if}
 		</div>
 	</SideBar>
 	<div style="display: flex; flex-direction: column; height: 100vh; width: 100%;">
@@ -179,23 +185,25 @@
 				adminDashboardDialog.showModal();
 			}}
 		/>
-		{#if showEditor && $currentFile !== ''}
-			<Editor bind:saveChangesHandler bind:editorText bind:previewWindow />
-		{:else}
-			<span class="nofile-placeholder">
-				<p>
-					No file selected, please select a file to start editing. If you're unable to select a
-					file, you might be missing the required permissions.
-				</p>
-			</span>
+		{#if mode === SelectedMode.Documents}
+			{#if showEditor && $currentFile !== ''}
+				<DocumentEditor bind:saveChangesHandler bind:editorText bind:previewWindow />
+			{:else}
+				<span class="nofile-placeholder">
+					<p>
+						No file selected, please select a file to start editing. If you're unable to select a
+						file, you might be missing the required permissions.
+					</p>
+				</span>
+			{/if}
+		{:else if mode === SelectedMode.Assets}
+			hewwo :3
 		{/if}
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
 	<AdminDashboard bind:dialog={adminDashboardDialog} />
 </div>
-
-<svelte:window on:keydown={onKeyDown} />
 
 <style>
 	.container {

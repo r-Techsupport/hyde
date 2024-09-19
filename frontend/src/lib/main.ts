@@ -4,6 +4,20 @@ import type { User } from './types';
 export const currentFile = writable('');
 
 /**
+ * A file or directory
+ */
+export interface INode {
+	name: string;
+	children: INode[];
+}
+
+/** The type of media currently being edited */
+export enum SelectedMode {
+	Documents,
+	Assets
+}
+
+/**
  * The user object for the currently logged in user, or a default with an ID of -1
  * if it hasn't been loaded in yet
  */
