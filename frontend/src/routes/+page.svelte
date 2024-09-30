@@ -1,26 +1,25 @@
 <script lang="ts">
-	import SideBar from '$lib/components/SideBar.svelte';
-	import FileNavigation from '$lib/components/FileNavigation.svelte';
-	import TopBar from '$lib/components/TopBar.svelte';
-	import ChangeDialogue from './ChangeDialogue.svelte';
+	import SideBar from '$lib/components/sidebar/SideBar.svelte';
+	import FileNavigation from '$lib/components/sidebar/FileNavigation.svelte';
+	import TopBar from '$lib/components/topbar/TopBar.svelte';
+	import ChangeDialogue from '../lib/components/elements/ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
-	import { apiAddress } from '$lib/net';
-	import LoadingIcon from './LoadingIcon.svelte';
+	import { apiAddress } from '$lib/main';
+	import LoadingIcon from '../lib/components/elements/LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
-	import Toasts from './Toasts.svelte';
+	import Toasts from '../lib/components/elements/Toasts.svelte';
 	import { currentFile, me } from '$lib/main';
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
-	import SettingsMenu from '$lib/components/SettingsMenu.svelte';
+	import SettingsMenu from '$lib/components/topbar/SettingsMenu.svelte';
 	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
-	import DocumentEditor from '$lib/components/DocumentEditor.svelte';
-	import { Permission } from '$lib/types.d';
-	import AssetSelector from '$lib/components/AssetSelector.svelte';
-	import MockDirectory from '$lib/components/MockDirectory.svelte';
+	import DocumentEditor from '$lib/components/editors/DocumentEditor.svelte';
+	import { Permission } from '$lib/types';
+	import AssetSelector from '$lib/components/sidebar/AssetSelector.svelte';
+	import MockDirectory from '$lib/components/sidebar/MockDirectory.svelte';
 	import { SelectedMode } from '$lib/main';
-
 
 	let mode = SelectedMode.Documents;
 	/** The text currently displayed in the editing window */

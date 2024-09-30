@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { apiAddress } from '$lib/net';
+	import { apiAddress } from '$lib/main';
 
 	let redirectUrl = '';
 

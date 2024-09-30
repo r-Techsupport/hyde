@@ -1,7 +1,7 @@
 import { writable, type Writable } from 'svelte/store';
 import type { User } from './types';
-
 export const currentFile = writable('');
+import { dev } from '$app/environment';
 
 /**
  * A file or directory
@@ -28,3 +28,11 @@ export const me: Writable<User> = writable({
 	groups: [],
 	permissions: []
 });
+export let apiAddress = '';
+
+// Set the API url to localhost for supporting
+// dev environments
+if (dev) {
+	console.log('Development environment detected, switching to local server');
+	apiAddress = 'http://localhost:8080';
+}

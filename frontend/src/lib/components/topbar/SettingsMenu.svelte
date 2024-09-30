@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { blur } from 'svelte/transition';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import { apiAddress } from '$lib/net';
-	import { Permission, type User } from '$lib/types.d';
+	import { apiAddress } from '$lib/main';
+	import { Permission, type User } from '$lib/types';
 
 	export let visible = false;
 	let showAdminDashboard = false;

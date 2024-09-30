@@ -1,4 +1,8 @@
-import { apiAddress } from './net';
+/**
+ * @file
+ * An LRU cache
+ */
+import { apiAddress } from './main';
 
 /**
  * The the type of the value stored in the cache
@@ -48,7 +52,8 @@ class AssetCache {
 		// evict the least recently used item if necessary
 		if (this.values.size >= this.maxEntries) {
 			const keyToDelete = this.values.keys().next().value;
-			this.values.delete(keyToDelete);
+			// non-null assertion: We know there's at least one key left because of the above size check
+			this.values.delete(keyToDelete!);
 		}
 
 		this.values.set(path, value);
@@ -73,4 +78,7 @@ class AssetCache {
 	}
 }
 
+/**
+ * A transparent caching layer that stores the last few documents accessed locally.
+ */
 export const cache: AssetCache = new AssetCache();

@@ -1,13 +1,39 @@
+/**
+ * @file
+ * The internals of the toast notification system
+ */
+
 import { writable } from 'svelte/store';
 
+/**
+ * Passed to `addToast`
+ */
 interface ToastInfo {
+	/**
+	 * The text displayed in the toast
+	 */
 	message: string;
+	/**
+	 * Optionally supplied, the ID to give the toast
+	 */
 	id?: number;
+	/**
+	 * The type of the toast (info, error, warning)
+	 */
 	type: ToastType;
+	/**
+	 * Whether or not the user can make the toast go away
+	 */
 	dismissible: boolean;
+	/**
+	 * How long before the toast fades away by itself
+	 */
 	timeout?: number;
 }
 
+/**
+ * The category of notification to be displayed
+ */
 export enum ToastType {
 	Info = 'info',
 	Error = 'error',

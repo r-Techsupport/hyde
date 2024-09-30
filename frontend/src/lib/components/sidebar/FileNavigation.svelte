@@ -4,8 +4,8 @@
 	import { currentFile } from '$lib/main';
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';
-	import ConfirmationDialogue from './ConfirmationDialogue.svelte';
-	import { apiAddress } from '$lib/net';
+	import ConfirmationDialogue from '../elements/ConfirmationDialogue.svelte';
+	import { apiAddress } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
 	import type { INode } from '$lib/main';
 	export let name = '';

@@ -1,10 +1,20 @@
 <script lang="ts">
-    import { SelectedMode } from "$lib/main";
+	import { SelectedMode } from '$lib/main';
 	export let mode;
 </script>
 
 <div class="container">
-	<span on:click={() => {mode = SelectedMode.Documents}} class="label">
+	<span
+		on:click={() => {
+			mode = SelectedMode.Documents;
+		}}
+		on:keydown={() => {
+			mode = SelectedMode.Documents;
+		}}
+		class="label"
+		role="button"
+		tabindex="0"
+	>
 		<svg
 			style="transform: rotate(90deg)"
 			xmlns="http://www.w3.org/2000/svg"
