@@ -20,7 +20,7 @@ dotenvy = "0.15.7"
 git2 = "0.19.0"
 jsonwebtoken = "9.3.0"
 oauth2 = "4.4.2"
-reqwest = { version = "0.12.7", features = ["stream"] }
+reqwest = { version = "0.12.8", features = ["stream"] }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 sqlx = { version = "0.8.1", features = ["sqlite", "runtime-tokio"] }
