@@ -111,8 +111,19 @@ pub async fn delete_doc_handler(
     )
     .await?;
 
-    let gh_token = state.gh_credentials.get(&state.reqwest_client).await.unwrap();
-    state.git.delete_doc(&query.path, &format!("{} deleted {}", author.username, query.path), &gh_token).map_err(eyre_to_axum_err)?;
+    let gh_token = state
+        .gh_credentials
+        .get(&state.reqwest_client)
+        .await
+        .unwrap();
+    state
+        .git
+        .delete_doc(
+            &query.path,
+            &format!("{} deleted {}", author.username, query.path),
+            &gh_token,
+        )
+        .map_err(eyre_to_axum_err)?;
 
     Ok(StatusCode::NO_CONTENT)
 }

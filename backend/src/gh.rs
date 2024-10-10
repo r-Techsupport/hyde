@@ -3,11 +3,12 @@
 use chrono::DateTime;
 use color_eyre::eyre::{bail, Context};
 use color_eyre::Result;
+use fs::File;
+use fs_err as fs;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};

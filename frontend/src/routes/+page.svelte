@@ -20,6 +20,7 @@
 	import AssetSelector from '$lib/components/sidebar/AssetSelector.svelte';
 	import MockDirectory from '$lib/components/sidebar/MockDirectory.svelte';
 	import { SelectedMode } from '$lib/main';
+	import AssetEditor from '$lib/components/editors/AssetEditor.svelte';
 
 	let mode = SelectedMode.Documents;
 	/** The text currently displayed in the editing window */
@@ -147,8 +148,8 @@
 <div style="--sidebar-width: {sidebarWidth}" class="container">
 	<Toasts />
 	<SideBar bind:sidebarWidth>
-		<div class="directory-nav">
-			<!-- TODO: Temporary -->
+	    <div class="directory-nav">
+			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->	
 			{#if mode === SelectedMode.Documents}
 				<FileNavigation on:fileselect={fileSelectionHandler} {...rootNode} />
 			{:else}
@@ -157,7 +158,7 @@
 					on:click={() => {
 						mode = SelectedMode.Documents;
 					}}
-					label="documents"
+					label="docs"
 				/>
 			{/if}
 			{#if mode === SelectedMode.Assets}
@@ -196,7 +197,7 @@
 				</span>
 			{/if}
 		{:else if mode === SelectedMode.Assets}
-			hewwo :3
+				<AssetEditor />
 		{/if}
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />

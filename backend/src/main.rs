@@ -101,9 +101,15 @@ async fn main() -> Result<()> {
         warn!("Failed to read dotenv file located at {dotenv_path}, please ensure all config values are manually set");
     });
     if cfg!(debug_assertions) {
-        info!("Server running in development mode, version v{}", env!("CARGO_PKG_VERSION"));
+        info!(
+            "Server running in development mode, version v{}",
+            env!("CARGO_PKG_VERSION")
+        );
     } else {
-        info!("Server running in release mode, version v{}", env!("CARGO_PKG_VERSION"));
+        info!(
+            "Server running in release mode, version v{}",
+            env!("CARGO_PKG_VERSION")
+        );
     }
     // Initialize app state
     let state: AppState = init_state()
@@ -198,7 +204,7 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
         .route("/api/doc", get(get_doc_handler))
         .route("/api/doc", put(put_doc_handler))
         .route("/api/doc", delete(delete_doc_handler))
-        .route("/api/tree", get(get_tree_handler))
+        .route("/api/tree", get(get_doc_tree_handler))
         .route("/api/oauth", get(get_oauth2_handler))
         .route("/api/oauth/url", get(get_oauth2_url))
         .route("/api/users", get(get_users_handler))
