@@ -1,9 +1,5 @@
-use axum::{
-    debug_handler,
-    extract::{Query, State},
-    http::{HeaderMap, StatusCode},
-    Json,
-};
+use axum::{debug_handler, extract::{Query, State}, http::{HeaderMap, StatusCode}, Json, Router};
+use axum::routing::get;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
@@ -115,4 +111,10 @@ pub async fn delete_doc_handler(
     state.git.delete_doc(&query.path, &format!("{} deleted {}", author.username, query.path), &gh_token).map_err(eyre_to_axum_err)?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn create_doc_route() -> Router<AppState> {
+    Router::new().route("/doc", get(get_doc_handler)
+        .put(put_doc_handler)
+        .delete(delete_doc_handler))
 }
