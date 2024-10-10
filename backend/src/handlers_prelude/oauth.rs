@@ -1,10 +1,7 @@
 use std::env;
 
-use axum::{
-    extract::{Query, Request, State},
-    http::{HeaderMap, StatusCode},
-    response::Redirect,
-};
+use axum::{extract::{Query, Request, State}, http::{HeaderMap, StatusCode}, response::Redirect, Router};
+use axum::routing::get;
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat};
 use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl};
@@ -197,4 +194,11 @@ async fn get_oath_processor(
         .parse()?,
     );
     Ok((headers, redirect))
+}
+
+
+pub async fn create_oauth_route() -> Router<AppState> {
+    Router::new()
+        .route("/oauth", get(get_oauth2_handler))
+        .route("/oauth/url", get(get_oauth2_url))
 }
