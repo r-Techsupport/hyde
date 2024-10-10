@@ -1,6 +1,7 @@
 use crate::git::INode;
 use crate::AppState;
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::State, http::StatusCode, Json, Router};
+use axum::routing::get;
 use tracing::error;
 
 /// This handler reads the document folder and builds a tree style object
@@ -19,4 +20,8 @@ pub async fn get_tree_handler(
             ))
         }
     }
+}
+
+pub async fn create_tree_route() -> Router<AppState> {
+    Router::new().route("/", get(get_tree_handler))
 }
