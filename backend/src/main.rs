@@ -13,7 +13,6 @@ use axum::{
     extract::MatchedPath,
     http::{HeaderValue, Request},
     response::Response,
-    routing::{delete, get, post, put},
     Router,
 };
 use clap::{
@@ -97,14 +96,17 @@ async fn main() -> Result<()> {
         .with_span_events(FmtSpan::CLOSE)
         .init();
     debug!("Initialized logging");
+
     dotenvy::from_path(dotenv_path).unwrap_or_else(|_| {
         warn!("Failed to read dotenv file located at {dotenv_path}, please ensure all config values are manually set");
     });
+
     if cfg!(debug_assertions) {
         info!("Server running in development mode, version v{}", env!("CARGO_PKG_VERSION"));
     } else {
         info!("Server running in release mode, version v{}", env!("CARGO_PKG_VERSION"));
     }
+
     // Initialize app state
     let state: AppState = init_state()
         .await
@@ -189,37 +191,20 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
     frontend_dir.push("web");
     let asset_path = env::var("ASSET_PATH")
         .wrap_err("The `ASSET_PATH` environment variable was not set in the env")?;
+
     // Initialize the handler and router
+    let api_routes = Router::new()
+        .merge(create_oauth_route().await)
+        .merge(create_user_route().await)
+        .merge(create_group_route().await)
+        .merge(create_logout_route().await)
+        .merge(create_reclone_route().await)
+        .merge(create_github_route().await)
+        .merge(create_doc_route().await)
+        .merge(create_tree_route().await);
+
     let app = Router::new()
-        .route("/api/hello", get(|| async { "Hello world" }))
-        .route("/api/logout", get(get_logout_handler))
-        .route("/api/reclone", post(post_reclone_handler))
-        .route("/api/hooks/github", post(github_hook_handler))
-        .route("/api/doc", get(get_doc_handler))
-        .route("/api/doc", put(put_doc_handler))
-        .route("/api/doc", delete(delete_doc_handler))
-        .route("/api/tree", get(get_tree_handler))
-        .route("/api/oauth", get(get_oauth2_handler))
-        .route("/api/oauth/url", get(get_oauth2_url))
-        .route("/api/users", get(get_users_handler))
-        .route(
-            "/api/users/groups/:user_id",
-            post(post_user_membership_handler),
-        )
-        .route(
-            "/api/users/groups/:user_id",
-            delete(delete_user_membership_handler),
-        )
-        .route("/api/users/:user_id", delete(delete_user_handler))
-        .route("/api/users/me", get(get_current_user_handler))
-        .route("/api/users/me", delete(delete_current_user))
-        .route("/api/groups", get(get_groups_handler))
-        .route("/api/groups", post(post_group_handler))
-        .route(
-            "/api/groups/:group_id/permissions",
-            put(put_group_permissions_handler),
-        )
-        .route("/api/groups/:group_id", delete(delete_group_handler))
+        .nest("/api", api_routes)
         .layer(if cfg!(debug_assertions) {
             CorsLayer::new()
                 // If this isn't set, cookies won't be sent across ports
