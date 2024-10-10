@@ -3,13 +3,12 @@
 BUILD_DIR="./target"
 
 BACKEND_DIR="./backend"
-BACKEND_BUILD="$BACKEND_DIR/target/release/hyde-backend"
+BACKEND_BUILD_BIN="$BACKEND_DIR/target/release/hyde-backend"
 
 FRONTEND_DIR="./frontend"
 FRONTEND_BUILD="$FRONTEND_DIR/build"
 
 check_target() {
-  echo "Checking target folder"
   if [ -d $BUILD_DIR ]; then
     echo "Target folder exists, clearing for rebuild"
     rm -rf "${BUILD_DIR:?}/"*
@@ -36,7 +35,7 @@ build_backend() {
 copy_build() {
   echo "Copying builds to target build folder"
   mkdir -p "$BUILD_DIR/web" && cp -r "$FRONTEND_BUILD/"* "$BUILD_DIR/web"
-  cp "$BACKEND_BUILD" "$BUILD_DIR/hyde"
+  cp "$BACKEND_BUILD_BIN" "$BUILD_DIR/hyde"
 }
 
 copy_hyde_data() {
