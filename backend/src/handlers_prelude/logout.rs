@@ -1,4 +1,7 @@
 use axum::http::HeaderMap;
+use axum::Router;
+use axum::routing::get;
+use crate::AppState;
 
 /// Tell the browser on the other end to overwrite the access token, effectively logging the user out
 pub async fn get_logout_handler() -> HeaderMap {
@@ -10,4 +13,8 @@ pub async fn get_logout_handler() -> HeaderMap {
             .expect("Statically defined logout cookie isn't valid"),
     );
     response_headers
+}
+
+pub async fn create_logout_route() -> Router<AppState> {
+    Router::new().route("/logout", get(get_logout_handler))
 }
