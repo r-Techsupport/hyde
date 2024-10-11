@@ -201,7 +201,9 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
         .merge(create_reclone_route().await)
         .merge(create_github_route().await)
         .merge(create_doc_route().await)
-        .merge(create_tree_route().await);
+        .merge(create_tree_route().await)
+        .merge(create_github_pull_request_route().await)
+        .merge(create_last_commit_route().await);
 
     let app = Router::new()
         .nest("/api", api_routes)
@@ -210,11 +212,11 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
                 // If this isn't set, cookies won't be sent across ports
                 .allow_credentials(true)
                 .allow_origin("http://localhost:5173".parse::<HeaderValue>()?)
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
                 .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
         } else {
             CorsLayer::new()
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
                 .allow_headers([ALLOW, ACCEPT, CONTENT_TYPE])
         })
         .with_state(state)

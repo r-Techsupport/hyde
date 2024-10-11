@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status};
+use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status, BranchType};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -12,7 +12,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, error};
 
 #[derive(Clone)]
 pub struct Interface {
@@ -113,15 +113,11 @@ impl Interface {
     }
 
     /// Create or overwrite the document at the provided `path` and populate it with the value of `new_doc`.
-    /// `message` will be included in the commit message, and `token` is a valid github auth token.
-    ///
-    /// # Panics
-    /// This function will panic if it's called when the repo mutex is already held by the current thread
+    /// `message` will be included in the commit message, and `branch` specifies which branch to commit to.
+    /// `token` is a valid github auth token.
     ///
     /// # Errors
-    /// This function will return an error if filesystem operations fail, or if any of the git operations fail
-    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
-    // it creates errors that note the destructor for other values failing because of it (tree)
+    /// This function will return an error if filesystem operations fail, or if any of the git operations fail.
     #[allow(clippy::significant_drop_tightening)]
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
@@ -130,43 +126,58 @@ impl Interface {
         new_doc: &str,
         message: &str,
         token: &str,
+        branch: &str,  // Pass the branch name here
     ) -> Result<()> {
         let repo = self.repo.lock().unwrap();
+
+        // Step 1: Checkout or create the branch
+        Self::checkout_or_create_branch(&repo, branch)?;
+
+        // Step 2: Write the document to the specified path
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
-        // wipe the file
+
+        // Wipe and write the new contents
         let mut file = fs::File::create(path_to_doc).wrap_err_with(|| {
-            format!(
-                "Failed to wipe requested file for rewrite: {:?}",
-                path.as_ref()
-            )
+            format!("Failed to wipe requested file for rewrite: {:?}", path.as_ref())
         })?;
-        // write the new contents in
         file.write_all(new_doc.as_bytes()).wrap_err_with(|| {
-            format!(
-                "Failed to write new contents into file: {:?}",
-                path.as_ref()
-            )
+            format!("Failed to write new contents into file: {:?}", path.as_ref())
         })?;
+
         let msg = format!("[Hyde]: {message}");
-        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
+
+        // Relative path from the repo root (./docs instead of ./repo/docs)
         let mut relative_path = PathBuf::from(
             env::var("DOC_PATH").wrap_err("The `DOC_PATH` environment variable was not set")?,
         );
-        // Standard practice is to stage commits by adding them to an index.
         relative_path.push(path);
+
+        // Stage the changes for commit
         Self::git_add(&repo, relative_path)?;
+
+        // Step 3: Commit the changes to the branch
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token)?;
+
+        // Step 4: Push the branch to the remote repository
+        Self::git_push_to_branch(&repo, branch, token)?;
+
+        // Optional: Step 5: Create a pull request on GitHub and merge the branch into the main branch
+        // You can use a GitHub API call to create the pull request and merge it.
+        // Assuming you have a function to do this:
+        // Self::create_and_merge_pull_request(branch, message, token)?;
+
         info!(
-            "Document {:?} edited and pushed to GitHub with message: {message:?}",
+            "Document {:?} edited, committed to branch '{branch}' and pushed to GitHub with message: {message:?}",
             path.as_ref()
         );
         debug!("Commit cleanup completed");
+
         Ok(())
     }
+
 
     /// Delete the document at the specified `path`.
     /// `message` will be included in the commit message, and `token` is a valid github auth token.
@@ -298,7 +309,40 @@ impl Interface {
     // }
 
     /// A code level re-implementation of `git commit`.
-    ///
+    /// A function used to checkout or create a new branch based on the name.
+    pub fn checkout_or_create_branch(repo: &Repository, branch_name: &str) -> Result<()> {
+        let mut head = repo.head()?;
+        let commit = head.peel_to_commit()?;
+    
+        match repo.find_branch(branch_name, BranchType::Local) {
+            Ok(_) => {
+                // If the branch exists, check it out
+                repo.set_head(&format!("refs/heads/{}", branch_name)).map_err(|e| {
+                    error!("Failed to set head to branch {branch_name}: {e:?}");
+                    e
+                })?;
+            }
+            Err(e) => {
+                // If the branch does not exist, create it
+                match repo.branch(branch_name, &commit, false) {
+                    Ok(_) => {
+                        // Now check out the newly created branch
+                        repo.set_head(&format!("refs/heads/{}", branch_name)).map_err(|e| {
+                            error!("Failed to set head to new branch {branch_name}: {e:?}");
+                            e
+                        })?;
+                    }
+                    Err(create_err) => {
+                        error!("Failed to create branch {branch_name}: {create_err:?}");
+                        return Err(create_err.into());
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
     /// Writes the current index as a commit, updating HEAD. This means it will only commit changes
     /// tracked by the index. If an author is not specified, the commit will be attributed to `Hyde`. Returns
     /// the id (A full or partial hash associated with a git object) tied to that commit.
@@ -334,6 +378,21 @@ impl Interface {
         remote.disconnect()?;
         Ok(())
     }
+
+    /// Pushes the commits to a branch instead of the master branch.
+    pub fn git_push_to_branch(repo: &Repository, branch_name: &str, token: &str) -> Result<()> {
+        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
+        let authenticated_url = repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
+        repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
+        
+        let mut remote = repo.find_remote("origin")?;
+        remote.connect(git2::Direction::Push)?;
+
+        remote.push(&[&format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name)], None)?;
+        remote.disconnect()?;
+        
+        Ok(())
+}
 
     /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
     ///
@@ -473,10 +532,15 @@ impl Interface {
         Ok(())
     }
 
+    // Public method to access the private repo
+    pub fn repo(&self) -> Arc<Mutex<Repository>> {
+        Arc::clone(&self.repo)
+    }
+
     /// Returns the latest commit from `HEAD`.
     ///
     /// <https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html>
-    fn find_last_commit(repo: &Repository) -> Result<git2::Commit, git2::Error> {
+    pub fn find_last_commit(repo: &Repository) -> Result<git2::Commit, git2::Error> {
         let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
         obj.into_commit()
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))

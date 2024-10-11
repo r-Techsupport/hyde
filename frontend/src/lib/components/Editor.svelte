@@ -39,6 +39,7 @@
 	}
 
 	export let saveChangesHandler: (commitMessage: string) => Promise<void>;
+	export let createPullRequestHandler: () => Promise<void>;
 
 	async function cancelChangesHandler() {
 		if (editorText !== get(currentFile)) {
@@ -111,6 +112,25 @@
 		>
 			<title>Publish Changes</title>
 			<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
+		</svg>
+	</button>
+	 <!-- Pull Request -->
+	 <button
+		on:click={createPullRequestHandler}
+		class="pull-request"
+		title="Create Pull Request"
+	>
+		<span>Create Pull Request</span>
+		<svg
+			role="button"
+			tabindex="0"
+			xmlns="http://www.w3.org/2000/svg"
+			height="40px"
+			viewBox="0 0 24 24"
+			width="40px"
+		>
+			<title>Create Pull Request</title>
+			<path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm5 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
 		</svg>
 	</button>
 </div>

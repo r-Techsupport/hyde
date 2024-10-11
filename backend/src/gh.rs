@@ -1,17 +1,22 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
 use chrono::DateTime;
-use color_eyre::eyre::{bail, Context};
+use color_eyre::eyre::{bail, Context, ContextCompat};
 use color_eyre::Result;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+use dotenvy::dotenv;
 use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
+use tracing::info;
+
+const GITHUB_API_URL: &str = "https://api.github.com";
 
 /// In order to authenticate as a github app or generate an installation access token, you must generate a JSON Web Token (JWT). The JWT must contain predefined *claims*.
 ///
@@ -161,4 +166,76 @@ fn gen_jwt_token() -> Result<String> {
         &Claims::new()?,
         &EncodingKey::from_rsa_pem(&private_key)?,
     )?)
+}
+
+// Function to create a GitHub pull request using environment variables for configuration.
+///
+/// # Parameters:
+/// - `req_client`: The `reqwest::Client` to make HTTP requests.
+/// - `token`: The GitHub access token for authentication.
+/// - `head_branch`: The branch where changes are made.
+/// - `base_branch`: The base branch to which the pull request is opened.
+/// - `pr_title`: The title for the pull request.
+///
+/// The GitHub repository is pulled from the environment variable `REPO_NAME` in the `.env` file.
+/// If the environment variable is not found, the function will return an error.
+pub async fn create_pull_request(
+    req_client: &Client,
+    token: &str,
+    head_branch: &str,
+    base_branch: &str,
+    pr_title: &str,
+    pr_description: &str,
+) -> Result<()> {
+    // Load environment variables from .env file
+    dotenv().ok();
+
+    // Retrieve the repository URL from the environment variable
+    let repo_url = env::var("REPO_URL")
+        .context("REPO_URL must be set in the .env file")?;
+
+    // Parse the repository name from the URL
+    let repo_path = repo_url
+        .trim_end_matches(".git")  // Remove the .git suffix
+        .rsplit('/')  // Split by '/'
+        .collect::<Vec<&str>>();  // Collect into a vector
+
+    // Ensure repo_path has both owner and repo
+    if repo_path.len() < 2 {
+        return Err(color_eyre::eyre::eyre!("Invalid REPO_URL format, must be <owner>/<repo>."));
+    }
+
+    let repo_name = format!("{}/{}", repo_path[1], repo_path[0]); // <owner>/<repo>
+
+    // Prepare the JSON body for the pull request
+    let pr_body = json!( {
+        "title": pr_title,
+        "head": head_branch,  // The branch with the changes
+        "base": base_branch,  // The branch to merge into
+        "body": pr_description,
+    });
+
+    // Send the pull request creation request to the GitHub API
+    let response = req_client
+        .post(format!("{}/repos/{}/pulls", GITHUB_API_URL, repo_name))
+        .bearer_auth(token)  // Use the GitHub access token for authentication
+        .header("User-Agent", "Hyde")  // Set the User-Agent header to the app name
+        .json(&pr_body)  // Include the PR body as JSON
+        .send()
+        .await?;
+
+    // Handle the response based on the status code
+    if response.status().is_success() {
+        info!("Pull request created successfully for branch {}", head_branch);
+    } else {
+        let status = response.status();
+        let response_text = response.text().await?;
+        return Err(color_eyre::eyre::eyre!(
+            "Failed to create pull request: {}, Response: {}",
+            status,
+            response_text
+        ));
+    }
+
+    Ok(())
 }
