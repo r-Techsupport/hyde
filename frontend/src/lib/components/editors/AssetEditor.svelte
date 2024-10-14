@@ -20,6 +20,13 @@
     <p>You're viewing the assets for <strong>"{assetFolderPath}"</strong></p>
 </div>
 
+<div class="asset-catalogue">
+    {#each tree.children.find((n) => n.name === assetFolderPath)?.children ?? [] as asset}
+        <img src={''}/>
+        <p>{asset.name}</p>
+    {/each}
+</div>
+
 <style>
     :root {
         font-family: var(--font-family);

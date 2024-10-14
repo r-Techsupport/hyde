@@ -575,7 +575,8 @@ trait RepoFileSystem {
     fn get_file_tree<P: AsRef<Path> + Copy>(path: P) -> Result<INode>;
 }
 
-// TODO:
-trait Git {}
+// TODO: Split git code out into a new (hopefully git backend agnostic) trait so that the impl block
+// isn't so massive
+// trait Git {}
 
 // TODO: unit tests for get_inode_path and that sort of thing
