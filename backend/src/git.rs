@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{AnnotatedCommit, Config, FetchOptions, Oid, Repository, Signature, Status};
+use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
