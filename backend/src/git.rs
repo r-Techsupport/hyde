@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status};
+use git2::{AnnotatedCommit, Config, FetchOptions, Oid, Repository, Signature, Status};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -12,9 +12,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tracing::{debug, info, warn};
-use crate::AppState;
+use crate::hyde_config::HydeConfig;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Interface {
     repo: Arc<Mutex<Repository>>,
     /// The path to the documents folder, relative to the server executable.
@@ -37,11 +37,10 @@ impl Interface {
     /// # Errors
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn new(state: AppState) -> Result<Self> {
-        let config = Arc::clone(&state.config);
+    pub fn new(repo_url: String) -> Result<Self> { 
         let mut doc_path = PathBuf::from("repo");
-        doc_path.push(&config.files.docs_path);
-        let repo = Self::load_repository("repo", state)?;
+        doc_path.push(&repo_url);
+        let repo = Self::load_repository("repo", repo_url)?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
@@ -124,13 +123,13 @@ impl Interface {
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
-        state: AppState,
+        config: Arc<HydeConfig>,
         path: P,
         new_doc: &str,
         message: &str,
         token: &str,
     ) -> Result<()> {
-        let config = Arc::clone(&state.config);
+        let config = Arc::clone(&config);
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
@@ -157,7 +156,7 @@ impl Interface {
         Self::git_add(&repo, relative_path)?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, state)?;
+        Self::git_push(&repo, token, &config.files.repo_url)?;
         info!(
             "Document {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
@@ -178,12 +177,12 @@ impl Interface {
     // it creates errors that note the destructor for other values failing because of it (tree)
     pub fn delete_doc<P: AsRef<Path> + Copy>(
         &self,
-        state: AppState,
+        config: Arc<HydeConfig>,
         path: P,
         message: &str,
         token: &str,
     ) -> Result<()> {
-        let config = Arc::clone(&state.config);
+        let config = Arc::clone(&config);
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::new();
         path_to_doc.push(&self.doc_path);
@@ -197,7 +196,7 @@ impl Interface {
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, state)?;
+        Self::git_push(&repo, token, &config.files.repo_url)?;
         drop(repo);
         info!(
             "Document {:?} removed and changes synced to Github with message: {message:?}",
@@ -210,36 +209,32 @@ impl Interface {
     /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
     /// If not, clone into the provided path.
     #[tracing::instrument]
-    fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P, state: AppState) -> Result<Repository> {
-        let config = Arc::clone(&state.config);
+    fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P, repo_url: String) -> Result<Repository> {
         if let Ok(repo) = Repository::open("./repo") {
             Self::git_pull(&repo)?;
             info!("Existing repository detected, fetching latest changes...");
             return Ok(repo);
         }
-
-        let repository_url = &config.files.repo_url;
+        
         let output_path = Path::new("./repo");
         info!(
-            "No repo detected, cloning {repository_url:?} into {:?}...",
+            "No repo detected, cloning {repo_url:?} into {:?}...",
             output_path.display()
         );
-        let repo = Repository::clone(&repository_url, output_path)?;
+        let repo = Repository::clone(&repo_url, output_path)?;
         info!("Successfully cloned repo");
         Ok(repo)
     }
 
     /// Completely clone and open a new repository, deleting the old one.
     #[tracing::instrument(skip_all)]
-    pub fn reclone(&self, state: AppState) -> Result<()> {
+    pub fn reclone(&self, repo_url: &str) -> Result<()> {
         // First clone a repo into `repo__tmp`, open that, swap out
         // TODO: nuke `repo__tmp` if it exists already
         let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
         let tmp_path = Path::new("./repo__tmp"); // TODO: Same here?
-        let config = Arc::clone(&state.config);
         info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
-        let repository_url = &config.files.repo_url;
-        let tmp_repo = Repository::clone(&repository_url, tmp_path)?;
+        let tmp_repo = Repository::clone(repo_url, tmp_path)?;
         info!("Pointing changes to new temp repository");
         let mut lock = self.repo.lock().unwrap();
         *lock = tmp_repo;
@@ -320,11 +315,9 @@ impl Interface {
     ///
     /// `token` is a valid Github auth token.
     // TODO: stop hardcoding refspec and make it an argument.
-    fn git_push(repo: &Repository, token: &str, state: AppState) -> Result<()> {
-        let config = Arc::clone(&state.config);
-        let repository_url = &config.files.repo_url;
+    fn git_push(repo: &Repository, token: &str, repo_url: &String) -> Result<()> {
         let authenticated_url =
-            repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
+            repo_url.replace("https://", &format!("https://x-access-token:{token}@"));
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
         let mut remote = repo.find_remote("origin")?;
         remote.connect(git2::Direction::Push)?;
