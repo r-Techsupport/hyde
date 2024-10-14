@@ -60,12 +60,9 @@
 			currentFile.set('');
 		}
 		if (siblings !== undefined) {
-			// siblings.filter((n) => n.name !== name);
 			const entryToRemove = siblings.findIndex((n) => n.name === name);
 			console.log(siblings.splice(entryToRemove, 1));
 		}
-		// TODO: requisite backend work, eg create DELETE
-		// handler for documents.
 		const r = await fetch(`${apiAddress}/api/doc?path=${path}`, {
 			method: 'DELETE',
 			credentials: 'include'
@@ -89,14 +86,7 @@
 		// is closed and re-opened, I nuke the current element here
 		// because I don't know how else to make it happen immediately
 		self.remove();
-		console.log(`Document "${path}" would be deleted`);
 	}
-
-	onMount(async () => {
-		// Sort nodes alphabetically
-		// https://stackoverflow.com/questions/8900732/sort-objects-in-an-array-alphabetically-on-one-property-of-the-array
-		children = children.sort((a, b) => a.name.localeCompare(b.name));
-	});
 </script>
 
 <span class={'container' + (selected ? ' selected' : '')}>

@@ -72,7 +72,6 @@ impl Interface {
     pub fn get_doc<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<Option<String>> {
         let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
         path_to_doc.push(path);
-        println!("Attempting to fetch doc located at path: {:?}", path_to_doc);
         let doc = Self::get_file(&path_to_doc)?.map(|v| String::from_utf8(v).unwrap());
         Ok(doc)
     }
@@ -537,6 +536,8 @@ impl RepoFileSystem for Interface {
                     });
                 }
             }
+            // Sort entries alphabetically
+            node.children.sort_by_cached_key(|e| e.name.clone());
             Ok(())
         }
 

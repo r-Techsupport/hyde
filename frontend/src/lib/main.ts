@@ -28,6 +28,20 @@ export const me: Writable<User> = writable({
 	groups: [],
 	permissions: []
 });
+
+/**
+ * The filesystem tree for the document folder
+ */
+export const documentTree: Writable<INode> = writable({
+	name: 'Loading...',
+	children: [],
+});
+
+export const assetTree: Writable<INode> = writable({
+	name: 'Loading...',
+	children: [],
+});
+
 export let apiAddress = '';
 
 // Set the API url to localhost for supporting

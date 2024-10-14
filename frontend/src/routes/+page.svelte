@@ -5,7 +5,7 @@
 	import ChangeDialogue from '../lib/components/elements/ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
-	import { apiAddress } from '$lib/main';
+	import { apiAddress, assetTree, documentTree, type INode } from '$lib/main';
 	import LoadingIcon from '../lib/components/elements/LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from '../lib/components/elements/Toasts.svelte';
@@ -23,12 +23,20 @@
 	import AssetEditor from '$lib/components/editors/AssetEditor.svelte';
 
 	let mode = SelectedMode.Documents;
-	/** The text currently displayed in the editing window */
+	// TODO: figure out how to move this out of +page.svelte and into the document editor
+	/** The text currently displayed in the document editing window */
 	let editorText = '';
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement;
+	/** The path to the currently selected assets folder */
+	let assetFolderPath = '';
 
-	async function fileSelectionHandler(e: CustomEvent) {
+	let docTree: INode = {
+		name: '',
+		children: []
+	};
+
+	async function documentSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if (get(currentFile) === '' || (await cache.get(get(currentFile))) === editorText) {
 			showEditor = true;
@@ -81,14 +89,17 @@
 	/** The width of the sidebar */
 	export let sidebarWidth = '14rem';
 
-	/** The base directory for filesystem navigation */
-	let rootNode = {
-		name: '',
-		children: []
-	};
 	onMount(async () => {
-		const response = await fetch(`${apiAddress}/api/tree`);
-		rootNode = await response.json();
+		// Fetch the document tree
+		const docResponse = await fetch(`${apiAddress}/api/tree/doc`);
+		documentTree.set(await docResponse.json());
+		documentTree.subscribe(t => docTree = t);
+		console.log(docTree);
+
+		// Fetch the asset tree
+		const assetResponse = await fetch(`${apiAddress}/api/tree/asset`);
+		assetTree.set(await assetResponse.json());
+
 	});
 
 	let showChangeDialogue: boolean;
@@ -151,7 +162,7 @@
 	    <div class="directory-nav">
 			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->	
 			{#if mode === SelectedMode.Documents}
-				<FileNavigation on:fileselect={fileSelectionHandler} {...rootNode} />
+				<FileNavigation on:fileselect={documentSelectionHandler} {...docTree} />
 			{:else}
 				<!-- Display a button that switches the mode to docs -->
 				<MockDirectory
@@ -162,7 +173,7 @@
 				/>
 			{/if}
 			{#if mode === SelectedMode.Assets}
-				<AssetSelector bind:mode />
+				<AssetSelector bind:mode bind:assetFolderPath/>
 			{:else}
 				<MockDirectory
 					on:click={() => {
@@ -197,7 +208,7 @@
 				</span>
 			{/if}
 		{:else if mode === SelectedMode.Assets}
-				<AssetEditor />
+				<AssetEditor bind:assetFolderPath/>
 		{/if}
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />

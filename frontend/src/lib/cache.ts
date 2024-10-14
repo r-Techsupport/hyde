@@ -9,7 +9,7 @@ import { apiAddress } from './main';
  */
 type CacheEntry = string;
 
-class AssetCache {
+class DocumentCache {
 	// This will probably need to be updated to add support for non-text
 	// stuff
 	private values: Map<string, CacheEntry> = new Map<string, CacheEntry>();
@@ -20,6 +20,8 @@ class AssetCache {
 	 * @param path The path of the asset to fetch
 	 */
 	public async get(path: string): Promise<CacheEntry | null> {
+		// Stupid hack fix because I don't want to do a real fix
+		path.replace('docs/', '');
 		const hasKey = this.values.has(path);
 		let entry: CacheEntry;
 		// Re-insert to mark it as most recently accessed
@@ -81,4 +83,4 @@ class AssetCache {
 /**
  * A transparent caching layer that stores the last few documents accessed locally.
  */
-export const cache: AssetCache = new AssetCache();
+export const cache: DocumentCache = new DocumentCache();
