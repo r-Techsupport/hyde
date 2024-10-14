@@ -1,0 +1,19 @@
+[files]
+asset_path = "docs/"
+docs_path = "assets/"
+repo_url = "https://github.com/r-Techsupport/rTS_Wiki.git"
+
+[discord]
+admin_username = "xeckt_"
+
+[oauth.discord]
+client_id = "123"
+secret = "_1a2B3c"
+url = "https://example.com/oauth2"
+token_url = "https://discord.com/api/oauth2/token"
+
+[oauth.github]
+client_id = "Iv23libASQn9266tzjpm"
+
+[database]
+url = "sqlite://../hyde-data/data.db"
