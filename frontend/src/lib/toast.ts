@@ -12,7 +12,7 @@ export enum ToastType {
 	Info = 'info',
 	Error = 'error',
 	Success = 'success',
-	Warning = "Warning"
+	Warning = "warning"
 }
 
 export const toasts = writable<ToastInfo[]>([]);
