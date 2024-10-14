@@ -6,14 +6,11 @@ use color_eyre::Result;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::os::linux::raw::stat;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
-use crate::AppState;
 use crate::hyde_config::HydeConfig;
 
 /// In order to authenticate as a github app or generate an installation access token, you must generate a JSON Web Token (JWT). The JWT must contain predefined *claims*.
