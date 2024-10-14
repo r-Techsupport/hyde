@@ -8,7 +8,8 @@ docs_path = "assets/"
 repo_url = "https://github.com/r-Techsupport/rTS_Wiki.git"
 
 [discord]
-admin_username = "xeckt_" # The discord username of the admin account
+# The discord username of the admin account
+admin_username = "xeckt_"
 
 [oauth.discord]
 # Put your Discord OAuth2 client ID here
