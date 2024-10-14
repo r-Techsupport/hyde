@@ -11,7 +11,8 @@ interface ToastInfo {
 export enum ToastType {
 	Info = 'info',
 	Error = 'error',
-	Success = 'success'
+	Success = 'success',
+	Warning = "Warning"
 }
 
 export const toasts = writable<ToastInfo[]>([]);

@@ -22,8 +22,6 @@ mod reclone;
 pub use reclone::*;
 mod github_pull_request;
 pub use github_pull_request::*;
-mod get_last_commit;
-pub use get_last_commit::*;
 
 use color_eyre::{
     eyre::{Context, ContextCompat},

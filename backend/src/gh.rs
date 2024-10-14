@@ -1,7 +1,7 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
 use chrono::DateTime;
-use color_eyre::eyre::{bail, Context, ContextCompat};
+use color_eyre::eyre::{bail, Context};
 use color_eyre::Result;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;

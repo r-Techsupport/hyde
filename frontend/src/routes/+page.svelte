@@ -9,7 +9,7 @@
 	import LoadingIcon from './LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from './Toasts.svelte';
-	import { currentFile, me } from '$lib/main';
+	import { currentFile, me, branchName } from '$lib/main';
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
@@ -30,8 +30,6 @@
 	 */
 	const DEBOUNCE_TIME: number = 500;
 
-	const BRANCH_NAME = 'HydeTest';
-
 	let lastKeyPressedTime = Date.now();
 
 	/** The base directory for filesystem navigation */
@@ -39,6 +37,7 @@
 		name: '',
 		children: []
 	};
+
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree`);
 		rootNode = await response.json();
@@ -84,6 +83,16 @@
 	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
 		try {
+			const currentBranchName = get(branchName);
+			if (currentBranchName === "Set Branch") {
+            addToast({
+                message: 'Please set a valid branch name before saving changes.',
+                type: ToastType.Warning,
+                dismissible: true,
+                timeout: 5000
+            });
+            return; // Exit the function early
+        }
 			const response = await fetch(`${apiAddress}/api/doc`, {
 				method: 'PUT',
 				credentials: 'include',
@@ -94,7 +103,7 @@
 					contents: editorText,
 					path: get(currentFile),
 					commit_message: commitMessage,
-					branch_name: BRANCH_NAME // Send the branch name to the server
+					branch_name: currentBranchName // Send the branch name to the server
 				})
 			});
 			
@@ -169,69 +178,7 @@
 	});
 
 	let createPullRequestHandler = async (): Promise<void> => {
-		// Check for commits on the current branch
 		try {
-/* 			// Fetch the last commit on the current branch
-			const commitsResponse = await fetch(`${apiAddress}/api/commits/${BRANCH_NAME}`, {
-				method: 'GET',
-				credentials: 'include',
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
-
-			if (!commitsResponse.ok) {
-				throw new Error(`Failed to fetch last commit (Code ${commitsResponse.status}: "${commitsResponse.statusText}")`);
-			}
-
-			const currentBranchCommit = await commitsResponse.json();
-
-			// Check if the branch has no commits
-			if (!currentBranchCommit || !currentBranchCommit.commitHash) {
-				addToast({
-					message: 'No commits found on the branch. Please commit changes before creating a pull request.',
-					type: ToastType.Error,
-					dismissible: true,
-				});
-				return;
-			}
-
-			// Fetch the last commit on the master branch
-			const masterBranchResponse = await fetch(`${apiAddress}/api/commits/master`, { // Updated branch name
-				method: 'GET',
-				credentials: 'include',
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
-
-			if (!masterBranchResponse.ok) {
-				throw new Error(`Failed to fetch last commit on master (Code ${masterBranchResponse.status}: "${masterBranchResponse.statusText}")`);
-			}
-
-			const masterBranchCommit = await masterBranchResponse.json();
-
-			// Check if the master branch has no commits
-			if (!masterBranchCommit || !masterBranchCommit.commitHash) {
-				addToast({
-					message: 'No commits found on the master branch. Unable to create pull request.',
-					type: ToastType.Error,
-					dismissible: true,
-				});
-				return;
-			}
-
-			// Compare commits to check if the current branch is ahead of master
-			if (currentBranchCommit.commitHash === masterBranchCommit.commitHash) {
-				addToast({
-					message: 'No new commits found on your branch compared to the master branch. Please make changes before creating a pull request.',
-					type: ToastType.Error,
-					dismissible: true,
-				});
-				return;
-			} */
-
-			// Proceed to create the pull request if the branch is ahead of master
 			const title = `Pull request for ${get(currentFile)}`;
 			const description = `This pull request contains changes made by ${get(me).username}.`;
 
@@ -242,7 +189,7 @@
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					head_branch: BRANCH_NAME,
+					head_branch: branchName,
 					base_branch: 'master', // Updated base branch
 					title: title,
 					description: description

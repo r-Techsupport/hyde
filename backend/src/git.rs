@@ -531,12 +531,6 @@ impl Interface {
         repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
         Ok(())
     }
-
-    // Public method to access the private repo
-    pub fn repo(&self) -> Arc<Mutex<Repository>> {
-        Arc::clone(&self.repo)
-    }
-
     /// Returns the latest commit from `HEAD`.
     ///
     /// <https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html>
