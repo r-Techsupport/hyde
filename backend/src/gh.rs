@@ -59,7 +59,7 @@ impl Claims {
 }
 
 /// A wrapper around the github access token that automatically refreshes if the token has been invalidated
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GithubAccessToken {
     expires_at: Arc<Mutex<SystemTime>>,
     token: Arc<Mutex<String>>,

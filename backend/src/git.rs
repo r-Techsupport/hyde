@@ -8,13 +8,13 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::{
-    env,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
 use tracing::{debug, info, warn};
+use crate::AppState;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Interface {
     repo: Arc<Mutex<Repository>>,
     /// The path to the documents folder, relative to the server executable.
@@ -37,13 +37,11 @@ impl Interface {
     /// # Errors
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn new() -> Result<Self> {
+    pub fn new(state: AppState) -> Result<Self> {
+        let config = Arc::clone(&state.config);
         let mut doc_path = PathBuf::from("repo");
-        doc_path.push(env::var("DOC_PATH").unwrap_or_else(|_| {
-            warn!("The `DOC_PATH` environment variable was not set, defaulting to `docs/`");
-            "docs".to_string()
-        }));
-        let repo = Self::load_repository("repo")?;
+        doc_path.push(&config.files.docs_path);
+        let repo = Self::load_repository("repo", state)?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
@@ -126,11 +124,13 @@ impl Interface {
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
+        state: AppState,
         path: P,
         new_doc: &str,
         message: &str,
         token: &str,
     ) -> Result<()> {
+        let config = Arc::clone(&state.config);
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
@@ -151,15 +151,13 @@ impl Interface {
         })?;
         let msg = format!("[Hyde]: {message}");
         // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(
-            env::var("DOC_PATH").wrap_err("The `DOC_PATH` environment variable was not set")?,
-        );
+        let mut relative_path = PathBuf::from(&config.files.repo_url);
         // Standard practice is to stage commits by adding them to an index.
         relative_path.push(path);
         Self::git_add(&repo, relative_path)?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token)?;
+        Self::git_push(&repo, token, state)?;
         info!(
             "Document {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
@@ -180,26 +178,26 @@ impl Interface {
     // it creates errors that note the destructor for other values failing because of it (tree)
     pub fn delete_doc<P: AsRef<Path> + Copy>(
         &self,
+        state: AppState,
         path: P,
         message: &str,
         token: &str,
     ) -> Result<()> {
+        let config = Arc::clone(&state.config);
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::new();
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
         let msg = format!("[Hyde]: {message}");
         // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(
-            env::var("DOC_PATH").wrap_err("The `DOC_PATH` environment variable was not set")?,
-        );
+        let mut relative_path = PathBuf::from(&config.files.docs_path);
         // Standard practice is to stage commits by adding them to an index.
         relative_path.push(path);
         fs::remove_file(&path_to_doc).wrap_err_with(|| format!("Failed to remove document the document at {path_to_doc:?}"))?;
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token)?;
+        Self::git_push(&repo, token, state)?;
         drop(repo);
         info!(
             "Document {:?} removed and changes synced to Github with message: {message:?}",
@@ -212,15 +210,15 @@ impl Interface {
     /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
     /// If not, clone into the provided path.
     #[tracing::instrument]
-    fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Repository> {
+    fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P, state: AppState) -> Result<Repository> {
+        let config = Arc::clone(&state.config);
         if let Ok(repo) = Repository::open("./repo") {
             Self::git_pull(&repo)?;
             info!("Existing repository detected, fetching latest changes...");
             return Ok(repo);
         }
 
-        let repository_url = env::var("REPO_URL")
-            .wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
+        let repository_url = &config.files.repo_url;
         let output_path = Path::new("./repo");
         info!(
             "No repo detected, cloning {repository_url:?} into {:?}...",
@@ -233,14 +231,14 @@ impl Interface {
 
     /// Completely clone and open a new repository, deleting the old one.
     #[tracing::instrument(skip_all)]
-    pub fn reclone(&self) -> Result<()> {
+    pub fn reclone(&self, state: AppState) -> Result<()> {
         // First clone a repo into `repo__tmp`, open that, swap out
         // TODO: nuke `repo__tmp` if it exists already
-        let repo_path = Path::new("./repo");
-        let tmp_path = Path::new("./repo__tmp");
+        let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
+        let tmp_path = Path::new("./repo__tmp"); // TODO: Same here?
+        let config = Arc::clone(&state.config);
         info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
-        let repository_url = env::var("REPO_URL")
-            .wrap_err("The `REPO_URL` environment url was not set, this is required.")?;
+        let repository_url = &config.files.repo_url;
         let tmp_repo = Repository::clone(&repository_url, tmp_path)?;
         info!("Pointing changes to new temp repository");
         let mut lock = self.repo.lock().unwrap();
@@ -322,8 +320,9 @@ impl Interface {
     ///
     /// `token` is a valid Github auth token.
     // TODO: stop hardcoding refspec and make it an argument.
-    fn git_push(repo: &Repository, token: &str) -> Result<()> {
-        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
+    fn git_push(repo: &Repository, token: &str, state: AppState) -> Result<()> {
+        let config = Arc::clone(&state.config);
+        let repository_url = &config.files.repo_url;
         let authenticated_url =
             repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
