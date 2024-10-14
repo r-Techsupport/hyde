@@ -7,10 +7,12 @@ docs_path = "assets/"
 # The URL of the jekyll repository to interface with
 repo_url = "https://github.com/r-Techsupport/rTS_Wiki.git"
 
+# Discord is related to discord specific information to pass to Hyde.
 [discord]
 # The discord username of the admin account
 admin_username = "xeckt_"
 
+# OAuth for Discord and GitHub, handles passing all relevant information to clients in Hyde
 [oauth.discord]
 # Put your Discord OAuth2 client ID here
 client_id = "123"
@@ -25,6 +27,7 @@ token_url = "https://discord.com/api/oauth2/token"
 # Github Application Client ID
 client_id = "Iv23libASQn9266tzjpm"
 
+# Database for anything database related Hyde will utilise.
 [database]
 # This is used for the sqlx tooling/compile checking, but is not directly used
 # in the code right now. This should be set to the path of the database relative
