@@ -315,7 +315,7 @@ impl Interface {
     ///
     /// `token` is a valid Github auth token.
     // TODO: stop hardcoding refspec and make it an argument.
-    fn git_push(repo: &Repository, token: &str, repo_url: &String) -> Result<()> {
+    fn git_push(repo: &Repository, token: &str, repo_url: &str) -> Result<()> {
         let authenticated_url =
             repo_url.replace("https://", &format!("https://x-access-token:{token}@"));
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;

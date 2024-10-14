@@ -54,6 +54,5 @@ impl HydeConfig {
         let config: Self = toml::from_str(&file).expect("Unable to parse config");
         Arc::new(config)
     }
-
-    pub fn check() {}
+    
 }
