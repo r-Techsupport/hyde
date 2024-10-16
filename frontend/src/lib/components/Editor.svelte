@@ -114,12 +114,8 @@
 			<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
 		</svg>
 	</button>
-	 <!-- Pull Request -->
-	 <button
-		on:click={createPullRequestHandler}
-		class="pull-request"
-		title="Create Pull Request"
-	>
+	<!-- Pull Request -->
+	<button on:click={createPullRequestHandler} class="pull-request" title="Create Pull Request">
 		<span>Create Pull Request</span>
 		<svg
 			role="button"

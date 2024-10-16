@@ -311,7 +311,7 @@ impl Interface {
     /// A code level re-implementation of `git commit`.
     /// A function used to checkout or create a new branch based on the name.
     pub fn checkout_or_create_branch(repo: &Repository, branch_name: &str) -> Result<()> {
-        let mut head = repo.head()?;
+        let head = repo.head()?;
         let commit = head.peel_to_commit()?;
     
         match repo.find_branch(branch_name, BranchType::Local) {
@@ -322,7 +322,7 @@ impl Interface {
                     e
                 })?;
             }
-            Err(e) => {
+            Err(_e) => {
                 // If the branch does not exist, create it
                 match repo.branch(branch_name, &commit, false) {
                     Ok(_) => {

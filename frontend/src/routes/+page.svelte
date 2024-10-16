@@ -84,11 +84,11 @@
 		showLoadingIcon = true;
 
 		const currentBranchName = get(branchName);
-		if (currentBranchName === "Set Branch") {
+		if (currentBranchName === 'Set Branch') {
 			addToast({
 				message: 'Please set a valid branch name before saving changes.',
 				type: ToastType.Warning,
-				dismissible: true,
+				dismissible: true
 			});
 			showLoadingIcon = false; // Ensure loading icon is hidden
 			return;
@@ -184,7 +184,7 @@
 		const description = `This pull request contains changes made by ${get(me).username}.`;
 		const headBranch = get(branchName);
 
-		console.log("Payload being sent:", {
+		console.log('Payload being sent:', {
 			head_branch: headBranch,
 			base_branch: 'master',
 			title: title,
@@ -221,10 +221,9 @@
 		addToast({
 			message: 'Pull request created successfully.',
 			type: ToastType.Success,
-			dismissible: true,
+			dismissible: true
 		});
 	};
-
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
@@ -247,7 +246,12 @@
 			}}
 		/>
 		{#if showEditor && $currentFile !== ''}
-			<Editor bind:saveChangesHandler bind:editorText bind:previewWindow bind:createPullRequestHandler />
+			<Editor
+				bind:saveChangesHandler
+				bind:editorText
+				bind:previewWindow
+				bind:createPullRequestHandler
+			/>
 		{:else}
 			<span class="nofile-placeholder">
 				<p>

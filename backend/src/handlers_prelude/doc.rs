@@ -1,4 +1,4 @@
-use axum::{debug_handler, extract::{Query, State}, http::{HeaderMap, StatusCode}, Json, Router};
+use axum::{extract::{Query, State}, http::{HeaderMap, StatusCode}, Json, Router};
 use axum::routing::get;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
