@@ -12,7 +12,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tracing::{debug, info, warn};
-use crate::hyde_config::HydeConfig;
+use crate::app_conf::AppConf;
 
 #[derive(Clone)]
 pub struct Interface {
@@ -123,7 +123,7 @@ impl Interface {
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
-        config: Arc<HydeConfig>,
+        config: Arc<AppConf>,
         path: P,
         new_doc: &str,
         message: &str,
