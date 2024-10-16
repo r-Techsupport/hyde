@@ -127,6 +127,7 @@
 	.info {
 		background: var(--toast-info);
 	}
+	
 	.warning {
 		background: var(--toast-warning);
 	}
