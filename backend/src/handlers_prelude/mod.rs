@@ -22,6 +22,8 @@ mod reclone;
 pub use reclone::*;
 mod github_pull_request;
 pub use github_pull_request::*;
+mod github_list_branches;
+pub use github_list_branches::*;
 
 use color_eyre::{
     eyre::{Context, ContextCompat},

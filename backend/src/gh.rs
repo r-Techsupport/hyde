@@ -101,6 +101,11 @@ struct AccessTokenResponse {
     token: String,
 }
 
+#[derive(Deserialize)]
+pub struct Branch {
+    pub name: String,
+}
+
 /// Request a github installation access token using the provided reqwest client.
 /// The installation access token will expire after 1 hour.
 /// Returns the new token, and the time of expiration
@@ -202,7 +207,7 @@ pub async fn create_pull_request(
 
     // Ensure repo_path has both owner and repo
     if repo_path.len() < 2 {
-        return Err(color_eyre::eyre::eyre!("Invalid REPO_URL format, must be <owner>/<repo>."));
+        bail!("Invalid REPO_URL format, must be <owner>/<repo>.");
     }
 
     let repo_name = format!("{}/{}", repo_path[1], repo_path[0]); // <owner>/<repo>
@@ -240,4 +245,53 @@ pub async fn create_pull_request(
     }
 
     Ok(())
+}
+
+/// Fetch a list of branches from the GitHub repository.
+///
+/// # Parameters:
+/// - `req_client`: The `reqwest::Client` to make HTTP requests.
+/// - `token`: The GitHub access token for authentication.
+/// - `repo_name`: The repository name in the format `<owner>/<repo>`.
+///
+/// # Returns:
+/// A `Result` containing a vector of branch names or an error.
+pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<String>> {
+    dotenv().ok();
+
+    let repo_url = env::var("REPO_URL")
+        .context("REPO_URL must be set in the .env file")?;
+
+    let repo_path = repo_url
+        .trim_end_matches(".git")
+        .rsplit('/')
+        .collect::<Vec<&str>>();
+
+    if repo_path.len() < 2 {
+        bail!("Invalid REPO_URL format, must be <owner>/<repo>.");
+    }
+
+    let repo_name = format!("{}/{}", repo_path[1], repo_path[0]); // <owner>/<repo>
+
+    let response = req_client
+        .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
+        .bearer_auth(token)
+        .header("User-Agent", "Hyde")
+        .send()
+        .await?;
+
+    // Handle the response based on the status code
+    if response.status().is_success() {
+        let branches: Vec<Branch> = serde_json::from_slice(&response.bytes().await?)?;
+        let branch_names = branches.into_iter().map(|b| b.name).collect();
+        Ok(branch_names)
+    } else {
+        let status = response.status();
+        let response_text = response.text().await?;
+        bail!(
+            "Failed to fetch branches: {}, Response: {}",
+            status,
+            response_text
+        );
+    }
 }
