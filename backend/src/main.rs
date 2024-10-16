@@ -8,7 +8,7 @@ mod gh;
 pub mod git;
 mod handlers_prelude;
 pub mod perms;
-mod hyde_config;
+mod app_conf;
 
 use axum::{
     extract::MatchedPath,
@@ -46,12 +46,12 @@ use tokio::task;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
-use crate::hyde_config::HydeConfig;
+use crate::app_conf::AppConf;
 
 /// Global app state passed to handlers by axum
 #[derive(Clone)]
 pub struct AppState {
-    pub config: Arc<HydeConfig>,
+    pub config: Arc<AppConf>,
     git: git::Interface,
     oauth: BasicClient,
     reqwest_client: Client,
@@ -134,7 +134,7 @@ async fn main() -> Result<()> {
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
 async fn init_state() -> Result<AppState> {
-    let config = HydeConfig::load();
+    let config = AppConf::load();
     let repo_url = config.files.repo_url.clone();
     let git = task::spawn(async { git::Interface::new(repo_url)}).await??;
     let reqwest_client = Client::new();

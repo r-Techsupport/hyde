@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct HydeConfig {
+pub struct AppConf {
     pub files: Files,
     pub discord: Discord,
     pub oauth: OAuth,
@@ -48,11 +48,11 @@ pub struct Database {
     pub url: String,
 }
 
-impl HydeConfig {
+impl AppConf {
     pub fn load() -> Arc<Self> {
         let file = fs::read_to_string("default.toml").expect("Unable to read config");
         let config: Self = toml::from_str(&file).expect("Unable to parse config");
+        
         Arc::new(config)
     }
-    
 }
