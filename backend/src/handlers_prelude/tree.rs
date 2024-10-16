@@ -23,5 +23,5 @@ pub async fn get_tree_handler(
 }
 
 pub async fn create_tree_route() -> Router<AppState> {
-    Router::new().route("/", get(get_tree_handler))
+    Router::new().route("/tree", get(get_tree_handler))
 }
