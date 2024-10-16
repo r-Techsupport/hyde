@@ -108,7 +108,7 @@ pub async fn delete_doc_handler(
     )
     .await?;
 
-    let gh_token = state.gh_credentials.get(&state.reqwest_client, Arc::clone(&state.config)).await.unwrap();
+    let gh_token = state.gh_credentials.get(&state.reqwest_client, &state.config.oauth.github.client_id).await.unwrap();
     state.git.delete_doc(&state.config.files.docs_path, &state.config.files.repo_url, &query.path, &format!("{} deleted {}", author.username, query.path), &gh_token).map_err(eyre_to_axum_err)?;
 
     Ok(StatusCode::NO_CONTENT)
