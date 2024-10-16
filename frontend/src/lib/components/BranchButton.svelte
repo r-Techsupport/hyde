@@ -160,7 +160,7 @@
 	.close-button {
 		background: none;
 		border: none;
-		color: #ff0000;
+		color: #f00;
 		cursor: pointer;
 		font-size: 1.2rem;
 		position: absolute;
