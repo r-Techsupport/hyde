@@ -51,7 +51,6 @@ pub struct PutDocRequestBody {
     branch_name: String,
 }
 
-#[debug_handler]
 pub async fn put_doc_handler(
     State(state): State<AppState>,
     headers: HeaderMap,

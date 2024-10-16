@@ -215,6 +215,8 @@ pub async fn create_pull_request(
         "body": pr_description,
     });
 
+    info!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
+
     // Send the pull request creation request to the GitHub API
     let response = req_client
         .post(format!("{}/repos/{}/pulls", GITHUB_API_URL, repo_name))
@@ -230,11 +232,11 @@ pub async fn create_pull_request(
     } else {
         let status = response.status();
         let response_text = response.text().await?;
-        return Err(color_eyre::eyre::eyre!(
+        bail!(
             "Failed to create pull request: {}, Response: {}",
             status,
             response_text
-        ));
+        );
     }
 
     Ok(())
