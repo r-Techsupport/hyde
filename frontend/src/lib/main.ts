@@ -14,3 +14,6 @@ export const me: Writable<User> = writable({
 	groups: [],
 	permissions: []
 });
+
+// New store for branch name
+export const branchName: Writable<string> = writable('Set Branch'); // Default branch name

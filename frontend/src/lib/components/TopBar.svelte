@@ -2,6 +2,7 @@
 	import { me } from '$lib/main';
 	import { onMount } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
+	import BranchButton from './BranchButton.svelte';
 
 	let username: string = '';
 	let profilePictureUrl = '';
@@ -29,6 +30,8 @@
 </script>
 
 <div class="top-bar">
+	<BranchButton initialBranchName="Set Branch" />
+	<div class="spacer"></div>
 	<div
 		on:click={settingsClickHandler}
 		on:keydown={settingsClickHandler}
@@ -52,7 +55,7 @@
 		display: flex;
 		background-color: var(--background-2);
 		height: 4rem;
-		justify-content: right;
+		justify-content: flex-start;
 		align-items: center;
 		width: 100%;
 	}
@@ -79,5 +82,9 @@
 	.settings img {
 		margin-left: 0.2rem;
 		border-radius: 50%;
+	}
+
+	.spacer {
+		flex-grow: 1; /* Allow this div to take up remaining space */
 	}
 </style>

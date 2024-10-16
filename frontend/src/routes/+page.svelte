@@ -9,7 +9,7 @@
 	import LoadingIcon from './LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from './Toasts.svelte';
-	import { currentFile, me } from '$lib/main';
+	import { currentFile, me, branchName } from '$lib/main';
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
@@ -29,6 +29,7 @@
 	 * before markdown is rendered
 	 */
 	const DEBOUNCE_TIME: number = 500;
+
 	let lastKeyPressedTime = Date.now();
 
 	/** The base directory for filesystem navigation */
@@ -36,6 +37,7 @@
 		name: '',
 		children: []
 	};
+
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree`);
 		rootNode = await response.json();
@@ -80,7 +82,19 @@
 
 	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
-		let response = await fetch(`${apiAddress}/api/doc`, {
+
+		const currentBranchName = get(branchName);
+		if (currentBranchName === 'Set Branch') {
+			addToast({
+				message: 'Please set a valid branch name before saving changes.',
+				type: ToastType.Warning,
+				dismissible: true
+			});
+			showLoadingIcon = false; // Ensure loading icon is hidden
+			return;
+		}
+
+		const response = await fetch(`${apiAddress}/api/doc`, {
 			method: 'PUT',
 			credentials: 'include',
 			headers: {
@@ -89,27 +103,33 @@
 			body: JSON.stringify({
 				contents: editorText,
 				path: get(currentFile),
-				commit_message: commitMessage
+				commit_message: commitMessage,
+				branch_name: currentBranchName
 			})
 		});
-		showLoadingIcon = false;
-		cache.flush();
-		switch (response.status) {
-			case 201:
-				addToast({
-					message: 'Changes synced successfully.',
-					type: ToastType.Success,
-					dismissible: true,
-					timeout: 3000
-				});
-				break;
-			default:
-				addToast({
-					message: `An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
-					type: ToastType.Error,
-					dismissible: true
-				});
+
+		if (!response.ok) {
+			const errorMessage = `Failed to sync changes (Code ${response.status}: "${response.statusText}")`;
+			addToast({
+				message: `Error: ${errorMessage}`,
+				type: ToastType.Error,
+				dismissible: true
+			});
+			showLoadingIcon = false; // Ensure loading icon is hidden
+			return; // Exit early on error
 		}
+
+		// If the response is okay, show success toast
+		addToast({
+			message: 'Changes synced successfully.',
+			type: ToastType.Success,
+			dismissible: true,
+			timeout: 3000
+		});
+
+		// Always flush the cache after the operation
+		cache.flush();
+		showLoadingIcon = false; // Ensure loading icon is hidden
 	};
 
 	onMount(async () => {
@@ -158,6 +178,52 @@
 			}
 		});
 	});
+
+	let createPullRequestHandler = async (): Promise<void> => {
+		const title = `Pull request for ${get(currentFile)}`;
+		const description = `This pull request contains changes made by ${get(me).username}.`;
+		const headBranch = get(branchName);
+
+		console.log('Payload being sent:', {
+			head_branch: headBranch,
+			base_branch: 'master',
+			title: title,
+			description: description
+		});
+
+		const response = await fetch(`${apiAddress}/api/pulls`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				head_branch: headBranch,
+				base_branch: 'master', // Updated base branch
+				title: title,
+				description: description
+			})
+		});
+
+		// Handle the response
+		if (!response.ok) {
+			// Here you can handle the error as needed, e.g., log it or show a toast
+			const errorMessage = `Failed to create pull request (Code ${response.status}: "${response.statusText}")`;
+			addToast({
+				message: `Error: ${errorMessage}`,
+				type: ToastType.Error,
+				dismissible: true
+			});
+			return; // Exit the function early on error
+		}
+
+		// If successful, show success toast
+		addToast({
+			message: 'Pull request created successfully.',
+			type: ToastType.Success,
+			dismissible: true
+		});
+	};
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
@@ -180,7 +246,12 @@
 			}}
 		/>
 		{#if showEditor && $currentFile !== ''}
-			<Editor bind:saveChangesHandler bind:editorText bind:previewWindow />
+			<Editor
+				bind:saveChangesHandler
+				bind:editorText
+				bind:previewWindow
+				bind:createPullRequestHandler
+			/>
 		{:else}
 			<span class="nofile-placeholder">
 				<p>
