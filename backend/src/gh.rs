@@ -43,11 +43,11 @@ struct Claims {
 }
 
 impl Claims {
-    pub fn new(config: Arc<HydeConfig>) -> Result<Self> {
+    pub fn new(client_id: &str) -> Result<Self> {
         let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
         let iat = current_time - 60;
         let exp = current_time + (60 * 5);
-        let iss = config.oauth.github.client_id.clone();
+        let iss = client_id.to_string();
 
         Ok(Self {
             iat,
@@ -76,12 +76,12 @@ impl GithubAccessToken {
     }
 
     /// Return the cached token if it's less than one hour old, or fetch a new token from the api, and return that, updating the cache
-    pub async fn get(&self, req_client: &Client, config: Arc<HydeConfig>) -> Result<String> {
+    pub async fn get(&self, req_client: &Client, client_id: &str) -> Result<String> {
         let mut token_ref = self.token.lock().await;
         // Fetch a new token if more than 59 minutes have passed
         // Tokens expire after 1 hour, this is to account for clock drift
         if SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() > (60 * 59) {
-            let api_response = get_access_token(req_client, config).await?;
+            let api_response = get_access_token(req_client, client_id).await?;
             *token_ref = api_response.0;
             let mut expires_ref = self.expires_at.lock().await;
             *expires_ref = api_response.1;
@@ -99,12 +99,12 @@ struct AccessTokenResponse {
 /// Request a github installation access token using the provided reqwest client.
 /// The installation access token will expire after 1 hour.
 /// Returns the new token, and the time of expiration
-async fn get_access_token(req_client: &Client, config: Arc<HydeConfig>) -> Result<(String, SystemTime)> {
-    let token = gen_jwt_token(Arc::clone(&config))?;
+async fn get_access_token(req_client: &Client, client_id: &str) -> Result<(String, SystemTime)> {
+    let token = gen_jwt_token(client_id)?;
     let response = req_client
         .post(format!(
             "https://api.github.com/app/installations/{}/access_tokens",
-            get_installation_id(req_client, Arc::clone(&config)).await?
+            get_installation_id(req_client, client_id).await?
         ))
         .bearer_auth(token)
         .header("Accept", "application/vnd.github+json")
@@ -129,10 +129,10 @@ struct InstallationIdResponse {
 /// Fetch the Installation ID. This value is required for most API calls
 ///
 /// <https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#generating-an-installation-access-token>
-async fn get_installation_id(req_client: &Client, config: Arc<HydeConfig>) -> Result<String> {
+async fn get_installation_id(req_client: &Client, client_id: &str) -> Result<String> {
     let response = req_client
         .get("https://api.github.com/app/installations")
-        .bearer_auth(gen_jwt_token(config)?)
+        .bearer_auth(gen_jwt_token(client_id)?)
         .header("User-Agent", "Hyde")
         // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
         .header("X-GitHub-Api-Version", "2022-11-28")
@@ -151,14 +151,14 @@ async fn get_installation_id(req_client: &Client, config: Arc<HydeConfig>) -> Re
 }
 
 /// Generate a new JWT token for use with github api interactions.
-fn gen_jwt_token(config: Arc<HydeConfig>) -> Result<String> {
+fn gen_jwt_token(client_id: &str) -> Result<String> {
     let mut private_key_file = File::open("hyde-data/key.pem")
         .wrap_err("Failed to read private key from `hyde-data/key.pem`")?;
     let mut private_key = Vec::new();
     private_key_file.read_to_end(&mut private_key)?;
     Ok(encode(
         &Header::new(Algorithm::RS256),
-        &Claims::new(config)?,
+        &Claims::new(client_id)?,
         &EncodingKey::from_rsa_pem(&private_key)?,
     )?)
 }

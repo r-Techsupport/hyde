@@ -177,26 +177,26 @@ impl Interface {
     // it creates errors that note the destructor for other values failing because of it (tree)
     pub fn delete_doc<P: AsRef<Path> + Copy>(
         &self,
-        config: Arc<HydeConfig>,
+        doc_path: &str,
+        repo_url: &str,
         path: P,
         message: &str,
         token: &str,
     ) -> Result<()> {
-        let config = Arc::clone(&config);
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::new();
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
         let msg = format!("[Hyde]: {message}");
         // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(&config.files.docs_path);
+        let mut relative_path = PathBuf::from(doc_path);
         // Standard practice is to stage commits by adding them to an index.
         relative_path.push(path);
         fs::remove_file(&path_to_doc).wrap_err_with(|| format!("Failed to remove document the document at {path_to_doc:?}"))?;
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, &config.files.repo_url)?;
+        Self::git_push(&repo, token, repo_url)?;
         drop(repo);
         info!(
             "Document {:?} removed and changes synced to Github with message: {message:?}",
