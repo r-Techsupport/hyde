@@ -38,9 +38,9 @@ impl Interface {
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
     pub fn new(repo_url: String, repo_path: String) -> Result<Self> {
-        let mut doc_path = PathBuf::from(repo_path);
+        let mut doc_path = PathBuf::from(&repo_path);
         doc_path.push(&repo_url);
-        let repo = Self::load_repository("repo", repo_url)?;
+        let repo = Self::load_repository(repo_url, &repo_path)?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
@@ -209,14 +209,14 @@ impl Interface {
     /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
     /// If not, clone into the provided path.
     #[tracing::instrument]
-    fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P, repo_url: String) -> Result<Repository> {
-        if let Ok(repo) = Repository::open("./repo") {
+    fn load_repository(repo_url: String, repo_path: &str) -> Result<Repository> {
+        if let Ok(repo) = Repository::open(repo_path) {
+            info!("Existing repository detected, fetching latest changes");
             Self::git_pull(&repo)?;
-            info!("Existing repository detected, fetching latest changes...");
             return Ok(repo);
         }
         
-        let output_path = Path::new("./repo");
+        let output_path = Path::new(repo_path);
         info!(
             "No repo detected, cloning {repo_url:?} into {:?}...",
             output_path.display()
