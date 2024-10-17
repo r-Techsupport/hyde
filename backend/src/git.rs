@@ -234,12 +234,12 @@ impl Interface {
 
         {
             info!("Locking repository");
-            let mut mutex = self.repo.lock().unwrap();
+            let mut guard = self.repo.lock().unwrap();
             info!("Cloning repository: {}", repo_url);
             match Repository::clone(&repo_url, &temp) {
                 Ok(repo) => {
                     info!("Successfully cloned repository");
-                    *mutex = repo;
+                    *guard = repo;
                     info!("Replacing with new repository");
                     fs::remove_dir_all(r_path)?;
                     fs::rename(temp, r_path)?;
@@ -251,7 +251,7 @@ impl Interface {
                 }
             }
         }
-        
+
     }
 
     /// Pull changes from upstream
