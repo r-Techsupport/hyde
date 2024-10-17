@@ -1,0 +1,35 @@
+# Files is related to any URL or internal files Hyde will use
+[files]
+# The location of the markdown files relative to the root of the repo
+asset_path = "docs/"
+# The location of the assets files relative to the root of the repo
+docs_path = "assets/"
+# The URL of the jekyll repository to interface with
+repo_url = "https://github.com/r-Techsupport/rTS_Wiki.git"
+
+# Discord is related to discord specific information to pass to Hyde.
+[discord]
+# The discord username of the admin account
+admin_username = "username"
+
+# OAuth for Discord and GitHub, handles passing all relevant information to clients in Hyde
+[oauth.discord]
+# Put your Discord OAuth2 client ID here
+client_id = "123"
+# Discord Application Secret will go here. DO NOT Share or commit to any source control.
+secret = "_1a2B3c"
+# URL of the application scope you have generated
+url = "https://example.com/oauth2"
+# The OAuth2 token URL (leave untouched if using discord)
+token_url = "https://discord.com/api/oauth2/token"
+
+[oauth.github]
+# Github Application Client ID
+client_id = "Iv23libASQn9266tzjpm"
+
+# Database for anything database related Hyde will utilise.
+[database]
+# This is used for the sqlx tooling/compile checking, but is not directly used
+# in the code right now. This should be set to the path of the database relative
+# to the backend folder
+url = "sqlite://../hyde-data/data.db"
