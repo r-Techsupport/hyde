@@ -81,7 +81,6 @@ impl Interface {
                 let entry = entry?;
                 let path = entry.path();
                 let entry_name = entry.file_name().to_string_lossy().to_string();
-                // path is a directory, recurse over children
                 let metadata = path.metadata()?;
                 if metadata.is_dir() {
                     let mut inner_node = INode {
