@@ -213,6 +213,6 @@ pub async fn create_tree_route() -> Router<AppState> {
                 .put(put_doc_handler)
                 .delete(delete_doc_handler),
         )
-        .route("/tree/asset/:path1/:path2", get(get_asset_tree_handler))
-        .route("/asset", get(get_asset_handler))
+        .route("/tree/asset", get(get_asset_tree_handler))
+        .route("/asset/*path", get(get_asset_handler))
 }
