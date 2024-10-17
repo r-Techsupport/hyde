@@ -37,10 +37,10 @@ impl Interface {
     /// # Errors
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn new(repo_url: String, repo_path: String) -> Result<Self> { 
+    pub fn new(repo_url: String, repo_path: String) -> Result<Self> {
         let mut doc_path = PathBuf::from(repo_path);
         doc_path.push(&repo_url);
-        let repo = Self::load_repository("repo", String::from(repo_url))?;
+        let repo = Self::load_repository("repo", repo_url)?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
