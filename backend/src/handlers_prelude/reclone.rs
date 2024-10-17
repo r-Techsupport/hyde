@@ -11,7 +11,7 @@ pub async fn post_reclone_handler(
     headers: HeaderMap,
 ) -> Result<(), (StatusCode, String)> {
     require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
-    state.git.reclone(&state.config.files.repo_url).map_err(eyre_to_axum_err)?;
+    state.git.reclone(&state.config.files.repo_url, &state.config.files.repo_path).map_err(eyre_to_axum_err)?;
     Ok(())
 }
 

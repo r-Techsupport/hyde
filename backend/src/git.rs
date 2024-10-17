@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status};
+use git2::{AnnotatedCommit, Error, FetchOptions, Oid, Repository, Signature, Status};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -11,7 +11,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use crate::app_conf::AppConf;
 
 #[derive(Clone)]
@@ -228,24 +228,30 @@ impl Interface {
 
     /// Completely clone and open a new repository, deleting the old one.
     #[tracing::instrument(skip_all)]
-    pub fn reclone(&self, repo_url: &str) -> Result<()> {
-        // First clone a repo into `repo__tmp`, open that, swap out
-        // TODO: nuke `repo__tmp` if it exists already
-        let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
-        let tmp_path = Path::new("./repo__tmp"); // TODO: Same here?
-        info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
-        let tmp_repo = Repository::clone(repo_url, tmp_path)?;
-        info!("Pointing changes to new temp repository");
-        let mut lock = self.repo.lock().unwrap();
-        *lock = tmp_repo;
-        info!("Deleting the old repo...");
-        fs::remove_dir_all(repo_path)?;
-        info!("Moving the temp repo to take the place of the old one");
-        fs::rename(tmp_path, repo_path)?;
-        *lock = Repository::open(repo_path)?;
-        info!("Re-clone succeeded");
-        drop(lock);
-        Ok(())
+    pub fn reclone(&self, repo_url: &str, repo_path: &str) -> Result<()> {
+        let r_path = Path::new(repo_path);
+        let temp = r_path.with_extension("temp");
+
+        {
+            info!("Locking repository");
+            let mut mutex = self.repo.lock().unwrap();
+            info!("Cloning repository: {}", repo_url);
+            match Repository::clone(&repo_url, &temp) {
+                Ok(repo) => {
+                    info!("Successfully cloned repository");
+                    *mutex = repo;
+                    info!("Replacing with new repository");
+                    fs::remove_dir_all(r_path)?;
+                    fs::rename(temp, r_path)?;
+                    Ok(())
+                }
+                Err(e) => {
+                    info!("Clone failed!");
+                    Err(e.into())
+                }
+            }
+        }
+        
     }
 
     /// Pull changes from upstream
