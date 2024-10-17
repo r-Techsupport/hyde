@@ -16,6 +16,7 @@ pub struct Files {
     pub asset_path: String,
     pub docs_path: String,
     pub repo_url: String,
+    pub repo_path: String,
 }
 
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
@@ -71,7 +72,7 @@ macro_rules! impl_validate {
     };
 }
 
-impl_validate!(Files, asset_path, docs_path, repo_url);
+impl_validate!(Files, asset_path, docs_path, repo_url, repo_path);
 impl_validate!(Discord, admin_username);
 impl_validate!(DiscordOAuth, client_id, secret, url, token_url);
 impl_validate!(GitHubOAuth, client_id);
