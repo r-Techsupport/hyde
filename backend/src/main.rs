@@ -206,6 +206,7 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
         .route("/api/doc", delete(delete_doc_handler))
         .route("/api/tree/doc", get(get_doc_tree_handler))
         .route("/api/tree/asset", get(get_asset_tree_handler))
+        .route("/api/asset/:path1/:path2", get(get_asset_handler))
         .route("/api/oauth", get(get_oauth2_handler))
         .route("/api/oauth/url", get(get_oauth2_url))
         .route("/api/users", get(get_users_handler))

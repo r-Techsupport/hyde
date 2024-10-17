@@ -34,12 +34,12 @@ export const me: Writable<User> = writable({
  */
 export const documentTree: Writable<INode> = writable({
 	name: 'Loading...',
-	children: [],
+	children: []
 });
 
 export const assetTree: Writable<INode> = writable({
 	name: 'Loading...',
-	children: [],
+	children: []
 });
 
 export let apiAddress = '';

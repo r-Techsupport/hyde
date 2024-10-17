@@ -93,13 +93,12 @@
 		// Fetch the document tree
 		const docResponse = await fetch(`${apiAddress}/api/tree/doc`);
 		documentTree.set(await docResponse.json());
-		documentTree.subscribe(t => docTree = t);
+		documentTree.subscribe((t) => (docTree = t));
 		console.log(docTree);
 
 		// Fetch the asset tree
 		const assetResponse = await fetch(`${apiAddress}/api/tree/asset`);
 		assetTree.set(await assetResponse.json());
-
 	});
 
 	let showChangeDialogue: boolean;
@@ -159,8 +158,8 @@
 <div style="--sidebar-width: {sidebarWidth}" class="container">
 	<Toasts />
 	<SideBar bind:sidebarWidth>
-	    <div class="directory-nav">
-			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->	
+		<div class="directory-nav">
+			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->
 			{#if mode === SelectedMode.Documents}
 				<FileNavigation on:fileselect={documentSelectionHandler} {...docTree} />
 			{:else}
@@ -173,7 +172,7 @@
 				/>
 			{/if}
 			{#if mode === SelectedMode.Assets}
-				<AssetSelector bind:mode bind:assetFolderPath/>
+				<AssetSelector bind:mode bind:assetFolderPath />
 			{:else}
 				<MockDirectory
 					on:click={() => {
@@ -208,7 +207,7 @@
 				</span>
 			{/if}
 		{:else if mode === SelectedMode.Assets}
-				<AssetEditor bind:assetFolderPath/>
+			<AssetEditor bind:assetFolderPath />
 		{/if}
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
