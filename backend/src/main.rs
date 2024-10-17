@@ -29,10 +29,7 @@ use handlers_prelude::*;
 use tracing::{debug, info, info_span, warn, error};
 // use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
-use reqwest::{
-    header::{ACCEPT, ALLOW, CONTENT_TYPE},
-    Client, Method,
-};
+use reqwest::{header::{ACCEPT, ALLOW, CONTENT_TYPE}, Client, Method, StatusCode};
 use std::env::{self, current_exe};
 use std::sync::Arc;
 use std::time::Duration;
@@ -130,14 +127,22 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
 async fn init_state() -> Result<AppState> {
     let config = AppConf::load();
     let reqwest_client = Client::new();
-    let repo_url = config.files.repo_url.clone();
-    let repo_path = config.files.repo_path.clone();
-    let git = task::spawn(async { git::Interface::new(repo_url, repo_path)}).await??;
+
+    let git_repo_url = config.files.repo_url.clone();
+    let git_repo_path = config.files.repo_path.clone();
+    let git_docs_path = config.files.docs_path.clone();
+    
+    let git = task::spawn(async { git::Interface::new(
+        git_repo_url,
+        git_repo_path,
+        git_docs_path,
+    )}).await??;
     
     // We have to clone here, since the client will need to keep the values from the config.
     let oauth = BasicClient::new(

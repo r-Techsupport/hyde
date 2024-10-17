@@ -37,10 +37,10 @@ impl Interface {
     /// # Errors
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn new(repo_url: String, repo_path: String) -> Result<Self> {
+    pub fn new(repo_url: String, repo_path: String, docs_path: String) -> Result<Self> {
         let mut doc_path = PathBuf::from(&repo_path);
-        doc_path.push(&repo_url);
-        let repo = Self::load_repository(repo_url, &repo_path)?;
+        doc_path.push(docs_path);
+        let repo = Self::load_repository(&repo_url, &repo_path)?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
@@ -77,6 +77,7 @@ impl Interface {
     #[tracing::instrument(skip(self))]
     pub fn get_doc_tree(&self) -> Result<INode> {
         fn recurse_tree(dir: &Path, node: &mut INode) -> Result<()> {
+            debug!("DIR ----> {:?}", dir);
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
                 let path = entry.path();
@@ -87,10 +88,10 @@ impl Interface {
                         name: entry_name,
                         children: Vec::new(),
                     };
-                    
+
                     recurse_tree(&path, &mut inner_node)?;
                     node.children.push(inner_node);
-                    
+
                 } else if metadata.is_file() {
                     node.children.push(INode {
                         name: entry_name,
@@ -209,7 +210,7 @@ impl Interface {
     /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
     /// If not, clone into the provided path.
     #[tracing::instrument]
-    fn load_repository(repo_url: String, repo_path: &str) -> Result<Repository> {
+    fn load_repository(repo_url: &str, repo_path: &str) -> Result<Repository> {
         if let Ok(repo) = Repository::open(repo_path) {
             info!("Existing repository detected, fetching latest changes");
             Self::git_pull(&repo)?;
