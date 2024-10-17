@@ -134,9 +134,10 @@ async fn main() -> Result<()> {
 #[tracing::instrument]
 async fn init_state() -> Result<AppState> {
     let config = AppConf::load();
-    let repo_url = config.files.repo_url.clone();
-    let git = task::spawn(async { git::Interface::new(repo_url)}).await??;
     let reqwest_client = Client::new();
+    let repo_url = config.files.repo_url.clone();
+    let repo_path = config.files.repo_path.clone();
+    let git = task::spawn(async { git::Interface::new(repo_url, repo_path)}).await??;
     
     // We have to clone here, since the client will need to keep the values from the config.
     let oauth = BasicClient::new(
