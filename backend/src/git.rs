@@ -82,15 +82,17 @@ impl Interface {
                 let path = entry.path();
                 let entry_name = entry.file_name().to_string_lossy().to_string();
                 // path is a directory, recurse over children
-                if path.is_dir() {
+                let metadata = path.metadata()?;
+                if metadata.is_dir() {
                     let mut inner_node = INode {
                         name: entry_name,
                         children: Vec::new(),
                     };
+                    
                     recurse_tree(&path, &mut inner_node)?;
                     node.children.push(inner_node);
-                } else {
-                    // path is a file, add to children
+                    
+                } else if metadata.is_file() {
                     node.children.push(INode {
                         name: entry_name,
                         children: Vec::new(),
