@@ -124,13 +124,12 @@ impl Interface {
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
-        config: Arc<AppConf>,
+        repo_url: &str,
         path: P,
         new_doc: &str,
         message: &str,
         token: &str,
     ) -> Result<()> {
-        let config = Arc::clone(&config);
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
@@ -151,13 +150,13 @@ impl Interface {
         })?;
         let msg = format!("[Hyde]: {message}");
         // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(&config.files.repo_url);
+        let mut relative_path = PathBuf::from(&repo_url);
         // Standard practice is to stage commits by adding them to an index.
         relative_path.push(path);
         Self::git_add(&repo, relative_path)?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, &config.files.repo_url)?;
+        Self::git_push(&repo, token, &repo_url)?;
         info!(
             "Document {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()

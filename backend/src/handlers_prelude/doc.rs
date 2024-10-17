@@ -83,7 +83,7 @@ pub async fn put_doc_handler(
 
     match state
         .git
-        .put_doc(Arc::clone(&state.config), &body.path, &body.contents, &final_commit_message, &gh_token)
+        .put_doc(&state.config.files.repo_url, &body.path, &body.contents, &final_commit_message, &gh_token)
     {
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
