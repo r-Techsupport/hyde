@@ -129,8 +129,7 @@ async fn main() -> Result<()> {
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
     let config: Arc<AppConf> = AppConf::load(&cli_args.cfg);
-
-
+    
     let repo_url = config.files.repo_url.clone();
     let repo_path = config.files.repo_path.clone();
     let docs_path = config.files.docs_path.clone();

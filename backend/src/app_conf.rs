@@ -57,6 +57,7 @@ trait ValidateFields {
 }
 
 // Macro to validate all fields for each struct
+// TODO: Make it recognise if the type of the value supplied is also incorrect
 macro_rules! impl_validate {
     ($struct_name:ident, $( $field:ident ),* ) => {
         impl ValidateFields for $struct_name {
@@ -97,26 +98,21 @@ impl ValidateFields for AppConf {
     }
 }
 impl AppConf {
+
     pub fn load(file: &str) -> Arc<Self> {
         info!("Loading configuration file: {}", file);
-        
+
         if fs::metadata(file).is_err() {
             error!("Configuration file {} does not exist", file);
             exit(1)
         }
-        
-        let f = fs::read_to_string(file).unwrap();
-        let config: Self = toml::from_str(f.as_str()).expect("Unable to parse config");
-        
+
+        let config: Self = toml::from_str(&fs::read_to_string(file).unwrap()).expect("Unable to parse config");
+
         trace!("Loaded config: {:#?}", config);
+
+        config.validate("config").expect("Invalid config");
         
-        match config.validate("config") {
-            Ok(_) => info!("Configuration seems valid!"),
-            Err(e) => {
-                error!("Validation error: {}", e);
-                exit(1)
-            },
-        }
         Arc::new(config)
     }
 }
