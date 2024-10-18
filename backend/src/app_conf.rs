@@ -2,7 +2,7 @@ use std::fs;
 use std::process::exit;
 use std::sync::Arc;
 use serde::Deserialize;
-use tracing::{info, error, debug, trace};
+use tracing::{info, error, trace};
 
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct AppConf {
