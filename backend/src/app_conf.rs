@@ -1,7 +1,8 @@
-use std::{fs, process};
+use std::fs;
+use std::process::exit;
 use std::sync::Arc;
 use serde::Deserialize;
-use tracing::{info, error};
+use tracing::{info, error, debug, trace};
 
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct AppConf {
@@ -96,14 +97,24 @@ impl ValidateFields for AppConf {
     }
 }
 impl AppConf {
-    pub fn load() -> Arc<Self> {
-        let file = fs::read_to_string("default.toml").expect("Unable to read config");
-        let config: Self = toml::from_str(&file).expect("Unable to parse config");
+    pub fn load(file: &str) -> Arc<Self> {
+        info!("Loading configuration file: {}", file);
+        
+        if fs::metadata(file).is_err() {
+            error!("Configuration file {} does not exist", file);
+            exit(1)
+        }
+        
+        let f = fs::read_to_string(file).unwrap();
+        let config: Self = toml::from_str(f.as_str()).expect("Unable to parse config");
+        
+        trace!("Loaded config: {:#?}", config);
+        
         match config.validate("config") {
-            Ok(_) => info!("Configuration isn't empty"),
+            Ok(_) => info!("Configuration seems valid!"),
             Err(e) => {
                 error!("Validation error: {}", e);
-                process::exit(1)
+                exit(1)
             },
         }
         Arc::new(config)
