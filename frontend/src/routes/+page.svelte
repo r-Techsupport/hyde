@@ -184,13 +184,6 @@
 		const description = `This pull request contains changes made by ${get(me).username}.`;
 		const headBranch = get(branchName);
 
-		console.log('Payload being sent:', {
-			head_branch: headBranch,
-			base_branch: 'master',
-			title: title,
-			description: description
-		});
-
 		const response = await fetch(`${apiAddress}/api/pulls`, {
 			method: 'POST',
 			credentials: 'include',
@@ -199,7 +192,7 @@
 			},
 			body: JSON.stringify({
 				head_branch: headBranch,
-				base_branch: 'master', // Updated base branch
+				base_branch: 'master',
 				title: title,
 				description: description
 			})
@@ -207,7 +200,6 @@
 
 		// Handle the response
 		if (!response.ok) {
-			// Here you can handle the error as needed, e.g., log it or show a toast
 			const errorMessage = `Failed to create pull request (Code ${response.status}: "${response.statusText}")`;
 			addToast({
 				message: `Error: ${errorMessage}`,
@@ -217,12 +209,25 @@
 			return; // Exit the function early on error
 		}
 
-		// If successful, show success toast
-		addToast({
-			message: 'Pull request created successfully.',
-			type: ToastType.Success,
-			dismissible: true
-		});
+		// Parse the JSON response to get the pull request URL
+		const jsonResponse = await response.json();
+		const pullRequestUrl = jsonResponse.data?.pull_request_url; // Adjusted based on API response
+
+		if (pullRequestUrl) {
+			// If successful, show success toast with the URL
+			addToast({
+				message: `Pull request created successfully. View it [here](${pullRequestUrl}).`,
+				type: ToastType.Success,
+				dismissible: true
+			});
+		} else {
+			// Handle the case where the URL is not present (if needed)
+			addToast({
+				message: 'Pull request created successfully, but the URL is not available.',
+				type: ToastType.Warning,
+				dismissible: true
+			});
+		}
 	};
 </script>
 

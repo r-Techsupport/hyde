@@ -1,7 +1,6 @@
 //! Abstractions and interfaces over the git repository
 
-use color_eyre::eyre::{bail, ContextCompat};
-use color_eyre::{eyre::Context, Result};
+use color_eyre::eyre::{bail, ContextCompat, WrapErr, Result};
 use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status, BranchType};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -12,7 +11,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info, warn};
 
 #[derive(Clone)]
 pub struct Interface {
@@ -117,7 +116,9 @@ impl Interface {
     /// `token` is a valid github auth token.
     ///
     /// # Errors
-    /// This function will return an error if filesystem operations fail, or if any of the git operations fail.
+    /// /// This function will return an error if filesystem operations fail, or if any of the git operations fail
+    /// This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
+    /// it creates errors that note the destructor for other values failing because of it (tree)
     #[allow(clippy::significant_drop_tightening)]
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
@@ -311,37 +312,32 @@ impl Interface {
     /// A code level re-implementation of `git commit`.
     /// A function used to checkout or create a new branch based on the name.
     pub fn checkout_or_create_branch(repo: &Repository, branch_name: &str) -> Result<()> {
-        let head = repo.head()?;
-        let commit = head.peel_to_commit()?;
-    
-        match repo.find_branch(branch_name, BranchType::Local) {
-            Ok(_) => {
-                // If the branch exists, check it out
-                repo.set_head(&format!("refs/heads/{}", branch_name)).map_err(|e| {
-                    error!("Failed to set head to branch {branch_name}: {e:?}");
-                    e
-                })?;
-            }
-            Err(_e) => {
-                // If the branch does not exist, create it
-                match repo.branch(branch_name, &commit, false) {
-                    Ok(_) => {
-                        // Now check out the newly created branch
-                        repo.set_head(&format!("refs/heads/{}", branch_name)).map_err(|e| {
-                            error!("Failed to set head to new branch {branch_name}: {e:?}");
-                            e
-                        })?;
-                    }
-                    Err(create_err) => {
-                        error!("Failed to create branch {branch_name}: {create_err:?}");
-                        return Err(create_err.into());
-                    }
-                }
-            }
+        // Get the current head reference
+        let head = repo.head().wrap_err("Failed to get the head reference")?;
+        // Peel the head to get the commit
+        let commit = head.peel_to_commit().wrap_err("Failed to peel the head to commit")?;
+
+        // Check if the branch already exists
+        if repo.find_branch(branch_name, BranchType::Local).is_ok() {
+            // If the branch exists, check it out
+            repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
+                format!("Failed to set head to branch {branch_name}")
+            })?;
+        } else {
+            // If the branch does not exist, create it
+            repo.branch(branch_name, &commit, false).wrap_err_with(|| {
+                format!("Failed to create branch {branch_name}")
+            })?;
+
+            // Now check out the newly created branch
+            repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
+                format!("Failed to set head to new branch {branch_name}")
+            })?;
         }
-        
+
         Ok(())
     }
+
     
     /// Writes the current index as a commit, updating HEAD. This means it will only commit changes
     /// tracked by the index. If an author is not specified, the commit will be attributed to `Hyde`. Returns

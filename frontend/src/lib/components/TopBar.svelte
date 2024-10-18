@@ -30,7 +30,7 @@
 </script>
 
 <div class="top-bar">
-	<BranchButton initialBranchName="Set Branch" />
+	<BranchButton />
 	<div class="spacer"></div>
 	<div
 		on:click={settingsClickHandler}

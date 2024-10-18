@@ -7,6 +7,7 @@ use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use serde_json::Value;
 use dotenvy::dotenv;
 use std::env;
 use std::fs::File;
@@ -173,7 +174,7 @@ fn gen_jwt_token() -> Result<String> {
     )?)
 }
 
-// Function to create a GitHub pull request using environment variables for configuration.
+/// SCreate a GitHub pull request using environment variables for configuration.
 ///
 /// # Parameters:
 /// - `req_client`: The `reqwest::Client` to make HTTP requests.
@@ -191,7 +192,7 @@ pub async fn create_pull_request(
     base_branch: &str,
     pr_title: &str,
     pr_description: &str,
-) -> Result<()> {
+) -> Result<String> {
     // Load environment variables from .env file
     dotenv().ok();
 
@@ -234,6 +235,14 @@ pub async fn create_pull_request(
     // Handle the response based on the status code
     if response.status().is_success() {
         info!("Pull request created successfully for branch {}", head_branch);
+        
+        // Extract the response JSON to get the pull request URL
+        let response_json: Value = response.json().await?;
+        if let Some(url) = response_json.get("html_url").and_then(Value::as_str) {
+            return Ok(url.to_string()); // Return the URL as String
+        } else {
+            bail!("Expected URL field not found in the response.");
+        }
     } else {
         let status = response.status();
         let response_text = response.text().await?;
@@ -243,8 +252,6 @@ pub async fn create_pull_request(
             response_text
         );
     }
-
-    Ok(())
 }
 
 /// Fetch a list of branches from the GitHub repository.

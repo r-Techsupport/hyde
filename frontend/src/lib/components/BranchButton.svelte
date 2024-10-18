@@ -5,13 +5,44 @@
 	import { onMount } from 'svelte';
 	import { apiAddress } from '$lib/net';
 
-	export let initialBranchName: string;
 	let showMenu = false;
 	let existingBranches: string[] = [];
 	let newBranchName: string = '';
 
-	const currentBranch = derived(branchName, ($branchName) => $branchName || initialBranchName);
+	const currentBranch = derived(branchName, ($branchName) => $branchName);
 
+	/// Fetches existing branches from the GitHub API.
+	///
+	/// This asynchronous function sends a GET request to retrieve the list of branches
+	/// from the specified GitHub repository. If the request is successful, it returns
+	/// a vector containing the branch data. If the request fails (e.g., due to network
+	/// issues, authentication problems, or server errors), it returns an error with
+	/// details about the failure.
+	///
+	/// # Returns
+	///
+	/// A `Result` that, on success, contains a vector of branches. On failure, it returns
+	/// an error containing details about the failure.
+	///
+	/// # Errors
+	///
+	/// This function may return an error if the response from the API is not successful,
+	/// which includes the status code and any additional error message from the API.
+	///
+	/// # Example
+	///
+	/// ```no_run
+	/// async fn main() {
+	///     match fetch_existing_branches().await {
+	///         Ok(branches) => {
+	///             println!("Existing branches: {:?}", branches);
+	///         },
+	///         Err(err) => {
+	///             eprintln!("Failed to fetch branches: {:?}", err);
+	///         }
+	///     }
+	/// }
+	/// ```
 	async function fetchExistingBranches() {
 		const response = await fetch(`${apiAddress}/api/branches`, {
 			method: 'GET',
