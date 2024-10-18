@@ -239,7 +239,7 @@ pub async fn create_pull_request(
         // Extract the response JSON to get the pull request URL
         let response_json: Value = response.json().await?;
         if let Some(url) = response_json.get("html_url").and_then(Value::as_str) {
-            return Ok(url.to_string()); // Return the URL as String
+            Ok(url.to_string()) // Directly return the URL as String
         } else {
             bail!("Expected URL field not found in the response.");
         }

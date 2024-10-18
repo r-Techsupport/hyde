@@ -31,7 +31,6 @@ use color_eyre::Result;
 ///
 /// This function can fail due to network issues, invalid tokens, or other API-related errors.
 /// It is the caller's responsibility to handle these errors appropriately.
-
 pub async fn list_branches_handler(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<serde_json::Value>)> {
