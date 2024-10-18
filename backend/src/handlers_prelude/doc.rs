@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use axum::{debug_handler, extract::{Query, State}, http::{HeaderMap, StatusCode}, Json, Router};
 use axum::routing::get;
 use serde::{Deserialize, Serialize};
@@ -83,7 +82,7 @@ pub async fn put_doc_handler(
 
     match state
         .git
-        .put_doc(Arc::clone(&state.config), &body.path, &body.contents, &final_commit_message, &gh_token)
+        .put_doc(&state.config.files.repo_url, &body.path, &body.contents, &final_commit_message, &gh_token)
     {
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
