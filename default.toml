@@ -4,8 +4,11 @@
 asset_path = "docs/"
 # The location of the assets files relative to the root of the repo
 docs_path = "assets/"
+# The path where the repository will be pulled and used
+repo_path = "repo/"
 # The URL of the jekyll repository to interface with
 repo_url = "https://github.com/r-Techsupport/rTS_Wiki.git"
+
 
 # Discord is related to discord specific information to pass to Hyde.
 [discord]

@@ -1,7 +1,8 @@
-use std::{fs, process};
+use std::fs;
+use std::process::exit;
 use std::sync::Arc;
 use serde::Deserialize;
-use tracing::{info, error};
+use tracing::{info, error, trace};
 
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct AppConf {
@@ -15,6 +16,7 @@ pub struct AppConf {
 pub struct Files {
     pub asset_path: String,
     pub docs_path: String,
+    pub repo_path: String,
     pub repo_url: String,
 }
 
@@ -55,6 +57,7 @@ trait ValidateFields {
 }
 
 // Macro to validate all fields for each struct
+// TODO: Make it recognise if the type of the value supplied is also incorrect
 macro_rules! impl_validate {
     ($struct_name:ident, $( $field:ident ),* ) => {
         impl ValidateFields for $struct_name {
@@ -71,7 +74,7 @@ macro_rules! impl_validate {
     };
 }
 
-impl_validate!(Files, asset_path, docs_path, repo_url);
+impl_validate!(Files, asset_path, docs_path, repo_path, repo_url);
 impl_validate!(Discord, admin_username);
 impl_validate!(DiscordOAuth, client_id, secret, url, token_url);
 impl_validate!(GitHubOAuth, client_id);
@@ -95,16 +98,21 @@ impl ValidateFields for AppConf {
     }
 }
 impl AppConf {
-    pub fn load() -> Arc<Self> {
-        let file = fs::read_to_string("default.toml").expect("Unable to read config");
-        let config: Self = toml::from_str(&file).expect("Unable to parse config");
-        match config.validate("config") {
-            Ok(_) => info!("Configuration isn't empty"),
-            Err(e) => {
-                error!("Validation error: {}", e);
-                process::exit(1)
-            },
+
+    pub fn load(file: &str) -> Arc<Self> {
+        info!("Loading configuration file: {}", file);
+
+        if fs::metadata(file).is_err() {
+            error!("Configuration file {} does not exist", file);
+            exit(1)
         }
+
+        let config: Self = toml::from_str(&fs::read_to_string(file).unwrap()).expect("Unable to parse config");
+
+        trace!("Loaded config: {:#?}", config);
+
+        config.validate("config").expect("Invalid config");
+        
         Arc::new(config)
     }
 }

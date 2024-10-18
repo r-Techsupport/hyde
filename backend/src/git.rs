@@ -12,7 +12,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tracing::{debug, info, warn};
-use crate::app_conf::AppConf;
 
 #[derive(Clone)]
 pub struct Interface {
@@ -37,10 +36,10 @@ impl Interface {
     /// # Errors
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn new(repo_url: String) -> Result<Self> { 
-        let mut doc_path = PathBuf::from("repo");
-        doc_path.push(&repo_url);
-        let repo = Self::load_repository("repo", repo_url)?;
+    pub fn new(repo_url: String, repo_path: String, docs_path: String) -> Result<Self> {
+        let mut doc_path = PathBuf::from(&repo_path);
+        doc_path.push(docs_path);
+        let repo = Self::load_repository(&repo_url, &repo_path)?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
@@ -123,13 +122,12 @@ impl Interface {
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
-        config: Arc<AppConf>,
+        repo_url: &str,
         path: P,
         new_doc: &str,
         message: &str,
         token: &str,
     ) -> Result<()> {
-        let config = Arc::clone(&config);
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
@@ -150,13 +148,13 @@ impl Interface {
         })?;
         let msg = format!("[Hyde]: {message}");
         // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(&config.files.repo_url);
+        let mut relative_path = PathBuf::from(&repo_url);
         // Standard practice is to stage commits by adding them to an index.
         relative_path.push(path);
         Self::git_add(&repo, relative_path)?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, &config.files.repo_url)?;
+        Self::git_push(&repo, token, repo_url)?;
         info!(
             "Document {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
@@ -209,19 +207,19 @@ impl Interface {
     /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
     /// If not, clone into the provided path.
     #[tracing::instrument]
-    fn load_repository<P: AsRef<Path> + std::fmt::Debug>(path: P, repo_url: String) -> Result<Repository> {
-        if let Ok(repo) = Repository::open("./repo") {
+    fn load_repository(repo_url: &str, repo_path: &str) -> Result<Repository> {
+        if let Ok(repo) = Repository::open(repo_path) {
+            info!("Existing repository detected, fetching latest changes");
             Self::git_pull(&repo)?;
-            info!("Existing repository detected, fetching latest changes...");
             return Ok(repo);
         }
-        
-        let output_path = Path::new("./repo");
+
+        let output_path = Path::new(repo_path);
         info!(
             "No repo detected, cloning {repo_url:?} into {:?}...",
             output_path.display()
         );
-        let repo = Repository::clone(&repo_url, output_path)?;
+        let repo = Repository::clone(repo_url, output_path)?;
         info!("Successfully cloned repo");
         Ok(repo)
     }
