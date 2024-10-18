@@ -33,7 +33,7 @@ use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
     Client, Method,
 };
-use std::env::{self, current_exe};
+use std::env::{current_exe};
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(target_family = "unix")]
@@ -58,7 +58,7 @@ pub struct AppState {
     db: Database,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long, help = "The port the application listens on.", default_value_t = String::from("8080"))]
     port: String,
@@ -72,14 +72,12 @@ struct Args {
     )]
     logging_level: Level,
     #[arg(
-        short,
-        long,
-        help = "A list of config options as key value pairs supplied by passing this flag multiple times or providing a comma delimited list. \
-        This will set supplied config options as environment variables.",
-        value_parser = parse_key_val,
-        value_delimiter = ','
+        short = 'c',
+        long = "config",
+        help = "Pass your own .toml config file to Hyde.",
+        default_value_t = String::from("hyde-data/default.toml"),
     )]
-    cfg: Vec<(String, String)>,
+    cfg: String,
 }
 
 #[tokio::main]
@@ -87,10 +85,6 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     // Parse command line arguments
     let cli_args = Args::parse();
-    // Load in any config settings passed by cli
-    for (key, value) in &cli_args.cfg {
-        env::set_var(key, value);
-    }
     // Initialize logging
     tracing_subscriber::fmt()
         .with_max_level(cli_args.logging_level)
@@ -104,10 +98,10 @@ async fn main() -> Result<()> {
         info!("Server running in release mode, version v{}", env!("CARGO_PKG_VERSION"));
     }
 
-    // Initialize app state
-    let state: AppState = init_state()
-        .await
-        .wrap_err("Failed to initialize app state")?;
+    // Initialize app and config
+    let state: AppState = init_state(&cli_args).await.wrap_err("Failed to initialize app state")?;
+
+
     debug!("Initialized app state");
     // https://github.com/r-Techsupport/hyde/issues/27
     // In docker, because the process is running with a PID of 1,
@@ -126,14 +120,16 @@ async fn main() -> Result<()> {
         }
     }
 
+
     start_server(state, cli_args).await?;
     Ok(())
 }
 
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
-async fn init_state() -> Result<AppState> {
-    let config = AppConf::load();
+async fn init_state(cli_args: &Args) -> Result<AppState> {
+    let config: Arc<AppConf> = AppConf::load(&cli_args.cfg);
+
 
     let repo_url = config.files.repo_url.clone();
     let repo_path = config.files.repo_path.clone();
@@ -158,16 +154,6 @@ async fn init_state() -> Result<AppState> {
         db: Database::new().await?,
     })
 
-}
-
-/// Parse a single key-value pair for clap list parsing
-///
-/// https://github.com/clap-rs/clap_derive/blob/master/examples/keyvalue.rs
-fn parse_key_val(s: &str) -> Result<(String, String), String> {
-    let pos = s
-        .find('=')
-        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
-    Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
 }
 
 async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
