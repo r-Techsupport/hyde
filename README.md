@@ -21,7 +21,7 @@ Development is supported on Windows (With [some caveats](https://github.com/r-Te
 ### Installing tools
 To build the backend, you need to have the Rust toolchain installed (see <https://www.rust-lang.org/tools/install>). We currently aim to support the latest stable version of Rust. Once that's installed, `cargo` will automatically download and install the appropriate dependencies for the project when it's first built. The source code for the backend is located in `./backend`, so navigate there 
 
-To build the frontend, you'll need to have the appropriate Javascript tooling installed (See <https://nodejs.org/en/download/package-manager>). This means Node *and* npm. We aim to use the latest stable version of Node.js (20 at the time of writing).
+To build the frontend, you'll need to have the appropriate Javascript tooling installed (See <https://nodejs.org/en/download/package-manager>). This means Node *and* npm. We aim to use the latest stable version of Node.js (23 at the time of writing).
 
 ### Populating `hyde-data`
 To keep things organized, the config file and other essential data (sqlite database, Github private key) are stored in a folder in the same directory that the code is run from. This directory is relative to the running process's current directory, so for development, the `hyde-data` folder will be located at `./backend/hyde-data`, 
