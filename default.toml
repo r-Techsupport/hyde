@@ -9,7 +9,6 @@ repo_path = "repo/"
 # The URL of the jekyll repository to interface with
 repo_url = "https://github.com/r-Techsupport/rTS_Wiki.git"
 
-
 # Discord is related to discord specific information to pass to Hyde.
 [discord]
 # The discord username of the admin account
