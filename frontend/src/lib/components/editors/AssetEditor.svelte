@@ -97,12 +97,20 @@
     }
 
     .upload-new {
+        width: calc((100vw - var(--sidebar-width)) / 7 - 0.5rem);
+        min-width: 200px;
+        min-height: 200px;
+        height: calc((100vw - var(--sidebar-width) - 0.5rem) / 7);
         fill: var(--background-3);
     }
 
     .upload-new p {
         margin-top: -0.1rem;
         color: var(--foreground-4)
+    }
+
+    .upload-new svg {
+        height: calc(100% - 2.3rem);
     }
 
 	.status-bar {
