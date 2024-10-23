@@ -42,7 +42,7 @@ pub struct GroupPermissions {
 }
 
 /// A wrapper around the sqlite database, and how consumers should interact with the database in any capacity.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Database {
     pool: SqlitePool,
 }

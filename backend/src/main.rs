@@ -8,6 +8,7 @@ mod gh;
 pub mod git;
 mod handlers_prelude;
 pub mod perms;
+mod app_conf;
 
 use axum::{
     extract::MatchedPath,
@@ -25,15 +26,15 @@ use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
 #[cfg(target_family = "unix")]
-use tracing::error;
-use tracing::{debug, info, info_span, warn};
+use tracing::{debug, info, info_span, warn, error};
 // use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
     Client, Method,
 };
-use std::env::{self, current_exe};
+use std::env::current_exe;
+use std::sync::Arc;
 use std::time::Duration;
 #[cfg(target_family = "unix")]
 use tokio::signal::unix::{signal, SignalKind};
@@ -44,10 +45,12 @@ use tokio::task;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
+use crate::app_conf::AppConf;
 
 /// Global app state passed to handlers by axum
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
+    pub config: Arc<AppConf>,
     git: git::Interface,
     oauth: BasicClient,
     reqwest_client: Client,
@@ -55,7 +58,7 @@ struct AppState {
     db: Database,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long, help = "The port the application listens on.", default_value_t = String::from("8080"))]
     port: String,
@@ -69,14 +72,12 @@ struct Args {
     )]
     logging_level: Level,
     #[arg(
-        short,
-        long,
-        help = "A list of config options as key value pairs supplied by passing this flag multiple times or providing a comma delimited list. \
-        This will set supplied config options as environment variables.",
-        value_parser = parse_key_val,
-        value_delimiter = ','
+        short = 'c',
+        long = "config",
+        help = "Pass your own .toml config file to Hyde.",
+        default_value_t = String::from("hyde-data/default.toml"),
     )]
-    cfg: Vec<(String, String)>,
+    cfg: String,
 }
 
 #[tokio::main]
@@ -84,22 +85,13 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     // Parse command line arguments
     let cli_args = Args::parse();
-    // Read environment variables from dotenv file
-    let dotenv_path = "hyde-data/.env";
-    // Load in any config settings passed by cli
-    for (key, value) in &cli_args.cfg {
-        env::set_var(key, value);
-    }
     // Initialize logging
     tracing_subscriber::fmt()
         .with_max_level(cli_args.logging_level)
-        .with_span_events(FmtSpan::CLOSE)
+        .without_time()
+        // .with_span_events(FmtSpan::CLOSE)
         .init();
     debug!("Initialized logging");
-
-    dotenvy::from_path(dotenv_path).unwrap_or_else(|_| {
-        warn!("Failed to read dotenv file located at {dotenv_path}, please ensure all config values are manually set");
-    });
 
     if cfg!(debug_assertions) {
         info!(
@@ -113,10 +105,10 @@ async fn main() -> Result<()> {
         );
     }
 
-    // Initialize app state
-    let state: AppState = init_state()
-        .await
-        .wrap_err("Failed to initialize app state")?;
+    // Initialize app and config
+    let state: AppState = init_state(&cli_args).await.wrap_err("Failed to initialize app state")?;
+
+
     debug!("Initialized app state");
     // https://github.com/r-Techsupport/hyde/issues/27
     // In docker, because the process is running with a PID of 1,
@@ -141,51 +133,33 @@ async fn main() -> Result<()> {
 
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
-async fn init_state() -> Result<AppState> {
-    let git = task::spawn(async { git::Interface::new() });
-    let oauth = {
-        let client_id = env::var("OAUTH_CLIENT_ID").unwrap_or_else(|_| {
-            warn!("The `OAUTH_CLIENT_ID` environment variable is not set, oauth functionality will be broken");
-            String::new()
-        });
-        let client_secret = env::var("OAUTH_SECRET").unwrap_or_else(|_| {
-            warn!("The `OAUTH_SECRET` environment variable is not set, oauth functionality will be broken");
-            String::new()
-        });
-        // The oauth constructor does some url parsing on startup so these need valid urls
-        let auth_url = env::var("OAUTH_URL").unwrap_or_else(|_| {
-            warn!("The `OAUTH_URL` environment variable is not set, oauth functionality will be broken");
-            String::from("https://example.com/")
-        });
-        let token_url = env::var("OAUTH_TOKEN_URL").unwrap_or_else(|_| {
-            warn!("The `OAUTH_TOKEN_URL` environment variable is not set, oauth functionality will be broken");
-            String::from("https://example.com/")
-        });
-        BasicClient::new(
-            ClientId::new(client_id),
-            Some(ClientSecret::new(client_secret)),
-            AuthUrl::new(auth_url)?,
-            Some(TokenUrl::new(token_url)?),
-        )
-    };
+async fn init_state(cli_args: &Args) -> Result<AppState> {
+    let config: Arc<AppConf> = AppConf::load(&cli_args.cfg);
+    
+    let repo_url = config.files.repo_url.clone();
+    let repo_path = config.files.repo_path.clone();
+    let docs_path = config.files.docs_path.clone();
+    let asset_path = config.files.asset_path.clone();
+    
+    let git = task::spawn(async { git::Interface::new(repo_url, repo_path, docs_path, asset_path)}).await??;
     let reqwest_client = Client::new();
+    
+    let oauth = BasicClient::new(
+        ClientId::new(config.oauth.discord.client_id.clone()),
+        Some(ClientSecret::new(config.oauth.discord.secret.clone())),
+        AuthUrl::new(config.oauth.discord.url.clone())?,
+        Some(TokenUrl::new(config.oauth.discord.token_url.clone())?),
+    );
+
     Ok(AppState {
-        git: git.await??,
+        config,
+        git,
         oauth,
         reqwest_client,
         gh_credentials: GithubAccessToken::new(),
         db: Database::new().await?,
     })
-}
 
-/// Parse a single key-value pair for clap list parsing
-///
-/// https://github.com/clap-rs/clap_derive/blob/master/examples/keyvalue.rs
-fn parse_key_val(s: &str) -> Result<(String, String), String> {
-    let pos = s
-        .find('=')
-        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
-    Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
 }
 
 async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
@@ -195,8 +169,8 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
     // current_exe returns the path of the file, we need the dir the file is in
     frontend_dir.pop();
     frontend_dir.push("web");
-    let asset_path = env::var("ASSET_PATH")
-        .wrap_err("The `ASSET_PATH` environment variable was not set in the env")?;
+    let config = Arc::clone(&state.config);
+    let asset_path = &config.files.asset_path;
 
     // Initialize the handler and router
     let api_routes = Router::new()
