@@ -39,7 +39,6 @@ use std::time::Duration;
 #[cfg(target_family = "unix")]
 use tokio::signal::unix::{signal, SignalKind};
 use tracing::{Level, Span};
-use tracing_subscriber::fmt::format::FmtSpan;
 
 use tokio::task;
 use tower_http::cors::CorsLayer;

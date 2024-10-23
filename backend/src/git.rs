@@ -12,7 +12,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 #[derive(Clone)]
 pub struct Interface {
