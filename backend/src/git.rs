@@ -132,7 +132,7 @@ impl Interface {
         let repo = self.repo.lock().unwrap();
 
         // Step 1: Checkout or create the branch
-        Self::checkout_or_create_branch(&repo, branch)?;
+        self.checkout_or_create_branch(&repo, branch)?;
 
         // Step 2: Write the document to the specified path
         let mut path_to_doc: PathBuf = PathBuf::from(".");
@@ -178,7 +178,6 @@ impl Interface {
 
         Ok(())
     }
-
 
     /// Delete the document at the specified `path`.
     /// `message` will be included in the commit message, and `token` is a valid github auth token.
@@ -311,7 +310,7 @@ impl Interface {
 
     /// A code level re-implementation of `git commit`.
     /// A function used to checkout or create a new branch based on the name.
-    pub fn checkout_or_create_branch(repo: &Repository, branch_name: &str) -> Result<()> {
+    pub fn checkout_or_create_branch(&self, repo: &Repository, branch_name: &str) -> Result<()> {
         // Get the current head reference
         let head = repo.head().wrap_err("Failed to get the head reference")?;
         // Peel the head to get the commit
@@ -338,7 +337,6 @@ impl Interface {
         Ok(())
     }
 
-    
     /// Writes the current index as a commit, updating HEAD. This means it will only commit changes
     /// tracked by the index. If an author is not specified, the commit will be attributed to `Hyde`. Returns
     /// the id (A full or partial hash associated with a git object) tied to that commit.
@@ -534,5 +532,10 @@ impl Interface {
         let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
         obj.into_commit()
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))
+    }
+
+    /// Making the repo public
+    pub fn get_repo(&self) -> std::sync::MutexGuard<'_, Repository> {
+        self.repo.lock().unwrap()
     }
 }

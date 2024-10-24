@@ -4,6 +4,7 @@
 	import { derived } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { apiAddress } from '$lib/net';
+	import { ToastType, addToast } from '$lib/toast';
 
 	let showMenu = false;
 	let existingBranches: string[] = [];
@@ -84,26 +85,56 @@
 			`Branch names must be shorter than ${maxLength} characters.`
 		];
 
-		let isValid = true;
+		const isValidBranchName = (name: string) => {
+			return (
+				!containsSpaces.test(name) &&
+				startsWithLetterOrNumber.test(name) &&
+				!invalidCharacters.test(name) &&
+				name.length <= maxLength
+			);
+		};
 
-		if (input) {
-			if (
-				containsSpaces.test(input) ||
-				!startsWithLetterOrNumber.test(input) ||
-				invalidCharacters.test(input) ||
-				input.length > maxLength
-			) {
-				isValid = false;
+		if (!input) return;
+
+		// Validate branch name
+		
+		if (!isValidBranchName(input)) {
+			addToast({
+				message: 'Please ensure your branch name follows these rules:\n' + rules.join('\n'),
+				type: ToastType.Warning,
+				dismissible: true
+			});
+			return;
+		}
+
+		// Set branch name and reset state
+		branchName.set(input);
+		newBranchName = '';
+		showMenu = false;
+
+		// Call backend to update working directory by checking out the branch
+		try {
+			const response = await fetch(`${apiAddress}/api/check-out/branches/${input}`, {
+				method: 'PUT',
+				credentials: 'include'
+			});
+
+			console.log(response);
+
+			if (!response.ok) {
+				throw new Error(`Failed to check out branch. Error ${response.status}: ${response.statusText}`);
 			}
 
-			if (!isValid) {
-				alert('Please ensure your branch name follows these rules:\n\n' + rules.join('\n'));
-			} else {
-				branchName.set(input);
-				newBranchName = '';
-				showMenu = false;
-				await fetchExistingBranches();
-			}
+			// Successfully checked out branch
+			console.log('Branch checked out:', await response.text());
+			await fetchExistingBranches();
+
+		} catch (error) {
+			addToast({
+				message: `Failed to check out branch "${input}". Unknown error occurred.`,
+				type: ToastType.Error,
+				dismissible: true
+			});
 		}
 	}
 

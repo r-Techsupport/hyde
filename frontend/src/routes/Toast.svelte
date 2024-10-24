@@ -114,6 +114,7 @@
 		margin: 0 0.5rem 0.5rem auto;
 		width: 20rem;
 		float: right;
+		white-space: pre-line;
 	}
 
 	.error {

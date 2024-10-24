@@ -1,10 +1,10 @@
 use axum::{
-    extract::State,
+    extract::{State, Path},
     http::StatusCode,
     Json, Router,
 };
-use axum::routing::{get, post};
-use tracing::info;
+use axum::routing::{get, post, put};
+use tracing::{error,info};
 use serde::{Serialize, Deserialize};
 use crate::gh::{list_branches, create_pull_request};
 use crate::handlers_prelude::eyre_to_axum_err;
@@ -161,9 +161,31 @@ pub async fn create_pull_request_handler(
     ))
 }
 
+pub async fn checkout_or_create_branch_handler(
+    State(state): State<AppState>,
+    Path(branch_name): Path<String>, // Use Path extractor for the branch name
+) -> Result<(StatusCode, String), (StatusCode, String)> {
+    info!("Checking out or creating branch: {}", branch_name);
+
+    let repo = state.git.get_repo();
+
+    // Call your checkout_or_create_branch function through the Interface
+    match state.git.checkout_or_create_branch(&repo, &branch_name) {
+        Ok(_) => {
+            info!("Successfully checked out/created branch: {}", branch_name);
+            Ok((StatusCode::OK, format!("Successfully checked out/created branch: {}", branch_name)))
+        },
+        Err(err) => {
+            error!("Error checking out/creating branch: {:?}", err);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to checkout/create branch: {}", err)))
+        }
+    }
+}
+
 /// Route definitions for GitHub operations
 pub async fn github_routes() -> Router<AppState> {
     Router::new()
         .route("/branches", get(list_branches_handler))
         .route("/pulls", post(create_pull_request_handler))
+        .route("/check-out/branches/:branch_name", put(checkout_or_create_branch_handler))
 }
