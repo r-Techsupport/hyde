@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { addUserToGroup, removeUserFromGroup } from '$lib/groups';
-	import { apiAddress } from '$lib/net';
+	import { apiAddress } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
 	import type { Group, User } from '$lib/types';
 	import { onMount } from 'svelte';

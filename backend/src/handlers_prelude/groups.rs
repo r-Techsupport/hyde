@@ -1,5 +1,9 @@
-use axum::{extract::{Path, State}, http::HeaderMap, Json, Router};
 use axum::routing::{delete, get, put};
+use axum::{
+    extract::{Path, State},
+    http::HeaderMap,
+    Json, Router,
+};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -187,5 +191,8 @@ pub async fn create_group_route() -> Router<AppState> {
     Router::new()
         .route("/groups", get(get_groups_handler).post(post_group_handler))
         .route("/groups/:group_id", delete(delete_group_handler))
-        .route("/groups/:group_id/permissions", put(put_group_permissions_handler))
+        .route(
+            "/groups/:group_id/permissions",
+            put(put_group_permissions_handler),
+        )
 }

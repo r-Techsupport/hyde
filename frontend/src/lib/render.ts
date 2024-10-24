@@ -1,6 +1,6 @@
 /**
  * @file
- * This file contains code used for rendering markdown code
+ * Utilities for rendering text into markdown
  */
 import { Renderer, marked, type TokensList } from 'marked';
 import DOMPurify from 'dompurify';
@@ -9,14 +9,19 @@ import { dev } from '$app/environment';
 import { get } from 'svelte/store';
 import { currentFile } from './main';
 
+/**
+ * When the rendered file is missing a valid frontmatter header, then an error toast is displayed.
+ * If the toast is not displayed, this is set to zero. If it *is* displayed, this is the ID of the toast being rendered.
+ */
 let toastId = -1;
+
 /**
  * Compile the provided input string into markdown and render it,
  * editing the provided html element
  * @param input The raw markdown to be rendered
  * @param output The element to insert the markdown into
  */
-export async function renderMarkdown(input: string, output: InnerHTML): Promise<undefined> {
+export async function renderMarkdown(input: string, output: HTMLElement): Promise<undefined> {
 	// https://marked.js.org/#demo
 	// This whole pipeline needs to be manually defined otherwise everything breaks
 	marked.use({ renderer: new Renderer() });

@@ -1,17 +1,13 @@
 <!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
 <script lang="ts">
-	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { createEventDispatcher, tick } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';
-	import ConfirmationDialogue from './ConfirmationDialogue.svelte';
-	import { apiAddress } from '$lib/net';
+	import ConfirmationDialogue from '../elements/ConfirmationDialogue.svelte';
+	import { apiAddress } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
-	interface INode {
-		name: string;
-		children: INode[];
-	}
-
+	import type { INode } from '$lib/main';
 	export let name = '';
 	export let children: INode[];
 	export let indent = 1;
@@ -64,12 +60,9 @@
 			currentFile.set('');
 		}
 		if (siblings !== undefined) {
-			// siblings.filter((n) => n.name !== name);
 			const entryToRemove = siblings.findIndex((n) => n.name === name);
 			console.log(siblings.splice(entryToRemove, 1));
 		}
-		// TODO: requisite backend work, eg create DELETE
-		// handler for documents.
 		const r = await fetch(`${apiAddress}/api/doc?path=${path}`, {
 			method: 'DELETE',
 			credentials: 'include'
@@ -93,14 +86,7 @@
 		// is closed and re-opened, I nuke the current element here
 		// because I don't know how else to make it happen immediately
 		self.remove();
-		console.log(`Document "${path}" would be deleted`);
 	}
-
-	onMount(async () => {
-		// Sort nodes alphabetically
-		// https://stackoverflow.com/questions/8900732/sort-objects-in-an-array-alphabetically-on-one-property-of-the-array
-		children = children.sort((a, b) => a.name.localeCompare(b.name));
-	});
 </script>
 
 <span class={'container' + (selected ? ' selected' : '')}>

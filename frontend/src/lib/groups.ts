@@ -1,7 +1,15 @@
-import { type User, type Group, type Permission, allPermissions } from './types.d';
-import { apiAddress } from './net';
+/**
+ * @file
+ * This file contains group management code, eg adding a user to a group, removing a user from a group.
+ */
+
+import { type User, type Group, type Permission, allPermissions } from './types';
+import { apiAddress } from './main';
 import { addToast, ToastType } from './toast';
 
+/**
+ * From the list returned when all groups are fetched.
+ */
 export interface GroupListEntry {
 	id: number;
 	name: string;
@@ -9,6 +17,11 @@ export interface GroupListEntry {
 	permissions: Permission[];
 }
 
+/**
+ * Add the provided user to the provided group
+ * @param user The user you want to add to the group
+ * @param group The group you want to add to the user
+ */
 export async function addUserToGroup(user: User, group: Group) {
 	if (user.groups) {
 		user.groups.push(group);
@@ -37,6 +50,11 @@ export async function addUserToGroup(user: User, group: Group) {
 	}
 }
 
+/**
+ * Remove the provided user from a group
+ * @param user The user to remove from a group
+ * @param group The group to remove the user from.
+ */
 export async function removeUserFromGroup(user: User, group: Group) {
 	if (user.groups) {
 		user.groups = user.groups.filter((g) => g.id !== group.id);
@@ -65,6 +83,11 @@ export async function removeUserFromGroup(user: User, group: Group) {
 	}
 }
 
+/**
+ * Give the provided group a new permission.
+ * @param group The group to modify
+ * @param permission The permission to add
+ */
 export async function addPermissionToGroup(group: GroupListEntry, permission: Permission) {
 	group.permissions.push(permission as Permission);
 	const response = await fetch(`${apiAddress}/api/groups/${group.id}/permissions`, {
@@ -91,6 +114,11 @@ export async function addPermissionToGroup(group: GroupListEntry, permission: Pe
 	}
 }
 
+/**
+ * Remove a permission from the provided group
+ * @param group The group to remove the permission from
+ * @param permission The permission to remove
+ */
 export async function removePermissionFromGroup(group: GroupListEntry, permission: Permission) {
 	group.permissions = group.permissions.filter((p) => p !== permission);
 	const response = await fetch(`${apiAddress}/api/groups/${group.id}/permissions`, {

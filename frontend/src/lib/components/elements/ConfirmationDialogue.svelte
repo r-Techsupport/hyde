@@ -1,4 +1,4 @@
-<!-- A generic confirmation dialogue -->
+<!-- A generic confirmation confirm/cancel dialogue box -->
 <script lang="ts">
 	/**
 	 * If defined, the code that runs when a user hits "Confirm".

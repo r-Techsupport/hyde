@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { apiAddress } from '$lib/net';
+	import { apiAddress } from '$lib/main';
 	import { addToast, dismissToast, ToastType } from '$lib/toast';
 </script>
 

@@ -1,13 +1,11 @@
 //! All Axum handlers are exported from this module
 
-mod doc;
 use std::collections::HashMap;
 
 use axum::{extract::State, http::HeaderMap};
 use chrono::{DateTime, Utc};
-pub use doc::*;
-mod tree;
-pub use tree::*;
+mod repo_fs;
+pub use repo_fs::*;
 mod oauth;
 pub use oauth::*;
 mod users;

@@ -1,8 +1,8 @@
 <!-- TODO: none of these changes are synced to the database -->
 <script lang="ts">
-	import { apiAddress } from '$lib/net';
+	import { apiAddress } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
-	import { allPermissions, Permission } from '$lib/types.d';
+	import { allPermissions, Permission } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { tick } from 'svelte';
 	import { addPermissionToGroup, deleteGroup, removePermissionFromGroup } from '$lib/groups';
