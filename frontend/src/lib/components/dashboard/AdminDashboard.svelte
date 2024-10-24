@@ -65,8 +65,8 @@
 	}
 
 	.container[open]::backdrop {
-		background-color: var(--background-0);
-		opacity: 0.9;
+		background-color: rgba(0 0 0 61);
+		backdrop-filter: blur(5px);
 	}
 
 	.tab-menu {

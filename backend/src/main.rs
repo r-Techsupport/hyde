@@ -2,13 +2,13 @@
 // While it would be ideal if this wasn't an issue, we don't have the dev team to do this
 #![allow(clippy::multiple_crate_versions)]
 // A lot of database methods have been preemptively implemented
+mod app_conf;
 #[allow(dead_code)]
 mod db;
 mod gh;
 pub mod git;
 mod handlers_prelude;
 pub mod perms;
-mod app_conf;
 
 use axum::{
     extract::MatchedPath,
@@ -26,7 +26,7 @@ use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
 #[cfg(target_family = "unix")]
-use tracing::{debug, info, info_span, warn, error};
+use tracing::{debug, error, info, info_span, warn};
 // use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
@@ -40,11 +40,11 @@ use std::time::Duration;
 use tokio::signal::unix::{signal, SignalKind};
 use tracing::{Level, Span};
 
+use crate::app_conf::AppConf;
 use tokio::task;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
-use crate::app_conf::AppConf;
 
 /// Global app state passed to handlers by axum
 #[derive(Clone)]
@@ -105,8 +105,9 @@ async fn main() -> Result<()> {
     }
 
     // Initialize app and config
-    let state: AppState = init_state(&cli_args).await.wrap_err("Failed to initialize app state")?;
-
+    let state: AppState = init_state(&cli_args)
+        .await
+        .wrap_err("Failed to initialize app state")?;
 
     debug!("Initialized app state");
     // https://github.com/r-Techsupport/hyde/issues/27
@@ -134,15 +135,17 @@ async fn main() -> Result<()> {
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
     let config: Arc<AppConf> = AppConf::load(&cli_args.cfg);
-    
+
     let repo_url = config.files.repo_url.clone();
     let repo_path = config.files.repo_path.clone();
     let docs_path = config.files.docs_path.clone();
     let asset_path = config.files.asset_path.clone();
-    
-    let git = task::spawn(async { git::Interface::new(repo_url, repo_path, docs_path, asset_path)}).await??;
+
+    let git =
+        task::spawn(async { git::Interface::new(repo_url, repo_path, docs_path, asset_path) })
+            .await??;
     let reqwest_client = Client::new();
-    
+
     let oauth = BasicClient::new(
         ClientId::new(config.oauth.discord.client_id.clone()),
         Some(ClientSecret::new(config.oauth.discord.secret.clone())),
@@ -158,7 +161,6 @@ async fn init_state(cli_args: &Args) -> Result<AppState> {
         gh_credentials: GithubAccessToken::new(),
         db: Database::new().await?,
     })
-
 }
 
 async fn start_server(state: AppState, cli_args: Args) -> Result<()> {

@@ -1,6 +1,6 @@
 <!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
 <script lang="ts">
-	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { createEventDispatcher, tick } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';

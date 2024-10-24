@@ -1,8 +1,8 @@
+use serde::Deserialize;
 use std::fs;
 use std::process::exit;
 use std::sync::Arc;
-use serde::Deserialize;
-use tracing::{info, error, trace};
+use tracing::{error, info, trace};
 
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct AppConf {
@@ -98,7 +98,6 @@ impl ValidateFields for AppConf {
     }
 }
 impl AppConf {
-
     pub fn load(file: &str) -> Arc<Self> {
         info!("Loading configuration file: {:?}", file);
 
@@ -107,12 +106,13 @@ impl AppConf {
             exit(1)
         }
 
-        let config: Self = toml::from_str(&fs::read_to_string(file).unwrap()).expect("Unable to parse config");
+        let config: Self =
+            toml::from_str(&fs::read_to_string(file).unwrap()).expect("Unable to parse config");
 
         trace!("Loaded config: {:#?}", config);
 
         config.validate("config").expect("Invalid config");
-        
+
         Arc::new(config)
     }
 }

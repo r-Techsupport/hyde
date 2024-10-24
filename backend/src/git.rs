@@ -41,7 +41,12 @@ impl Interface {
     /// # Errors
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn new(repo_url: String, repo_path: String, docs_path: String, assets_path: String) -> Result<Self> {
+    pub fn new(
+        repo_url: String,
+        repo_path: String,
+        docs_path: String,
+        assets_path: String,
+    ) -> Result<Self> {
         let doc_path = PathBuf::from(docs_path);
         let asset_path = PathBuf::from(assets_path);
         let repo = Self::load_repository(&repo_url, &repo_path)?;
@@ -115,7 +120,7 @@ impl Interface {
     /// - `new_doc` - contents of the new document
     /// - `message` - textual context associated with the message
     /// - `token` - github authentication token
-    /// 
+    ///
     /// # Panics
     /// This function will panic if it's called when the repo mutex is already held by the current
     /// thread.
@@ -502,9 +507,8 @@ impl RepoFileSystem for Interface {
     fn delete_file<P: AsRef<Path> + Copy>(path: P) -> Result<()> {
         let mut path_to_file: PathBuf = PathBuf::from("./repo");
         path_to_file.push(path);
-        fs::remove_file(&path_to_file).wrap_err_with(|| {
-            format!("Failed to remove the document at {path_to_file:?}")
-        })?;
+        fs::remove_file(&path_to_file)
+            .wrap_err_with(|| format!("Failed to remove the document at {path_to_file:?}"))?;
         Ok(())
     }
 

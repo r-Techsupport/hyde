@@ -76,6 +76,7 @@
 		background: none;
 		color: var(--foreground-0);
 		font-size: inherit;
+
 		/* Sizing, spacing */
 		width: 98%;
 		border-radius: 5px;
@@ -98,6 +99,7 @@
 		align-items: center;
 		width: 98%;
 		margin: 0.1rem;
+
 		/* margin-top: 0.4rem;
 		margin-bottom: 0.4rem; */
 		white-space: nowrap;
@@ -121,7 +123,7 @@
 		fill: var(--foreground-5);
 	}
 
-	.search-bar {
+	/* .search-bar {
 		color: var(--foreground-0);
 		background-color: var(--background-3);
 
@@ -133,5 +135,5 @@
 	.search-bar::placeholder {
 		padding-left: 0.5rem;
 		color: var(--foreground-4);
-	}
+	} */
 </style>

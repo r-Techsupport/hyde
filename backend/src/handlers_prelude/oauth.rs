@@ -1,5 +1,3 @@
-use std::env;
-
 use axum::routing::get;
 use axum::{
     extract::{Query, Request, State},
@@ -12,7 +10,7 @@ use color_eyre::eyre::{Context, ContextCompat};
 use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl};
 use oauth2::{CsrfToken, TokenResponse};
 use serde::{Deserialize, Serialize};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::{db::User, AppState};
 
@@ -149,30 +147,28 @@ async fn get_oath_processor(
         );
     }
     // If the user is the admin specified in the config, give them the admin role
-    if let Ok(admin_username) = env::var("ADMIN_USERNAME") {
-        let all_users = state.db.get_all_users().await?;
-        let maybe_admin_user = all_users.iter().find(|u| u.username == admin_username);
-        if let Some(admin_user) = maybe_admin_user {
-            let their_groups = state.db.get_user_groups(admin_user.id).await?;
-            // If they don't have the admin group, add it
-            if !their_groups.iter().any(|g| g.name == "Admin") {
-                let admin_group = state
-                    .db
-                    .get_all_groups()
-                    .await?
-                    .into_iter()
-                    .find(|g| g.name == "Admin")
-                    .expect("No admin group in database");
-                state
-                    .db
-                    .add_group_membership(admin_group.id, admin_user.id)
-                    .await?;
-                info!("User {admin_username:?} was automatically added to the admin group based off of the server config");
-            }
+    let admin_username = &state.config.discord.admin_username;
+    let all_users = state.db.get_all_users().await?;
+    let maybe_admin_user = all_users.iter().find(|u| u.username == *admin_username);
+    if let Some(admin_user) = maybe_admin_user {
+        let their_groups = state.db.get_user_groups(admin_user.id).await?;
+        // If they don't have the admin group, add it
+        if !their_groups.iter().any(|g| g.name == "Admin") {
+            let admin_group = state
+                .db
+                .get_all_groups()
+                .await?
+                .into_iter()
+                .find(|g| g.name == "Admin")
+                .expect("No admin group in database");
+            state
+                .db
+                .add_group_membership(admin_group.id, admin_user.id)
+                .await?;
+            info!("User {admin_username:?} was automatically added to the admin group based off of the server config");
         }
-    } else {
-        warn!("The \"ADMIN_USERNAME\" environment variable is not set, no default admin will be available.");
     }
+
     // After authenticating, send them back to the homepage
     let redirect = if cfg!(debug_assertions) {
         Redirect::to("http://localhost:5173/")
