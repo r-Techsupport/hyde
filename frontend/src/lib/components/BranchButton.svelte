@@ -11,39 +11,32 @@
 
 	const currentBranch = derived(branchName, ($branchName) => $branchName);
 
-	/// Fetches existing branches from the GitHub API.
-	///
-	/// This asynchronous function sends a GET request to retrieve the list of branches
-	/// from the specified GitHub repository. If the request is successful, it returns
-	/// a vector containing the branch data. If the request fails (e.g., due to network
-	/// issues, authentication problems, or server errors), it returns an error with
-	/// details about the failure.
-	///
-	/// # Returns
-	///
-	/// A `Result` that, on success, contains a vector of branches. On failure, it returns
-	/// an error containing details about the failure.
-	///
-	/// # Errors
-	///
-	/// This function may return an error if the response from the API is not successful,
-	/// which includes the status code and any additional error message from the API.
-	///
-	/// # Example
-	///
-	/// ```no_run
-	/// async fn main() {
-	///     match fetch_existing_branches().await {
-	///         Ok(branches) => {
-	///             println!("Existing branches: {:?}", branches);
-	///         },
-	///         Err(err) => {
-	///             eprintln!("Failed to fetch branches: {:?}", err);
-	///         }
-	///     }
-	/// }
-	/// ```
-	async function fetchExistingBranches() {
+	/**
+	 * Fetches existing branches from the GitHub API.
+	 *
+	 * This asynchronous function sends a GET request to retrieve the list of branches
+	 * from the specified GitHub repository. If the request is successful, it returns
+	 * a promise that resolves to an array containing the branch data. If the request
+	 * fails (e.g., due to network issues, authentication problems, or server errors),
+	 * it returns a promise that rejects with an error object containing details about the failure.
+	 *
+	 * @returns {Promise<Array>} A promise that resolves to an array of branches on success, 
+	 * or rejects with an error object containing details about the failure.
+	 *
+	 * @throws Will throw an error if the response from the API is not successful. The error object
+	 * will include the status code and any additional error message from the API.
+	 *
+	 * @example
+	 * async function main() {
+	 *   try {
+	 *     const branches = await fetchExistingBranches();
+	 *     console.log('Existing branches:', branches);
+	 *   } catch (err) {
+	 *     console.error('Failed to fetch branches:', err);
+	 *   }
+	 * }
+	 */
+	 async function fetchExistingBranches() {
 		const response = await fetch(`${apiAddress}/api/branches`, {
 			method: 'GET',
 			credentials: 'include',
@@ -54,13 +47,22 @@
 
 		// Check if the response is successful
 		if (!response.ok) {
-			const errorMessage = await response.json();
-			throw new Error(
-				`Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`
-			);
+			// Handle error without try-catch
+			response.json().then((errorMessage) => {
+				console.error('Failed to fetch branches:', errorMessage);
+				alert(`Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`);
+			});
+			return; // Exit if response is not OK
 		}
 
-		existingBranches = await response.json();
+		// Extract and set the branches if the response is successful
+		response.json().then((data) => {
+			if (data.data && data.data.branches) {
+				existingBranches = data.data.branches;
+			} else {
+				existingBranches = []; // Reset if no branches found
+			}
+		});
 	}
 
 	onMount(() => {

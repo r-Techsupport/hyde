@@ -116,7 +116,7 @@ impl Interface {
     /// `token` is a valid github auth token.
     ///
     /// # Errors
-    /// /// This function will return an error if filesystem operations fail, or if any of the git operations fail
+    /// This function will return an error if filesystem operations fail, or if any of the git operations fail
     /// This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
     /// it creates errors that note the destructor for other values failing because of it (tree)
     #[allow(clippy::significant_drop_tightening)]

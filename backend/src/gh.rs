@@ -6,8 +6,7 @@ use color_eyre::Result;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use serde_json::Value;
+use serde_json::{json, Value};
 use dotenvy::dotenv;
 use std::env;
 use std::fs::File;
@@ -174,7 +173,41 @@ fn gen_jwt_token() -> Result<String> {
     )?)
 }
 
-/// SCreate a GitHub pull request using environment variables for configuration.
+/// Retrieve the repository name from the `REPO_URL` environment variable.
+/// 
+/// The `REPO_URL` must be in the format `<owner>/<repo>.git`. This function removes
+/// the `.git` suffix and parses the owner and repo name from the URL.
+/// 
+/// # Returns
+/// A `Result` containing the repository name in the format `<owner>/<repo>`, or an error if
+/// the environment variable is not set or the format is invalid.
+/// 
+/// # Errors
+/// This function will return an error if `REPO_URL` is not set or has an invalid format.
+fn get_repo_name_from_env() -> Result<String> {
+    // Load environment variables from the .env file
+    dotenv().ok();
+
+    // Retrieve the repository URL from the environment variable
+    let repo_url = env::var("REPO_URL")
+        .context("REPO_URL must be set in the .env file")?;
+
+    // Parse the repository name from the URL
+    let repo_path = repo_url
+        .trim_end_matches(".git")  // Remove the .git suffix
+        .rsplit('/')  // Split by '/'
+        .collect::<Vec<&str>>();  // Collect into a vector
+
+    // Ensure repo_path has both owner and repo
+    if repo_path.len() < 2 {
+        bail!("Invalid REPO_URL format, must be <owner>/<repo>.");
+    }
+
+    // Format as <owner>/<repo>
+    Ok(format!("{}/{}", repo_path[1], repo_path[0]))
+}
+
+/// Create a GitHub pull request using environment variables for configuration.
 ///
 /// # Parameters:
 /// - `req_client`: The `reqwest::Client` to make HTTP requests.
@@ -193,25 +226,8 @@ pub async fn create_pull_request(
     pr_title: &str,
     pr_description: &str,
 ) -> Result<String> {
-    // Load environment variables from .env file
-    dotenv().ok();
-
-    // Retrieve the repository URL from the environment variable
-    let repo_url = env::var("REPO_URL")
-        .context("REPO_URL must be set in the .env file")?;
-
-    // Parse the repository name from the URL
-    let repo_path = repo_url
-        .trim_end_matches(".git")  // Remove the .git suffix
-        .rsplit('/')  // Split by '/'
-        .collect::<Vec<&str>>();  // Collect into a vector
-
-    // Ensure repo_path has both owner and repo
-    if repo_path.len() < 2 {
-        bail!("Invalid REPO_URL format, must be <owner>/<repo>.");
-    }
-
-    let repo_name = format!("{}/{}", repo_path[1], repo_path[0]); // <owner>/<repo>
+    // Get the repository name
+    let repo_name = get_repo_name_from_env()?;
 
     // Prepare the JSON body for the pull request
     let pr_body = json!( {
@@ -264,21 +280,8 @@ pub async fn create_pull_request(
 /// # Returns:
 /// A `Result` containing a vector of branch names or an error.
 pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<String>> {
-    dotenv().ok();
-
-    let repo_url = env::var("REPO_URL")
-        .context("REPO_URL must be set in the .env file")?;
-
-    let repo_path = repo_url
-        .trim_end_matches(".git")
-        .rsplit('/')
-        .collect::<Vec<&str>>();
-
-    if repo_path.len() < 2 {
-        bail!("Invalid REPO_URL format, must be <owner>/<repo>.");
-    }
-
-    let repo_name = format!("{}/{}", repo_path[1], repo_path[0]); // <owner>/<repo>
+    // Get the repository name
+    let repo_name = get_repo_name_from_env()?;
 
     let response = req_client
         .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
@@ -289,10 +292,16 @@ pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<Strin
 
     // Handle the response based on the status code
     if response.status().is_success() {
-        let branches: Vec<Branch> = serde_json::from_slice(&response.bytes().await?)?;
-        let branch_names = branches.into_iter().map(|b| b.name).collect();
+        info!("Branches fetched successfully for repository: {}", repo_name);
+
+        // Deserialize the JSON response to get the branches
+        let branches: Vec<Branch> = response.json().await?;
+
+        // Extract branch names from the branch objects
+        let branch_names = branches.into_iter().map(|branch| branch.name).collect();
         Ok(branch_names)
     } else {
+        // Log error and return an appropriate error message
         let status = response.status();
         let response_text = response.text().await?;
         bail!(
