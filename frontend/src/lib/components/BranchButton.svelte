@@ -1,6 +1,6 @@
 <!-- BranchButton.svelte -->
 <script lang="ts">
-	import { branchName } from '$lib/main';
+	import { branchName, documentTreeStore } from '$lib/main';
 	import { derived, get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { apiAddress } from '$lib/net';
@@ -9,6 +9,7 @@
 	let showMenu = false;
 	let existingBranches: string[] = [];
 	let newBranchName: string = '';
+
 
 	const currentBranch = derived(branchName, ($branchName) => $branchName);
 
@@ -144,6 +145,20 @@
 				dismissible: true,
 			});
 		}
+
+		// Fetch the updated document tree after pulling changes
+		const treeResponse = await fetch(`${apiAddress}/api/tree`, {
+			method: 'GET',
+			credentials: 'include',
+		});
+
+		if (treeResponse.ok) {
+			const updatedTree = await treeResponse.json();
+			documentTreeStore.set(updatedTree); // Update the store with the new tree
+		} else {
+			console.error('Failed to fetch updated document tree:', treeResponse.status, treeResponse.statusText);
+		}
+
 	}
 
 	function toggleMenu() {

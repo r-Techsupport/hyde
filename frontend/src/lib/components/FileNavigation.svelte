@@ -1,7 +1,7 @@
 <!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
 <script lang="ts">
 	import { createEventDispatcher, onMount, tick } from 'svelte';
-	import { currentFile } from '$lib/main';
+	import { currentFile, documentTreeStore } from '$lib/main';
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';
 	import ConfirmationDialogue from './ConfirmationDialogue.svelte';
@@ -25,6 +25,9 @@
 	let showNewFileInput = false;
 	let newFileInput: HTMLInputElement;
 	let showDeleteFileDialogue = false;
+
+	const unsubscribe = documentTreeStore.subscribe((tree) => {
+	});
 
 	const dispatch = createEventDispatcher();
 
@@ -56,6 +59,42 @@
 		newFileInput.value = '.md';
 		newFileInput.setSelectionRange(0, 0);
 		newFileInput.focus();
+	}
+
+	function handleKeyDown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			const inputValue = newFileInput.value.trim();
+			
+			if (inputValue !== '') { // Check for non-empty input
+				open = true;
+
+				// Create a new file node
+				const newFileNode: INode = { name: inputValue, children: [] };
+
+				// Update the document tree in the store
+				const currentTree = get(documentTreeStore);
+				const updatedTree = {
+					...currentTree,
+					children: [...currentTree.children, newFileNode],
+				};
+
+				documentTreeStore.set(updatedTree); // Update the store
+
+				// Clear the input field
+				newFileInput.value = '';
+
+				showNewFileInput = false; // Hide the input after adding
+
+				const now = new Date();
+				cache.set(
+					path + inputValue,
+					`---\nlayout: default\ntitle: Your Document Title Here\nnav_exclude: false\nhas_children: false\nparent: Parent Folder Name Here\nsearch_exclude: false\nlast_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}\n---\n\n`
+				);
+				currentFile.set(path + inputValue);
+			}
+		} else if (event.key === 'Escape') {
+			showNewFileInput = false; // Hide the input on Escape
+		}
 	}
 
 	async function deleteDocumentHandler() {
@@ -96,10 +135,10 @@
 		console.log(`Document "${path}" would be deleted`);
 	}
 
-	onMount(async () => {
-		// Sort nodes alphabetically
-		// https://stackoverflow.com/questions/8900732/sort-objects-in-an-array-alphabetically-on-one-property-of-the-array
-		children = children.sort((a, b) => a.name.localeCompare(b.name));
+	onMount(() => {
+		return () => {
+			unsubscribe(); // Clean up the subscription
+		};
 	});
 </script>
 
@@ -148,37 +187,12 @@
 {#if showNewFileInput}
 	<span>
 		<input
-			on:keydown={(e) => {
-				if (e.key === 'Enter') {
-					open = true;
-					children = [...children, { name: newFileInput.value, children: [] }];
-					showNewFileInput = false;
-					const now = new Date(Date.now());
-					cache.set(
-						path + newFileInput.value,
-						`---
-layout: default
-title: Your Document Title Here
-nav_exclude: false
-has_children: false
-parent: Parent Folder Name Here
-search_exclude: false
-last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
----\n\n`
-					);
-					currentFile.set(path + newFileInput.value);
-				}
-				if (e.key === 'Escape') {
-					showNewFileInput = false;
-				}
-			}}
-			on:blur={() => {
-				showNewFileInput = false;
-			}}
-			bind:this={newFileInput}
-			class="newfile-input"
-			type="text"
-		/>
+			on:keydown={handleKeyDown}
+            on:blur={() => { showNewFileInput = false; }}
+            bind:this={newFileInput}
+            class="newfile-input"
+            type="text"
+        />
 	</span>
 {/if}
 
@@ -241,27 +255,14 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 
 {#if open}
 	{#each children as child}
-		{#if child.children.length === 0}
-			<!-- Treat path like file -->
-			<svelte:self
-				on:fileselect
-				name={child.name}
-				children={child.children}
-				siblings={children}
-				indent={indent + 1.5}
-				path={path + child.name}
-			/>
-		{:else}
-			<!-- Treat path like directory -->
-			<svelte:self
-				on:fileselect
-				name={child.name}
-				children={child.children}
-				siblings={children}
-				indent={indent + 1}
-				path={path + child.name + '/'}
-			/>
-		{/if}
+		<svelte:self
+			on:fileselect
+			name={child.name}
+			children={child.children}
+			siblings={children}
+			indent={indent + 1}
+			path={path + child.name + (child.children.length > 0 ? '/' : '')}
+		/>
 	{/each}
 {/if}
 

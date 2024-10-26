@@ -21,3 +21,8 @@ export interface Group {
 	id: number;
 	name: string;
 }
+
+export interface INode {
+    name: string;
+    children: INode[];
+}

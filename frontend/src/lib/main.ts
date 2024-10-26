@@ -1,5 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
-import type { User } from './types';
+import type { User, INode } from './types';
 
 export const currentFile = writable('');
 
@@ -19,3 +19,10 @@ export const me: Writable<User> = writable({
  * New store for branch name
  */
 export const branchName: Writable<string> = writable('Set Branch'); // Default branch name
+/**
+ * New store for the tree
+ */
+export const documentTreeStore = writable<INode>({
+    name: '',
+    children: []
+});

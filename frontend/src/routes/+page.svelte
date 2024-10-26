@@ -9,14 +9,14 @@
 	import LoadingIcon from './LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from './Toasts.svelte';
-	import { currentFile, me, branchName } from '$lib/main';
+	import { currentFile, me, branchName, documentTreeStore } from '$lib/main';
 	import { get } from 'svelte/store';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { dev } from '$app/environment';
 	import SettingsMenu from '$lib/components/SettingsMenu.svelte';
 	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
 	import Editor from '$lib/components/Editor.svelte';
-	import { Permission } from '$lib/types.d';
+	import { Permission, type INode } from '$lib/types.d';
 
 	/** The text currently displayed in the editing window */
 	let editorText = '';
@@ -31,17 +31,21 @@
 	const DEBOUNCE_TIME: number = 500;
 
 	let lastKeyPressedTime = Date.now();
+	let rootNode: INode = { name: '', children: [] };
 
-	/** The base directory for filesystem navigation */
-	let rootNode = {
-		name: '',
-		children: []
-	};
+	const unsubscribe = documentTreeStore.subscribe(value => {
+        rootNode = value;
+    });
 
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree`);
-		rootNode = await response.json();
+		const fetchedRootNode = await response.json();
+		documentTreeStore.set(fetchedRootNode); // Update the store with the fetched data
 	});
+
+	onDestroy(() => {
+        unsubscribe();
+    });
 
 	/**
 	 * This function is called whenever a key is pressed.
