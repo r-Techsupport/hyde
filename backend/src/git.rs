@@ -1,7 +1,7 @@
 //! Abstractions and interfaces over the git repository
 
 use color_eyre::eyre::{bail, ContextCompat, WrapErr, Result};
-use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status, BranchType};
+use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status, BranchType, build::CheckoutBuilder};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -165,11 +165,6 @@ impl Interface {
         // Step 4: Push the branch to the remote repository
         Self::git_push_to_branch(&repo, branch, token)?;
 
-        // Optional: Step 5: Create a pull request on GitHub and merge the branch into the main branch
-        // You can use a GitHub API call to create the pull request and merge it.
-        // Assuming you have a function to do this:
-        // Self::create_and_merge_pull_request(branch, message, token)?;
-
         info!(
             "Document {:?} edited, committed to branch '{branch}' and pushed to GitHub with message: {message:?}",
             path.as_ref()
@@ -187,8 +182,8 @@ impl Interface {
     ///
     /// # Errors
     /// This function will return an error if filesystem operations fail, or if any of the git operations fail
-    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
-    // it creates errors that note the destructor for other values failing because of it (tree)
+    /// This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
+    /// it creates errors that note the destructor for other values failing because of it (tree)
     pub fn delete_doc<P: AsRef<Path> + Copy>(
         &self,
         path: P,
@@ -402,6 +397,50 @@ impl Interface {
         Ok(())
     }
 
+    /// A code level re-implementation of `git pull` for a specified branch.
+    /// 
+    /// Under the hood, `git pull` is shorthand for `git fetch`, followed by `git merge FETCH_HEAD`,
+    /// where `FETCH_HEAD` is a reference to the latest commit that has just been fetched from the remote repository.
+    #[tracing::instrument(skip(self))]
+    pub fn git_pull_branch(&self, branch: &str) -> Result<()> {
+        // Lock the repository
+        let repo = self.repo.lock().unwrap();
+
+        // Clear the index to ensure no staged changes interfere with the pull
+        let mut index = repo.index()?;
+        index.clear()?;
+        info!("Index cleared successfully.");
+
+        // Fetch the specified branch
+        let fetch_head = Self::git_fetch_branch(&repo, branch)?;
+        info!("Successfully fetched latest changes for branch '{}', merging...", branch);
+        
+        // Merge the fetched changes into the specified branch
+        Self::git_merge_from_branch(&repo, branch, fetch_head)?;
+        info!("Successfully merged latest changes for branch '{}'", branch);
+        
+        // Checkout the HEAD to update the working directory
+        let head_commit = repo.head()?.peel_to_commit()?;
+        
+        // Check if there are any uncommitted changes
+        let status = repo.statuses(None)?;
+        if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
+            info!("There are uncommitted changes, updating working directory anyway.");
+            
+            // Create a CheckoutBuilder instance with force option
+            let mut checkout_builder = CheckoutBuilder::new();
+            checkout_builder.force(); // Force the checkout to discard local changes
+            
+            // Force checkout to discard local changes
+            repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
+        } else {
+            // No uncommitted changes, proceed with a standard checkout
+            repo.checkout_tree(head_commit.as_object(), None)?; // This updates the working directory
+        }
+
+        Ok(())
+    }
+
     /// A code level re-implementation of `git fetch`. `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
     /// merge those changes into `main`.
     ///
@@ -422,6 +461,31 @@ impl Interface {
         )?;
         drop(remote);
 
+        let fetch_head = repo.find_reference("FETCH_HEAD")?;
+        Ok(repo.reference_to_annotated_commit(&fetch_head)?)
+    }
+
+    /// A code level re-implementation of `git fetch` for a specified branch.
+    /// `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
+    /// merge those changes into your local branch.
+    /// 
+    /// This implementation fetches only the specified branch.
+    /// 
+    /// Returns a reference to the latest commit fetched from remote (`FETCH_HEAD`). This is done if you'd like to merge the remote changes into a local branch.
+    fn git_fetch_branch<'a>(repo: &'a Repository, branch: &'a str) -> Result<AnnotatedCommit<'a>> {
+        let mut remote = repo.find_remote("origin")?;
+    
+        let mut fetch_options = FetchOptions::new();
+        fetch_options.download_tags(git2::AutotagOption::All);
+    
+        // Fetch only the specified branch
+        remote.fetch(
+            &[&format!("refs/heads/{branch}:refs/remotes/origin/{branch}")],
+            Some(&mut fetch_options),
+            None,
+        )?;
+        drop(remote);
+    
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         Ok(repo.reference_to_annotated_commit(&fetch_head)?)
     }
@@ -454,6 +518,37 @@ impl Interface {
         } else {
             debug!("No work needed to merge");
         }
+        Ok(())
+    }
+
+    /// A code level re-implementation of `git merge` for a specified remote branch.
+    /// This function handles the merge process for pulling changes specifically from the given branch.
+    fn git_merge_from_branch(
+        repo: &Repository,
+        remote_branch: &str,
+        fetch_commit: AnnotatedCommit<'_>,
+    ) -> Result<()> {
+        // First perform a merge analysis to understand how to proceed
+        let analysis = repo.merge_analysis(&[&fetch_commit])?;
+
+        // Handle fast-forward merges
+        if analysis.0.is_fast_forward() {
+            debug!("Performing fast forward merge from branch '{}'", remote_branch);
+            let refname = format!("refs/heads/{}", remote_branch);
+            let mut reference = repo.find_reference(&refname)?;
+            Self::fast_forward(repo, &mut reference, &fetch_commit)?;
+        } 
+        // Handle normal merges
+        else if analysis.0.is_normal() {
+            debug!("Performing normal merge from branch '{}'", remote_branch);
+            let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
+            Self::normal_merge(repo, &fetch_commit, &head_commit)?;
+        } 
+        // If no merging is needed
+        else {
+            debug!("No work needed to merge from branch '{}'", remote_branch);
+        }
+
         Ok(())
     }
 

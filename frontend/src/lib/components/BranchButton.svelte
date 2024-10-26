@@ -1,7 +1,7 @@
 <!-- BranchButton.svelte -->
 <script lang="ts">
 	import { branchName } from '$lib/main';
-	import { derived } from 'svelte/store';
+	import { derived, get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { apiAddress } from '$lib/net';
 	import { ToastType, addToast } from '$lib/toast';
@@ -97,7 +97,6 @@
 		if (!input) return;
 
 		// Validate branch name
-		
 		if (!isValidBranchName(input)) {
 			addToast({
 				message: 'Please ensure your branch name follows these rules:\n' + rules.join('\n'),
@@ -113,27 +112,36 @@
 		showMenu = false;
 
 		// Call backend to update working directory by checking out the branch
-		try {
-			const response = await fetch(`${apiAddress}/api/check-out/branches/${input}`, {
-				method: 'PUT',
-				credentials: 'include'
-			});
+		const response = await fetch(`${apiAddress}/api/check-out/branches/${input}`, {
+			method: 'PUT',
+			credentials: 'include'
+		});
 
-			console.log(response);
-
-			if (!response.ok) {
-				throw new Error(`Failed to check out branch. Error ${response.status}: ${response.statusText}`);
-			}
-
-			// Successfully checked out branch
-			console.log('Branch checked out:', await response.text());
-			await fetchExistingBranches();
-
-		} catch (error) {
+		if (!response.ok) {
 			addToast({
-				message: `Failed to check out branch "${input}". Unknown error occurred.`,
+				message: `Failed to check out branch. Error ${response.status}: ${response.statusText}`,
 				type: ToastType.Error,
 				dismissible: true
+			});
+		}
+
+		// After checking out, call the pull endpoint
+		const pullResponse = await fetch(`${apiAddress}/api/pull/${input}`, {
+			method: 'POST',
+			credentials: 'include',
+		});
+
+		if (!pullResponse.ok) {
+			addToast({
+				message: `Failed to pull latest changes for branch "${input}".`,
+				type: ToastType.Error,
+				dismissible: true,
+			});
+		} else {
+			addToast({
+				message: `Branch "${input}" checked out and updated successfully.`,
+				type: ToastType.Success,
+				dismissible: true,
 			});
 		}
 	}
@@ -152,7 +160,6 @@
 		on:click={toggleMenu}
 		class="branch-button"
 		title="Set Branch Name"
-		aria-label="Set Branch Name"
 	>
 		{$currentBranch}
 	</button>
@@ -184,7 +191,6 @@
 			<input
 				type="text"
 				bind:value={newBranchName}
-				placeholder="Enter new branch name"
 				on:keydown={(e) => e.key === 'Enter' && setBranchName(newBranchName)}
 			/>
 			<button on:click={() => setBranchName(newBranchName)}>Create Branch</button>

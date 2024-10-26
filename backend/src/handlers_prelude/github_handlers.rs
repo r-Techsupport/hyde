@@ -182,10 +182,41 @@ pub async fn checkout_or_create_branch_handler(
     }
 }
 
+/// Handler to pull the latest changes for a specified branch.
+pub async fn pull_handler(
+    State(state): State<AppState>,
+    Path(branch): Path<String>,
+) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+    info!("Received request to pull latest changes for branch '{}'", branch);
+
+    // Attempt to pull the latest changes for the specified branch
+    match state.git.git_pull_branch(&branch) {
+        Ok(_) => {
+            info!("Repository pulled successfully for branch '{}'.", branch);
+            Ok((
+                StatusCode::OK,
+                Json(ApiResponse {
+                    status: "success".to_string(),
+                    message: format!("Repository pulled successfully for branch '{}'.", branch),
+                    data: Some("Pull operation completed.".to_string()),
+                }),
+            ))
+        },
+        Err(err) => {
+            error!("Failed to pull repository for branch '{}': {:?}", branch, err);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to pull repository for branch '{}': {}", branch, err),
+            ))
+        }
+    }
+}
+
 /// Route definitions for GitHub operations
 pub async fn github_routes() -> Router<AppState> {
     Router::new()
         .route("/branches", get(list_branches_handler))
         .route("/pulls", post(create_pull_request_handler))
         .route("/check-out/branches/:branch_name", put(checkout_or_create_branch_handler))
+        .route("/pull/:branch", post(pull_handler))
 }
