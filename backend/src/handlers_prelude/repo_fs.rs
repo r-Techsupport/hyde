@@ -1,6 +1,7 @@
 //! Endpoints for interacting with the repository's filesystem (create doc/asset, read doc/asset, et cetera)
 use crate::git::INode;
 use axum::{
+    body::Bytes,
     debug_handler,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
@@ -186,21 +187,13 @@ pub async fn get_asset_handler(
     State(state): State<AppState>,
     Path(path): Path<Vec<String>>,
 ) -> impl IntoResponse {
+    let file_name = path.last().unwrap().clone();
+    let path = path.join("/");
     // https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
-    let file = match state
-        .git
-        .get_asset(path.join("/"))
-        .map_err(eyre_to_axum_err)?
-    {
+    let file = match state.git.get_asset(&path).map_err(eyre_to_axum_err)? {
         Some(file) => file,
-        None => {
-            return Err((
-                StatusCode::NOT_FOUND,
-                format!("File not found: {}", path.join("/")),
-            ))
-        }
+        None => return Err((StatusCode::NOT_FOUND, format!("File not found: {}", path))),
     };
-    let file_name = path.last().unwrap();
     let mut headers = HeaderMap::new();
     headers.insert(
         CONTENT_TYPE,
@@ -215,6 +208,41 @@ pub async fn get_asset_handler(
     Ok((headers, file))
 }
 
+/// This handler creates or replaces the asset at the provided path
+/// with a new asset
+pub async fn put_asset_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(path): Path<Vec<String>>,
+    body: Bytes,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let path = path.join("/");
+    let author = require_perms(
+        axum::extract::State(&state),
+        headers,
+        &[Permission::ManageContent],
+    )
+    .await?;
+    // Generate commit message combining author and default update message
+    let message = format!("{} updated {}", author.username, path);
+    state
+        .git
+        .put_asset(
+            &state.config.files.repo_url,
+            &path,
+            &body,
+            &message,
+            &state
+                .gh_credentials
+                .get(&state.reqwest_client, &state.config.oauth.github.client_id)
+                .await
+                .map_err(eyre_to_axum_err)?,
+        )
+        .map_err(eyre_to_axum_err)?;
+
+    Ok(StatusCode::CREATED)
+}
+
 pub async fn create_tree_route() -> Router<AppState> {
     Router::new()
         .route("/tree/doc", get(get_doc_tree_handler))
@@ -225,5 +253,8 @@ pub async fn create_tree_route() -> Router<AppState> {
                 .delete(delete_doc_handler),
         )
         .route("/tree/asset", get(get_asset_tree_handler))
-        .route("/asset/*path", get(get_asset_handler))
+        .route(
+            "/asset/*path",
+            get(get_asset_handler).put(put_asset_handler),
+        )
 }

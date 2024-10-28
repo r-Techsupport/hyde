@@ -162,6 +162,54 @@ impl Interface {
         Ok(())
     }
 
+    /// Create or overwrite the asset at the provided `path`
+    /// with `contents`. `message` will be included in the commit
+    /// message, and `token` is a valid github auth token.
+    ///
+    /// # Arguments
+    /// - `repo_url` - the URL of the remote for the wiki repository
+    /// - `path` - the path of the asset to put relative to the assets folder
+    /// - `contents` - contents of the new document
+    /// - `message` - textual context associated with the message
+    /// - `token` - github authentication token
+    ///
+    /// # Panics
+    /// This function will panic if it's called when the repo mutex is already held by the current
+    /// thread.
+    ///
+    /// # Errors
+    /// This function will return an error if filesystem operations fail, or if any of the git
+    ///operations fail.
+    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
+    // but when applied, it creates errors that note the destructor for other values failing
+    // because of it (tree)
+    #[allow(clippy::significant_drop_tightening)]
+    #[tracing::instrument(skip_all)]
+    pub fn put_asset<P: AsRef<Path> + Copy + std::fmt::Debug>(
+        &self,
+        repo_url: &str,
+        path: P,
+        contents: &[u8],
+        message: &str,
+        token: &str,
+    ) -> Result<()> {
+        let repo = self.repo.lock().unwrap();
+        let mut path_to_asset: PathBuf = PathBuf::from(&self.asset_path);
+        path_to_asset.push(path.as_ref());
+        Self::put_file(&path_to_asset, contents)?;
+        let msg = format!("[Hyde]: {message}");
+        Self::git_add(&repo, ".")?;
+        let commit_id = Self::git_commit(&repo, msg, None)?;
+        debug!("New commit made with ID: {:?}", commit_id);
+        Self::git_push(&repo, token, repo_url)?;
+        info!(
+            "Asset {:?} edited and pushed to GitHub with message: {message:?}",
+            path.as_ref()
+        );
+        debug!("Commit cleanup completed");
+        Ok(())
+    }
+
     /// Delete the document at the specified `path`.
     /// `message` will be included in the commit message, and `token` is a valid github auth token.
     ///
@@ -275,7 +323,8 @@ impl Interface {
             }
             0
         };
-
+        // So as far as I can tell, `update_all` doesn't catch
+        // *new* files, so add is called first.
         info!("Adding everything to the index");
         index.add_all(["*"], IndexAddOption::DEFAULT, Some(callback))?;
         info!("Updating the index for {path:?}");

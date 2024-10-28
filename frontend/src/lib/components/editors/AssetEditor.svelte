@@ -1,9 +1,31 @@
 <script lang="ts">
 	import type { INode } from '$lib/main';
 	import { apiAddress, assetTree } from '$lib/main';
+	import { tick } from 'svelte';
 	import { blur } from 'svelte/transition';
 
 	export let assetFolderPath = '';
+	let uploadedFiles: FileList;
+
+	$: {
+		uploadedFiles;
+		fileUploadHandler();
+	}
+
+	async function fileUploadHandler() {
+		if (uploadedFiles && uploadedFiles.length > 0) {
+			const file = uploadedFiles.item(0)!;
+			console.log(file);
+			// TODO: increase the max body limit or
+			// switch to multipart forms or something
+			fetch(`${apiAddress}/api/asset/${assetFolderPath}/${file.name}`, {
+				method: 'PUT',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/octet-stream' },
+				body: await file.arrayBuffer()
+			});
+		}
+	}
 
 	/**
 	 * When an image is being displayed in "full screen mode", this is the path of that
@@ -11,11 +33,29 @@
 	 */
 	let fullScreenImagePath = '';
 	let fullScreenImage: HTMLImageElement = new Image();
-	let fullScreenHttpInfo: Promise<Response>;
-	$: if (fullScreenImagePath !== '') {
-		fullScreenImage.src = `${apiAddress}/api/asset/${fullScreenImagePath}`;
-		fullScreenHttpInfo = fetch(fullScreenImage.src, { method: 'HEAD' });
+	fullScreenImage.loading = 'eager';
+	let fullScreenHttpInfo: Response | undefined;
+	// TODO: there's a race condition here that makes image
+	// resolution only load *sometimes*
+	async function loadHttpInfo() {
+			while (!fullScreenImage.complete) {
+				await tick();
+			}
+			setTimeout(async () => {
+				if (fullScreenImage.complete) {
+					fullScreenHttpInfo = await fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, {method: "GET", headers: {
+				"Accept": "image/*"
+					}});
+				}
+			}, 100);
 	}
+	$: {
+	    if (fullScreenImagePath !== '') {
+		    fullScreenImage.src = `${apiAddress}/api/asset/${fullScreenImagePath}`;
+			loadHttpInfo();
+		}
+	}
+
 	let tree: INode = {
 		name: 'loading',
 		children: []
@@ -45,24 +85,26 @@
 				alt={`${fullScreenImagePath}`}
 			/>
 			<div class="fullscreen-info">
-				<h2>{fullScreenImagePath.split('/')[1]}</h2>
-				{#await fullScreenHttpInfo}
-					<p>Loading more info...</p>
-				{:then httpInfo}
+					<h2>{fullScreenImagePath.split('/')[1]}</h2>
 					<p>
 						<strong>Resolution:</strong>
 						<code>{fullScreenImage.naturalWidth}x{fullScreenImage.naturalHeight}</code>
 					</p>
-					<p><strong>Encoding:</strong> <code>{httpInfo.headers.get('Content-Type')}</code></p>
+				<!-- {#await fullScreenHttpInfo}
+					<p>Loading more info...</p>
+				{:then httpInfo} -->
+				{#if fullScreenHttpInfo}
+					<p><strong>Encoding:</strong> <code>{fullScreenHttpInfo.headers.get('Content-Type')}</code></p>
 					<p>
 						<strong>File size:</strong>
 						<code
-							>{(Number(httpInfo.headers.get('Content-Length')) / 1000).toLocaleString('EN-us', {
+							>{(Number(fullScreenHttpInfo.headers.get('Content-Length')) / 1000).toLocaleString('EN-us', {
 								useGrouping: 'always'
 							})}kB</code
 						>
-					</p>
-				{/await}
+					</p> 
+				{/if}
+				<!-- {/await} -->
 			</div>
 		</div>
 	</div>
@@ -89,12 +131,13 @@
 			<code>{asset.name}</code>
 		</button>
 	{/each}
-	<button class="asset upload-new" title="Upload new asset">
+	<input bind:files={uploadedFiles} type="file" id="upload-new" style="display: none" />
+	<label for="upload-new" class="asset upload-new" title="Upload new asset">
 		<svg xmlns="http://www.w3.org/2000/svg" height="80%" viewBox="0 -960 960 960" width="80%"
 			><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
 		>
 		<code>Upload new asset</code>
-	</button>
+	</label>
 </div>
 
 <style>
@@ -103,11 +146,23 @@
 		color: var(--foreground-2);
 	}
 
+	.asset,
+	.asset::before,
+	.asset::after,
+	.upload-new,
+	.upload-new::before,
+	.upload-new::after,
+	.asset-catalogue,
+	.asset-catalogue::before,
+	.asset-catalogue::after {
+		box-sizing: border-box;
+	}
+
 	.asset-catalogue {
 		display: inline-block;
 		box-sizing: border-box;
 		text-align: center;
-		overflow-x: hidden scroll;
+		overflow: hidden scroll;
 		margin: 0.3rem;
 	}
 
@@ -130,6 +185,7 @@
 		height: calc((100vw - var(--sidebar-width) - 0.5rem) / 7);
 		transition: 0.3s;
 		display: inline-block;
+		vertical-align: top;
 		text-align: center;
 		text-overflow: ellipsis;
 		overflow-x: hidden;
@@ -167,17 +223,8 @@
 		border-top: none;
 	}
 
-	/* margin-top: -0.1rem; */
-
-	/* margin: 0; padding: 0; */
-
-	/* height: 0.5rem;
-        color: var(--foreground-4)
-    } */
-
 	.upload-new svg {
 		object-fit: contain;
-		width: 100%;
 		height: calc(100% - 2.1rem);
 
 		/* height: calc(100% -2rem); */
