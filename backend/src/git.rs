@@ -405,29 +405,35 @@ impl Interface {
         // Fetch the specified branch
         let fetch_head = Self::git_fetch_branch(&repo, branch)?;
         info!("Successfully fetched latest changes for branch '{}', merging...", branch);
-        
+
         // Merge the fetched changes into the specified branch
         Self::git_merge_from_branch(&repo, branch, fetch_head)?;
         info!("Successfully merged latest changes for branch '{}'", branch);
-        
-        // Checkout the HEAD to update the working directory
-        let head_commit = repo.head()?.peel_to_commit()?;
-        
-        // Check if there are any uncommitted changes
-        let status = repo.statuses(None)?;
-        if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
-            info!("There are uncommitted changes, updating working directory anyway.");
-            
-            // Create a CheckoutBuilder instance with force option
-            let mut checkout_builder = CheckoutBuilder::new();
-            checkout_builder.force(); // Force the checkout to discard local changes
-            
-            // Force checkout to discard local changes
-            repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
-        } else {
-            // No uncommitted changes, proceed with a standard checkout
-            repo.checkout_tree(head_commit.as_object(), None)?; // This updates the working directory
+
+        {
+            // Limit the scope of `head_commit` and operations using it
+            let head_commit = repo.head()?.peel_to_commit()?;
+
+            // Check if there are any uncommitted changes
+            let status = repo.statuses(None)?;
+            if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
+                info!("There are uncommitted changes, updating working directory anyway.");
+
+                // Create a CheckoutBuilder instance with force option
+                let mut checkout_builder = CheckoutBuilder::new();
+                checkout_builder.force(); // Force the checkout to discard local changes
+
+                // Force checkout to discard local changes
+                repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
+            } else {
+                // No uncommitted changes, proceed with a standard checkout
+                repo.checkout_tree(head_commit.as_object(), None)?; // This updates the working directory
+            }
+            // `head_commit` goes out of scope here
         }
+
+        // Explicitly drop the lock on `repo` here
+        drop(repo);
 
         Ok(())
     }

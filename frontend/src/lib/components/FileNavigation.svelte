@@ -26,7 +26,7 @@
 	let newFileInput: HTMLInputElement;
 	let showDeleteFileDialogue = false;
 
-	const unsubscribe = documentTreeStore.subscribe((tree) => {});
+	const unsubscribe = documentTreeStore.subscribe(() => {});
 
 	const dispatch = createEventDispatcher();
 

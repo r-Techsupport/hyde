@@ -26,7 +26,7 @@ use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
 //#[cfg(target_family = "unix")]
-use tracing::{ debug, info, info_span, warn, error };
+use tracing::{ debug, info, info_span, warn };
 // use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{

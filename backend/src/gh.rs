@@ -1,6 +1,5 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
-use axum::extract::State;
 use crate::AppState;
 use chrono::DateTime;
 use color_eyre::eyre::{bail, Context};
@@ -224,7 +223,7 @@ pub async fn create_pull_request(
     pr_description: &str,
 ) -> Result<String> {
     // Get the repository name
-    let repo_name = get_repo_name_from_url(&state)?;
+    let repo_name = get_repo_name_from_url(state)?;
 
     // Prepare the JSON body for the pull request
     let pr_body = json!( {
@@ -277,7 +276,7 @@ pub async fn create_pull_request(
 /// # Returns:
 /// A `Result` containing a vector of branch names or an error.
 pub async fn list_branches(state: &AppState, token: &str) -> Result<Vec<Branch>> {
-    let repo_name = get_repo_name_from_url(&state)?;
+    let repo_name = get_repo_name_from_url(state)?;
     let response = state.reqwest_client
         .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
         .bearer_auth(token)
@@ -320,7 +319,7 @@ pub async fn list_branches(state: &AppState, token: &str) -> Result<Vec<Branch>>
 /// # Returns:
 /// A `Result` containing the branch details or an error.
 async fn get_branch_details(state: &AppState, token: &str, branch_name: &str) -> Result<Branch> {
-    let repo_name = get_repo_name_from_url(&state)?;
+    let repo_name = get_repo_name_from_url(state)?;
     let response = state.reqwest_client
         .get(format!("{}/repos/{}/branches/{}", GITHUB_API_URL, repo_name, branch_name))
         .bearer_auth(token)
