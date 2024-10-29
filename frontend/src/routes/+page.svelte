@@ -74,6 +74,7 @@
 				(await cache.get(e.detail.path)) ??
 				'Something went wrong, the file tree reported by the backend references a nonexistent file.'
 			);
+			renderMarkdown(get(editorText), previewWindow);
 		} else if (e.detail.path === get(currentFile)) {
 			// Do nothing
 		} else {
