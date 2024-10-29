@@ -26,8 +26,7 @@
 	let newFileInput: HTMLInputElement;
 	let showDeleteFileDialogue = false;
 
-	const unsubscribe = documentTreeStore.subscribe((tree) => {
-	});
+	const unsubscribe = documentTreeStore.subscribe((tree) => {});
 
 	const dispatch = createEventDispatcher();
 
@@ -64,8 +63,9 @@
 	function handleKeyDown(event: KeyboardEvent) {
 		if (event.key === 'Enter') {
 			const inputValue = newFileInput.value.trim();
-			
-			if (inputValue !== '') { // Check for non-empty input
+
+			if (inputValue !== '') {
+				// Check for non-empty input
 				open = true;
 
 				// Create a new file node
@@ -75,7 +75,7 @@
 				const currentTree = get(documentTreeStore);
 				const updatedTree = {
 					...currentTree,
-					children: [...currentTree.children, newFileNode],
+					children: [...currentTree.children, newFileNode]
 				};
 
 				documentTreeStore.set(updatedTree); // Update the store
@@ -188,11 +188,13 @@
 	<span>
 		<input
 			on:keydown={handleKeyDown}
-            on:blur={() => { showNewFileInput = false; }}
-            bind:this={newFileInput}
-            class="newfile-input"
-            type="text"
-        />
+			on:blur={() => {
+				showNewFileInput = false;
+			}}
+			bind:this={newFileInput}
+			class="newfile-input"
+			type="text"
+		/>
 	</span>
 {/if}
 

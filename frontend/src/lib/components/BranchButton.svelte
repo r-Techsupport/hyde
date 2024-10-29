@@ -11,7 +11,6 @@
 	let existingBranches: string[] = [];
 	let newBranchName: string = '';
 
-
 	const currentBranch = derived(branchName, ($branchName) => $branchName);
 
 	/**
@@ -23,7 +22,7 @@
 	 * fails (e.g., due to network issues, authentication problems, or server errors),
 	 * it returns a promise that rejects with an error object containing details about the failure.
 	 *
-	 * @returns {Promise<Array>} A promise that resolves to an array of branches on success, 
+	 * @returns {Promise<Array>} A promise that resolves to an array of branches on success,
 	 * or rejects with an error object containing details about the failure.
 	 *
 	 * @throws Will throw an error if the response from the API is not successful. The error object
@@ -39,7 +38,7 @@
 	 *   }
 	 * }
 	 */
-	 async function fetchExistingBranches() {
+	async function fetchExistingBranches() {
 		const response = await fetch(`${apiAddress}/api/branches`, {
 			method: 'GET',
 			credentials: 'include',
@@ -61,7 +60,10 @@
 		// Extract and set the branches if the response is successful
 		response.json().then((data) => {
 			if (data.data && data.data.branches) {
-				existingBranches = data.data.branches;
+				// Map through branches to filter out protected ones and extract branch names
+				existingBranches = data.data.branches
+					.filter((branch: string) => !branch.includes('(protected)')) // Filter out protected branches
+					.map((branch: string) => branch.split(' (')[0]); // Extract just branch names
 			} else {
 				existingBranches = []; // Reset if no branches found
 			}
@@ -108,6 +110,20 @@
 			return;
 		}
 
+		const existingBranchNames = existingBranches
+			.filter((branch) => !branch.includes('(protected)'))
+			.map((branch) => branch.split(' (')[0]);
+
+		if (!existingBranchNames.includes(input)) {
+			addToast({
+				message: 'Please select an existing branch name from the list of non-protected branches.',
+				type: ToastType.Warning,
+				dismissible: true,
+				timeout: 1200
+			});
+			return;
+		}
+
 		// Set branch name and reset state
 		branchName.set(input);
 		newBranchName = '';
@@ -130,14 +146,14 @@
 		// After checking out, call the pull endpoint
 		const pullResponse = await fetch(`${apiAddress}/api/pull/${input}`, {
 			method: 'POST',
-			credentials: 'include',
+			credentials: 'include'
 		});
 
 		if (!pullResponse.ok) {
 			addToast({
 				message: `Failed to pull latest changes for branch "${input}".`,
 				type: ToastType.Error,
-				dismissible: true,
+				dismissible: true
 			});
 		} else {
 			addToast({
@@ -151,7 +167,7 @@
 		// Fetch the updated document tree after pulling changes
 		const treeResponse = await fetch(`${apiAddress}/api/tree`, {
 			method: 'GET',
-			credentials: 'include',
+			credentials: 'include'
 		});
 
 		if (treeResponse.ok) {
@@ -164,23 +180,33 @@
 			const currentFilePath = get(currentFile);
 			if (currentFilePath) {
 				// Fetch the content of the current file
-				const fileContentResponse = await fetch(`${apiAddress}/api/doc?path=${encodeURIComponent(currentFilePath)}`, {
-					method: 'GET',
-					credentials: 'include',
-				});
+				const fileContentResponse = await fetch(
+					`${apiAddress}/api/doc?path=${encodeURIComponent(currentFilePath)}`,
+					{
+						method: 'GET',
+						credentials: 'include'
+					}
+				);
 
 				if (fileContentResponse.ok) {
 					const fileContent = (await fileContentResponse.json()).contents; // Get the content of the file
 					editorText.set(fileContent); // Update the editor text
 					cache.set(currentFilePath, fileContent);
 				} else {
-					console.error('Failed to fetch the file content:', fileContentResponse.status, fileContentResponse.statusText);
+					console.error(
+						'Failed to fetch the file content:',
+						fileContentResponse.status,
+						fileContentResponse.statusText
+					);
 				}
 			}
 		} else {
-			console.error('Failed to fetch updated document tree:', treeResponse.status, treeResponse.statusText);
+			console.error(
+				'Failed to fetch updated document tree:',
+				treeResponse.status,
+				treeResponse.statusText
+			);
 		}
-
 	}
 
 	function toggleMenu() {
@@ -190,15 +216,10 @@
 	function closeMenu() {
 		showMenu = false;
 	}
-
 </script>
 
 <div class="branch-dropdown">
-	<button
-		on:click={toggleMenu}
-		class="branch-button"
-		title="Set Branch Name"
-	>
+	<button on:click={toggleMenu} class="branch-button" title="Set Branch Name">
 		{$currentBranch}
 	</button>
 

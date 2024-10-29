@@ -23,6 +23,6 @@ export interface Group {
 }
 
 export interface INode {
-    name: string;
-    children: INode[];
+	name: string;
+	children: INode[];
 }

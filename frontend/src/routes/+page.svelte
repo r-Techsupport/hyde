@@ -31,9 +31,9 @@
 	let lastKeyPressedTime = Date.now();
 	let rootNode: INode = { name: '', children: [] };
 
-	const unsubscribe = documentTreeStore.subscribe(value => {
-        rootNode = value;
-    });
+	const unsubscribe = documentTreeStore.subscribe((value) => {
+		rootNode = value;
+	});
 
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree`);
@@ -42,8 +42,8 @@
 	});
 
 	onDestroy(() => {
-        unsubscribe();
-    });
+		unsubscribe();
+	});
 
 	/**
 	 * This function is called whenever a key is pressed.
@@ -72,7 +72,7 @@
 			currentFile.set(e.detail.path);
 			editorText.set(
 				(await cache.get(e.detail.path)) ??
-				'Something went wrong, the file tree reported by the backend references a nonexistent file.'
+					'Something went wrong, the file tree reported by the backend references a nonexistent file.'
 			);
 			renderMarkdown(get(editorText), previewWindow);
 		} else if (e.detail.path === get(currentFile)) {

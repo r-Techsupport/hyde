@@ -6,7 +6,7 @@ use axum::{
 use axum::routing::{get, post, put};
 use tracing::{error,info};
 use serde::{Serialize, Deserialize};
-use crate::gh::{list_branches, create_pull_request};
+use crate::gh::{get_all_branch_details, create_pull_request};
 use crate::handlers_prelude::eyre_to_axum_err;
 use crate::AppState;
 use color_eyre::Result;
@@ -66,7 +66,7 @@ pub struct CreatePRRequest {
 /// or if the token cannot be retrieved for any reason.
 async fn get_github_token(state: &AppState) -> Result<String, (StatusCode, String)> {
     state.gh_credentials.get(&state.reqwest_client).await.map_err(|err| {
-        eyre_to_axum_err(err.into())
+        eyre_to_axum_err(err)
     })
 }
 
@@ -94,10 +94,24 @@ pub async fn list_branches_handler(
     // Get the GitHub access token
     let token = get_github_token(&state).await?;
 
-    // Fetch the branches from GitHub
-    let branches = list_branches(&state.reqwest_client, &token).await.map_err(|err| {
-        eyre_to_axum_err(err.into())
+    // Fetch the branch details from GitHub
+    let branch_details = get_all_branch_details(&state.reqwest_client, &token).await.map_err(|err| {
+        eyre_to_axum_err(err)
     })?; // Use string error
+
+    // Extract branch names and protection status
+    let branches: Vec<String> = branch_details
+        .into_iter()
+        .map(|branch| {
+            let name = branch.name; // Adjust as necessary based on your structure
+            // You can also check for protection status if needed
+            if branch.protected {
+                format!("{} (protected)", name)
+            } else {
+                name
+            }
+        })
+        .collect();
 
     // Return success response
     info!("Branches fetched successfully.");
@@ -146,7 +160,7 @@ pub async fn create_pull_request_handler(
         &payload.title,
         &payload.description,
     ).await.map_err(|err| {
-        eyre_to_axum_err(err.into())
+        eyre_to_axum_err(err)
     })?;
 
     // Return success response

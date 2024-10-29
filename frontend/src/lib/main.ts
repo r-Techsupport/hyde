@@ -23,8 +23,8 @@ export const branchName: Writable<string> = writable('Set Branch'); // Default b
  * New store for the tree
  */
 export const documentTreeStore = writable<INode>({
-    name: '',
-    children: []
+	name: '',
+	children: []
 });
 
 /**

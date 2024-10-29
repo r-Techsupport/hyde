@@ -14,7 +14,7 @@ use std::io::Read;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
-use tracing::info;
+use tracing::{ info, error };
 
 const GITHUB_API_URL: &str = "https://api.github.com";
 
@@ -104,6 +104,7 @@ struct AccessTokenResponse {
 #[derive(Deserialize)]
 pub struct Branch {
     pub name: String,
+    pub protected: bool,
 }
 
 /// Request a github installation access token using the provided reqwest client.
@@ -279,10 +280,8 @@ pub async fn create_pull_request(
 ///
 /// # Returns:
 /// A `Result` containing a vector of branch names or an error.
-pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<String>> {
-    // Get the repository name
+pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<Branch>> {
     let repo_name = get_repo_name_from_env()?;
-
     let response = req_client
         .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
         .bearer_auth(token)
@@ -290,18 +289,21 @@ pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<Strin
         .send()
         .await?;
 
-    // Handle the response based on the status code
     if response.status().is_success() {
         info!("Branches fetched successfully for repository: {}", repo_name);
+        let response_text = response.text().await?;
+        
+        // Attempt deserialization with detailed error handling
+        let branches: Vec<Branch> = match serde_json::from_str(&response_text) {
+            Ok(branches) => branches,
+            Err(err) => {
+                error!("Failed to deserialize branches: {}", err);
+                return Err(err.into()); // Return error or handle it as needed
+            }
+        };
 
-        // Deserialize the JSON response to get the branches
-        let branches: Vec<Branch> = response.json().await?;
-
-        // Extract branch names from the branch objects
-        let branch_names = branches.into_iter().map(|branch| branch.name).collect();
-        Ok(branch_names)
+        Ok(branches)
     } else {
-        // Log error and return an appropriate error message
         let status = response.status();
         let response_text = response.text().await?;
         bail!(
@@ -310,4 +312,50 @@ pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<Strin
             response_text
         );
     }
+}
+
+/// Fetch detailed information about a specific branch.
+/// 
+/// # Parameters:
+/// - `req_client`: The `reqwest::Client` to make HTTP requests.
+/// - `token`: The GitHub access token for authentication.
+/// - `branch_name`: The name of the branch to fetch details for.
+/// 
+/// # Returns:
+/// A `Result` containing the branch details or an error.
+async fn get_branch_details(req_client: &Client, token: &str, branch_name: &str) -> Result<Branch> {
+    let repo_name = get_repo_name_from_env()?;
+    let response = req_client
+        .get(format!("{}/repos/{}/branches/{}", GITHUB_API_URL, repo_name, branch_name))
+        .bearer_auth(token)
+        .header("User-Agent", "Hyde")
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        info!("Fetched details for branch: {}", branch_name);
+        let branch_details: Branch = response.json().await?;
+        Ok(branch_details)
+    } else {
+        let status = response.status();
+        let response_text = response.text().await?;
+        bail!(
+            "Failed to fetch branch details: {}, Response: {}",
+            status,
+            response_text
+        );
+    }
+}
+
+/// Get details about all branches including whether they are protected or the default branch.
+pub async fn get_all_branch_details(req_client: &Client, token: &str) -> Result<Vec<Branch>> {
+    let branches = list_branches(req_client, token).await?;
+    let mut branch_details = Vec::new();
+
+    for branch in branches {
+        let details = get_branch_details(req_client, token, &branch.name).await?;
+        branch_details.push(details);
+    }
+
+    Ok(branch_details)
 }
