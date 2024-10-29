@@ -26,3 +26,8 @@ export const documentTreeStore = writable<INode>({
     name: '',
     children: []
 });
+
+/**
+ * New store for the page
+ */
+export const editorText = writable<string>('');

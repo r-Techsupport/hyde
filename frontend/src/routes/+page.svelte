@@ -9,7 +9,7 @@
 	import LoadingIcon from './LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from './Toasts.svelte';
-	import { currentFile, me, branchName, documentTreeStore } from '$lib/main';
+	import { currentFile, me, branchName, documentTreeStore, editorText } from '$lib/main';
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { dev } from '$app/environment';
@@ -18,8 +18,6 @@
 	import Editor from '$lib/components/Editor.svelte';
 	import { Permission, type INode } from '$lib/types.d';
 
-	/** The text currently displayed in the editing window */
-	let editorText = '';
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement;
 	/** The width of the sidebar */
@@ -56,7 +54,7 @@
 		lastKeyPressedTime = Date.now();
 		setTimeout(() => {
 			if (lastKeyPressedTime + DEBOUNCE_TIME >= Date.now()) {
-				renderMarkdown(editorText, previewWindow);
+				renderMarkdown(get(editorText), previewWindow);
 			}
 		}, DEBOUNCE_TIME);
 	}
@@ -69,13 +67,13 @@
 
 	async function fileSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
-		if (get(currentFile) === '' || (await cache.get(get(currentFile))) === editorText) {
+		if (get(currentFile) === '' || (await cache.get(get(currentFile))) === get(editorText)) {
 			showEditor = true;
 			currentFile.set(e.detail.path);
-			editorText =
+			editorText.set(
 				(await cache.get(e.detail.path)) ??
-				'Something went wrong, the file tree reported by the backend references a nonexistent file.';
-			renderMarkdown(editorText, previewWindow);
+				'Something went wrong, the file tree reported by the backend references a nonexistent file.'
+			);
 		} else if (e.detail.path === get(currentFile)) {
 			// Do nothing
 		} else {
@@ -257,7 +255,7 @@
 		{#if showEditor && $currentFile !== ''}
 			<Editor
 				bind:saveChangesHandler
-				bind:editorText
+				bind:editorText={$editorText}
 				bind:previewWindow
 				bind:createPullRequestHandler
 			/>

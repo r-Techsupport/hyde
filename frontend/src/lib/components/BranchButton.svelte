@@ -1,10 +1,11 @@
 <!-- BranchButton.svelte -->
 <script lang="ts">
-	import { branchName, documentTreeStore } from '$lib/main';
+	import { branchName, documentTreeStore, currentFile, editorText } from '$lib/main';
 	import { derived, get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { apiAddress } from '$lib/net';
 	import { ToastType, addToast } from '$lib/toast';
+	import { cache } from '$lib/cache';
 
 	let showMenu = false;
 	let existingBranches: string[] = [];
@@ -143,6 +144,7 @@
 				message: `Branch "${input}" checked out and updated successfully.`,
 				type: ToastType.Success,
 				dismissible: true,
+				timeout: 1200
 			});
 		}
 
@@ -155,6 +157,26 @@
 		if (treeResponse.ok) {
 			const updatedTree = await treeResponse.json();
 			documentTreeStore.set(updatedTree); // Update the store with the new tree
+
+			cache.flush();
+
+			// After updating the tree, check if there's a current file
+			const currentFilePath = get(currentFile);
+			if (currentFilePath) {
+				// Fetch the content of the current file
+				const fileContentResponse = await fetch(`${apiAddress}/api/doc?path=${encodeURIComponent(currentFilePath)}`, {
+					method: 'GET',
+					credentials: 'include',
+				});
+
+				if (fileContentResponse.ok) {
+					const fileContent = (await fileContentResponse.json()).contents; // Get the content of the file
+					editorText.set(fileContent); // Update the editor text
+					cache.set(currentFilePath, fileContent);
+				} else {
+					console.error('Failed to fetch the file content:', fileContentResponse.status, fileContentResponse.statusText);
+				}
+			}
 		} else {
 			console.error('Failed to fetch updated document tree:', treeResponse.status, treeResponse.statusText);
 		}
@@ -168,6 +190,7 @@
 	function closeMenu() {
 		showMenu = false;
 	}
+
 </script>
 
 <div class="branch-dropdown">

@@ -1,4 +1,5 @@
 import { apiAddress } from './net';
+import { editorText } from '$lib/main';
 
 /**
  * The the type of the value stored in the cache
@@ -32,6 +33,7 @@ class AssetCache {
 		if (response.status === 200) {
 			const value = (await response.json()).contents;
 			this.set(path, value);
+			editorText.set(value);
 			return value;
 		}
 
