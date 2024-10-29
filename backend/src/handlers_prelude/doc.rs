@@ -65,7 +65,7 @@ pub async fn put_doc_handler(
     )
     .await?;
 
-    let gh_token = match &state.gh_credentials.get(&state.reqwest_client).await {
+    let gh_token = match &state.gh_credentials.get(&state.reqwest_client, &state.config.oauth.github.client_id).await {
         Ok(t) => t.clone(),
         Err(e) => {
             error!("Failed to authenticate with github for a put_doc request with error: {e:?}");
@@ -85,7 +85,11 @@ pub async fn put_doc_handler(
 
     match state
         .git
+<<<<<<< HEAD
         .put_doc(&body.path, &body.contents, &final_commit_message, &gh_token, branch_name)
+=======
+        .put_doc(&state.config.files.repo_url, &body.path, &body.contents, &final_commit_message, &gh_token)
+>>>>>>> 7513ac02d48c32526098a390584a361cef262faa
     {
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
@@ -110,8 +114,8 @@ pub async fn delete_doc_handler(
     )
     .await?;
 
-    let gh_token = state.gh_credentials.get(&state.reqwest_client).await.unwrap();
-    state.git.delete_doc(&query.path, &format!("{} deleted {}", author.username, query.path), &gh_token).map_err(eyre_to_axum_err)?;
+    let gh_token = state.gh_credentials.get(&state.reqwest_client, &state.config.oauth.github.client_id).await.unwrap();
+    state.git.delete_doc(&state.config.files.docs_path, &state.config.files.repo_url, &query.path, &format!("{} deleted {}", author.username, query.path), &gh_token).map_err(eyre_to_axum_err)?;
 
     Ok(StatusCode::NO_CONTENT)
 }

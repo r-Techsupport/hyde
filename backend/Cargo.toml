@@ -7,14 +7,13 @@ description = "A backend for the r/TechSupport CMS"
 repository = "https://github.com/r-Techsupport/hyde"
 readme = "../README.md"
 keywords = ["cms", "wiki"]
-categories = ["server-backend"]
+categories = ["web-programming"]
 rust-version = "1.75.0"
-
 
 [dependencies]
 axum = { version = "0.7.7", features = ["http2", "macros"] }
 chrono = "0.4.38"
-clap = { version = "4.5.19", features = ["derive"] }
+clap = { version = "4.5.20", features = ["derive"] }
 color-eyre = "0.6.3"
 dotenvy = "0.15.7"
 git2 = "0.19.0"
@@ -24,7 +23,8 @@ reqwest = { version = "0.12.8", features = ["stream", "json"] }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 sqlx = { version = "0.8.1", features = ["sqlite", "runtime-tokio"] }
-tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread", "signal", "tracing"] }
+tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread", "signal", "tracing"] }
 tower-http = { version = "0.6.1", features = ["normalize-path", "fs", "cors", "tracing", "trace"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
+toml = "0.8.19"
