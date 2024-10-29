@@ -65,7 +65,7 @@ pub struct CreatePRRequest {
 /// This function can fail if there are issues with the credentials store
 /// or if the token cannot be retrieved for any reason.
 async fn get_github_token(state: &AppState) -> Result<String, (StatusCode, String)> {
-    state.gh_credentials.get(&state.reqwest_client).await.map_err(|err| {
+    state.gh_credentials.get(&state.reqwest_client, &state.config.oauth.github.client_id).await.map_err(|err| {
         eyre_to_axum_err(err)
     })
 }

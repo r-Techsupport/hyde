@@ -85,11 +85,7 @@ pub async fn put_doc_handler(
 
     match state
         .git
-<<<<<<< HEAD
-        .put_doc(&body.path, &body.contents, &final_commit_message, &gh_token, branch_name)
-=======
-        .put_doc(&state.config.files.repo_url, &body.path, &body.contents, &final_commit_message, &gh_token)
->>>>>>> 7513ac02d48c32526098a390584a361cef262faa
+        .put_doc(&state.config.files.repo_url, &body.path, &body.contents, &final_commit_message, &gh_token, branch_name)
     {
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
