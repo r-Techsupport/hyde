@@ -1,5 +1,7 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
+use axum::extract::State;
+use crate::AppState;
 use chrono::DateTime;
 use color_eyre::eyre::{bail, Context};
 use color_eyre::Result;
@@ -7,8 +9,6 @@ use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use dotenvy::dotenv;
-use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
@@ -185,13 +185,9 @@ fn gen_jwt_token(client_id: &str) -> Result<String> {
 /// 
 /// # Errors
 /// This function will return an error if `REPO_URL` is not set or has an invalid format.
-fn get_repo_name_from_env() -> Result<String> {
-    // Load environment variables from the .env file
-    dotenv().ok();
-
-    // Retrieve the repository URL from the environment variable
-    let repo_url = env::var("REPO_URL")
-        .context("REPO_URL must be set in the .env file")?;
+pub fn get_repo_name_from_url(state: &AppState) -> Result<String> {
+    // Get the repository URL from state
+    let repo_url = &state.config.files.repo_url;
 
     // Parse the repository name from the URL
     let repo_path = repo_url
@@ -201,7 +197,7 @@ fn get_repo_name_from_env() -> Result<String> {
 
     // Ensure repo_path has both owner and repo
     if repo_path.len() < 2 {
-        bail!("Invalid REPO_URL format, must be <owner>/<repo>.");
+        bail!("Invalid repo_url format, must be <owner>/<repo>.");
     }
 
     // Format as <owner>/<repo>
@@ -220,7 +216,7 @@ fn get_repo_name_from_env() -> Result<String> {
 /// The GitHub repository is pulled from the environment variable `REPO_NAME` in the `.env` file.
 /// If the environment variable is not found, the function will return an error.
 pub async fn create_pull_request(
-    req_client: &Client,
+    state: &AppState,
     token: &str,
     head_branch: &str,
     base_branch: &str,
@@ -228,7 +224,7 @@ pub async fn create_pull_request(
     pr_description: &str,
 ) -> Result<String> {
     // Get the repository name
-    let repo_name = get_repo_name_from_env()?;
+    let repo_name = get_repo_name_from_url(&state)?;
 
     // Prepare the JSON body for the pull request
     let pr_body = json!( {
@@ -241,7 +237,7 @@ pub async fn create_pull_request(
     info!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
 
     // Send the pull request creation request to the GitHub API
-    let response = req_client
+    let response = state.reqwest_client
         .post(format!("{}/repos/{}/pulls", GITHUB_API_URL, repo_name))
         .bearer_auth(token)  // Use the GitHub access token for authentication
         .header("User-Agent", "Hyde")  // Set the User-Agent header to the app name
@@ -280,9 +276,9 @@ pub async fn create_pull_request(
 ///
 /// # Returns:
 /// A `Result` containing a vector of branch names or an error.
-pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<Branch>> {
-    let repo_name = get_repo_name_from_env()?;
-    let response = req_client
+pub async fn list_branches(state: &AppState, token: &str) -> Result<Vec<Branch>> {
+    let repo_name = get_repo_name_from_url(&state)?;
+    let response = state.reqwest_client
         .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
         .bearer_auth(token)
         .header("User-Agent", "Hyde")
@@ -323,9 +319,9 @@ pub async fn list_branches(req_client: &Client, token: &str) -> Result<Vec<Branc
 /// 
 /// # Returns:
 /// A `Result` containing the branch details or an error.
-async fn get_branch_details(req_client: &Client, token: &str, branch_name: &str) -> Result<Branch> {
-    let repo_name = get_repo_name_from_env()?;
-    let response = req_client
+async fn get_branch_details(state: &AppState, token: &str, branch_name: &str) -> Result<Branch> {
+    let repo_name = get_repo_name_from_url(&state)?;
+    let response = state.reqwest_client
         .get(format!("{}/repos/{}/branches/{}", GITHUB_API_URL, repo_name, branch_name))
         .bearer_auth(token)
         .header("User-Agent", "Hyde")
@@ -348,12 +344,12 @@ async fn get_branch_details(req_client: &Client, token: &str, branch_name: &str)
 }
 
 /// Get details about all branches including whether they are protected or the default branch.
-pub async fn get_all_branch_details(req_client: &Client, token: &str) -> Result<Vec<Branch>> {
-    let branches = list_branches(req_client, token).await?;
+pub async fn get_all_branch_details(state: &AppState, token: &str) -> Result<Vec<Branch>> {
+    let branches = list_branches(state, token).await?;
     let mut branch_details = Vec::new();
 
     for branch in branches {
-        let details = get_branch_details(req_client, token, &branch.name).await?;
+        let details = get_branch_details(state, token, &branch.name).await?;
         branch_details.push(details);
     }
 

@@ -25,8 +25,8 @@ use color_eyre::Result;
 use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
-#[cfg(target_family = "unix")]
-use tracing::{debug, info, info_span, warn, error};
+//#[cfg(target_family = "unix")]
+use tracing::{ debug, info, info_span, warn, error };
 // use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{

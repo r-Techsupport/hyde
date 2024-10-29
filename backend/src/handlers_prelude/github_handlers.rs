@@ -95,7 +95,7 @@ pub async fn list_branches_handler(
     let token = get_github_token(&state).await?;
 
     // Fetch the branch details from GitHub
-    let branch_details = get_all_branch_details(&state.reqwest_client, &token).await.map_err(|err| {
+    let branch_details = get_all_branch_details(&state, &token).await.map_err(|err| {
         eyre_to_axum_err(err)
     })?; // Use string error
 
@@ -153,7 +153,7 @@ pub async fn create_pull_request_handler(
 
     // Create the pull request on GitHub
     let pull_request_url = create_pull_request(
-        &state.reqwest_client,
+        &state,
         &token,
         &payload.head_branch,
         &payload.base_branch,

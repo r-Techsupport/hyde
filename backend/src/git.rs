@@ -3,6 +3,7 @@
 use color_eyre::eyre::{bail, ContextCompat, WrapErr, Result};
 use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status, BranchType, build::CheckoutBuilder};
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
