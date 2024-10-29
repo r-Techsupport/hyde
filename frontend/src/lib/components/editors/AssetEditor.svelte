@@ -38,20 +38,27 @@
 	// TODO: there's a race condition here that makes image
 	// resolution only load *sometimes*
 	async function loadHttpInfo() {
-			while (!fullScreenImage.complete) {
-				await tick();
-			}
-			setTimeout(async () => {
-				if (fullScreenImage.complete) {
-					fullScreenHttpInfo = await fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, {method: "GET", headers: {
-				"Accept": "image/*"
-					}});
-				}
-			}, 100);
+		// while (!fullScreenImage.complete) {
+		// 	await tick();
+		// }
+		// setTimeout(async () => {
+		// 	if (fullScreenImage.complete) {
+		// 		fullScreenHttpInfo = await fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, {method: "GET", headers: {
+		// 	"Accept": "image/*"
+		// 		});
+		// 	}
+		// }, 100);
 	}
 	$: {
-	    if (fullScreenImagePath !== '') {
-		    fullScreenImage.src = `${apiAddress}/api/asset/${fullScreenImagePath}`;
+		if (fullScreenImagePath !== '') {
+			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
+				const objectUrl = URL.createObjectURL(await r.blob());
+				fullScreenImage.src = objectUrl;
+				fullScreenImage.onload = () => {
+					fullScreenHttpInfo = r;
+				};
+			});
+
 			loadHttpInfo();
 		}
 	}
@@ -85,24 +92,29 @@
 				alt={`${fullScreenImagePath}`}
 			/>
 			<div class="fullscreen-info">
-					<h2>{fullScreenImagePath.split('/')[1]}</h2>
-					<p>
-						<strong>Resolution:</strong>
-						<code>{fullScreenImage.naturalWidth}x{fullScreenImage.naturalHeight}</code>
-					</p>
+				<h2>{fullScreenImagePath.split('/')[1]}</h2>
+				<p>
+					<strong>Resolution:</strong>
+					<code>{fullScreenImage.naturalWidth}x{fullScreenImage.naturalHeight}</code>
+				</p>
 				<!-- {#await fullScreenHttpInfo}
 					<p>Loading more info...</p>
 				{:then httpInfo} -->
 				{#if fullScreenHttpInfo}
-					<p><strong>Encoding:</strong> <code>{fullScreenHttpInfo.headers.get('Content-Type')}</code></p>
+					<p>
+						<strong>Encoding:</strong> <code>{fullScreenHttpInfo.headers.get('Content-Type')}</code>
+					</p>
 					<p>
 						<strong>File size:</strong>
 						<code
-							>{(Number(fullScreenHttpInfo.headers.get('Content-Length')) / 1000).toLocaleString('EN-us', {
-								useGrouping: 'always'
-							})}kB</code
+							>{(Number(fullScreenHttpInfo.headers.get('Content-Length')) / 1000).toLocaleString(
+								'EN-us',
+								{
+									useGrouping: 'always'
+								}
+							)}kB</code
 						>
-					</p> 
+					</p>
 				{/if}
 				<!-- {/await} -->
 			</div>
