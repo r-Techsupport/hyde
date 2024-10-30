@@ -104,7 +104,7 @@
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				contents: editorText,
+				contents: get(editorText),
 				path: get(currentFile),
 				commit_message: commitMessage,
 				branch_name: currentBranchName

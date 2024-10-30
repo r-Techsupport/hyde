@@ -328,7 +328,6 @@ async fn get_branch_details(state: &AppState, token: &str, branch_name: &str) ->
         .await?;
 
     if response.status().is_success() {
-        info!("Fetched details for branch: {}", branch_name);
         let branch_details: Branch = response.json().await?;
         Ok(branch_details)
     } else {

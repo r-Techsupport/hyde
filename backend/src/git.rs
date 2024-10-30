@@ -3,7 +3,6 @@
 use color_eyre::eyre::{bail, ContextCompat, WrapErr, Result};
 use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status, BranchType, build::CheckoutBuilder};
 use serde::{Deserialize, Serialize};
-use std::env;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -159,7 +158,7 @@ impl Interface {
         debug!("New commit made with ID: {:?}", commit_id);
 
         // Step 4: Push the branch to the remote repository
-        Self::git_push_to_branch(&repo, branch, token)?;
+        Self::git_push_to_branch(&repo, repo_url, branch, token)?;
 
         info!(
             "Document {:?} edited, committed to branch '{branch}' and pushed to GitHub with message: {message:?}",
@@ -360,19 +359,23 @@ impl Interface {
     }
 
     /// Pushes the commits to a branch instead of the master branch.
-    pub fn git_push_to_branch(repo: &Repository, branch_name: &str, token: &str) -> Result<()> {
-        let repository_url = env::var("REPO_URL").wrap_err("Repo url not set in env")?;
-        let authenticated_url = repository_url.replace("https://", &format!("https://x-access-token:{token}@"));
+    pub fn git_push_to_branch(
+        repo: &Repository,
+        repo_url: &str,
+        branch_name: &str,
+        token: &str,
+    ) -> Result<()> {
+        let authenticated_url = repo_url.replace("https://", &format!("https://x-access-token:{token}@"));
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
         
         let mut remote = repo.find_remote("origin")?;
         remote.connect(git2::Direction::Push)?;
-
+    
         remote.push(&[&format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name)], None)?;
         remote.disconnect()?;
         
         Ok(())
-}
+    }
 
     /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
     ///
