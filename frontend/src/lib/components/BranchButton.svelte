@@ -8,7 +8,8 @@
 	import { cache } from '$lib/cache';
 
 	let showMenu = false;
-	let existingBranches: string[] = [];
+	let protectedBranches: string[] = [];
+	let nonProtectedBranches: string[] = []
 	let newBranchName: string = '';
 
 	const currentBranch = derived(branchName, ($branchName) => $branchName);
@@ -61,11 +62,15 @@
 		response.json().then((data) => {
 			if (data.data && data.data.branches) {
 				// Map through branches to filter out protected ones and extract branch names
-				existingBranches = data.data.branches
+				nonProtectedBranches = data.data.branches
 					.filter((branch: string) => !branch.includes('(protected)')) // Filter out protected branches
 					.map((branch: string) => branch.split(' (')[0]); // Extract just branch names
+				protectedBranches = data.data.branches
+					.filter((branch: string) => branch.includes('(protected)')) // Filter out protected branches
+					.map((branch: string) => branch.split(' (')[0]); // Extract just branch names
 			} else {
-				existingBranches = []; // Reset if no branches found
+				protectedBranches = []; // Reset if no branches found
+				nonProtectedBranches = [];
 			}
 		});
 	}
@@ -110,16 +115,12 @@
 			return;
 		}
 
-		const existingBranchNames = existingBranches
-			.filter((branch) => !branch.includes('(protected)'))
-			.map((branch) => branch.split(' (')[0]);
-
-		if (!existingBranchNames.includes(input)) {
+		if (protectedBranches.includes(input)) {
 			addToast({
-				message: 'Please select an existing branch name from the list of non-protected branches.',
+				message: 'Please select an existing branch name from the list of non-protected branches.\n You can also create your own',
 				type: ToastType.Warning,
 				dismissible: true,
-				timeout: 1200
+				timeout: 1500
 			});
 			return;
 		}
@@ -128,6 +129,16 @@
 		branchName.set(input);
 		newBranchName = '';
 		showMenu = false;
+
+		if (!nonProtectedBranches.includes(input)) {
+			addToast({
+				message: `Changed branch name to "${input}".`,
+				type: ToastType.Success,
+				dismissible: true,
+				timeout: 1500,
+			});
+			return;
+		}
 
 		// Call backend to update working directory by checking out the branch
 		const response = await fetch(`${apiAddress}/api/check-out/branches/${input}`, {
@@ -228,7 +239,7 @@
 			<button class="close-button" on:click={closeMenu} aria-label="Close menu">✖</button>
 			<h4>Select Existing Branch</h4>
 			<ul class="branch-list">
-				{#each existingBranches as branch}
+				{#each nonProtectedBranches as branch}
 					<li>
 						<button
 							class="branch-option"
@@ -241,7 +252,7 @@
 						</button>
 					</li>
 				{/each}
-				{#if existingBranches.length === 0}
+				{#if nonProtectedBranches.length === 0}
 					<li>No branches available</li>
 					<!-- Show message if no branches -->
 				{/if}
