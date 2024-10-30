@@ -12,8 +12,10 @@
 		position: absolute;
 		left: 0;
 		top: 0;
+
 		/* background-color: var(--background-0); */
 		background-color: rgba(0 0 0 0.9);
+
 		/* opacity: 60%; */
 		backdrop-filter: blur(5px);
 		z-index: 10;
@@ -28,7 +30,6 @@
 		top: 40%;
 		width: 4rem;
 		height: 4rem;
-		border: 5px solid rgba(0 0 0 0);
 		border-radius: 50%;
 		border: 0.5rem solid transparent;
 		border-top: 0.5rem solid var(--foreground-1);

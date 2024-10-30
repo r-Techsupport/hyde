@@ -251,12 +251,7 @@ pub async fn delete_asset_handler(
     Path(path): Path<Vec<String>>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let path = path.join("/");
-    let author = require_perms(
-        State(&state),
-        headers,
-        &[Permission::ManageContent],
-    )
-    .await?;
+    let author = require_perms(State(&state), headers, &[Permission::ManageContent]).await?;
     // Generate commit message combining author and default update message
     let message = format!("{} deleted {}", author.username, path);
     state
@@ -289,7 +284,9 @@ pub async fn create_tree_route() -> Router<AppState> {
         .route("/tree/asset", get(get_asset_tree_handler))
         .route(
             "/asset/*path",
-            get(get_asset_handler).put(put_asset_handler).delete(delete_asset_handler),
+            get(get_asset_handler)
+                .put(put_asset_handler)
+                .delete(delete_asset_handler),
         )
         .layer(DefaultBodyLimit::disable())
 }

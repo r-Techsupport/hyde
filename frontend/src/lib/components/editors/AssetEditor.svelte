@@ -12,6 +12,8 @@
 
 	// Whenever the list of uploaded files changes, call the handler
 	$: {
+		// This shouldn't be an issue when we switch to svelte 5, so ignoring it for now
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		uploadedFiles;
 		fileUploadHandler();
 	}
@@ -57,6 +59,17 @@
 	let width = 0;
 	let height = 0;
 	let fullScreenHttpInfo: Response | undefined;
+	// So basically, Svelte doesn't understand updates the browser makes to an image object,
+	// so it doesn't react to changes. This is fixed by manually starting a polling cycle
+	// that loads it as soon as it's complete
+	function cb() {
+		if (fullScreenImage?.complete) {
+			width = fullScreenImage?.naturalWidth ?? 0;
+			height = fullScreenImage?.naturalHeight ?? 0;
+		} else {
+			setTimeout(cb, 50);
+		}
+	}
 	$: {
 		if (fullScreenImagePath !== '') {
 			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
@@ -64,17 +77,6 @@
 				const objectUrl = URL.createObjectURL(await r.blob());
 				fullScreenImage.src = objectUrl;
 			});
-		}
-		// So basically, Svelte doesn't understand updates the browser makes to an image object,
-		// so it doesn't react to changes. This is fixed by manually starting a polling cycle
-		// that loads it as soon as it's complete
-		function cb() {
-			if (fullScreenImage?.complete) {
-				width = fullScreenImage?.naturalWidth ?? 0;
-				height = fullScreenImage?.naturalHeight ?? 0;
-			} else {
-				setTimeout(cb, 50);
-			}
 		}
 		cb();
 	}
@@ -99,8 +101,9 @@
 	let deletionConfirmationVisible = false;
 	let loadingIconVisible = false;
 </script>
+
 {#if loadingIconVisible}
-	<LoadingIcon bind:visible={loadingIconVisible}/>
+	<LoadingIcon bind:visible={loadingIconVisible} />
 {/if}
 <!-- Full screen image editor -->
 {#if fullScreenImagePath !== ''}
@@ -146,9 +149,12 @@
 						>
 					</p>
 				{/if}
-				<button on:click={() => {
-					deletionConfirmationVisible = true;
-				}} class="delete-button">
+				<button
+					on:click={() => {
+						deletionConfirmationVisible = true;
+					}}
+					class="delete-button"
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						height="24px"
@@ -187,7 +193,6 @@
 							assetTree.set(await (await fetch(`${apiAddress}/api/tree/asset`)).json());
 							fullScreenImagePath = '';
 							loadingIconVisible = false;
-
 						}}
 						><p>Are you sure you want to delete the file <code>{fullScreenImagePath}</code>?</p>
 					</ConfirmationDialogue>
