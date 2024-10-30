@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { INode } from '$lib/main';
 	import { apiAddress, assetTree } from '$lib/main';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { blur } from 'svelte/transition';
 
 	export let assetFolderPath = '';
@@ -11,6 +11,7 @@
 		uploadedFiles;
 		fileUploadHandler();
 	}
+
 
 	async function fileUploadHandler() {
 		if (uploadedFiles && uploadedFiles.length > 0) {
@@ -32,31 +33,37 @@
 	 * image. Otherwise, it's an empty string.
 	 */
 	let fullScreenImagePath = '';
-	let fullScreenImage: HTMLImageElement = new Image();
-	fullScreenImage.loading = 'eager';
+	let fullScreenImage: HTMLImageElement;
+	onMount(() => {
+
+		// fullScreenImage.loading = 'eager'  URL.revokeObjectURL(url);
+		// console.log(fullScreenImage.naturalWidth + 'x' + fullScreenImage.naturalHeight);
+		// console.log(fullScreenImage);
+	});
 	let fullScreenHttpInfo: Response | undefined;
 	// TODO: there's a race condition here that makes image
 	// resolution only load *sometimes*
 	async function loadHttpInfo() {
-		// while (!fullScreenImage.complete) {
-		// 	await tick();
-		// }
-		// setTimeout(async () => {
-		// 	if (fullScreenImage.complete) {
-		// 		fullScreenHttpInfo = await fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, {method: "GET", headers: {
-		// 	"Accept": "image/*"
-		// 		});
-		// 	}
-		// }, 100);
+		while (!fullScreenImage.complete) {
+			await tick();
+		}
+		setTimeout(async () => {
+			// if (fullScreenImage.complete) {
+				fullScreenHttpInfo = await fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, {method: "GET", headers: {
+			"Accept": "image/*"
+				}});
+			// }
+		}, 100);
 	}
 	$: {
 		if (fullScreenImagePath !== '') {
 			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
+				fullScreenHttpInfo = r;
 				const objectUrl = URL.createObjectURL(await r.blob());
-				fullScreenImage.src = objectUrl;
 				fullScreenImage.onload = () => {
-					fullScreenHttpInfo = r;
+					URL.revokeObjectURL(objectUrl);
 				};
+				fullScreenImage.src = objectUrl;
 			});
 
 			loadHttpInfo();
@@ -89,6 +96,7 @@
 				bind:this={fullScreenImage}
 				class="fullscreen-img"
 				src={`${apiAddress}/api/asset/${fullScreenImagePath}`}
+				loading="eager"
 				alt={`${fullScreenImagePath}`}
 			/>
 			<div class="fullscreen-info">
