@@ -152,6 +152,7 @@
 				type: ToastType.Error,
 				dismissible: true
 			});
+			return;
 		}
 
 		// After checking out, call the pull endpoint
@@ -166,6 +167,7 @@
 				type: ToastType.Error,
 				dismissible: true
 			});
+			return;
 		} else {
 			addToast({
 				message: `Branch "${input}" checked out and updated successfully.`,
@@ -184,11 +186,13 @@
 		if (treeResponse.ok) {
 			const updatedTree = await treeResponse.json();
 			documentTreeStore.set(updatedTree); // Update the store with the new tree
+			console.log('Updated document tree:', updatedTree);
 
 			cache.flush();
 
 			// After updating the tree, check if there's a current file
 			const currentFilePath = get(currentFile);
+			console.log('Current file path:', currentFilePath);
 			if (currentFilePath) {
 				// Fetch the content of the current file
 				const fileContentResponse = await fetch(
@@ -200,9 +204,10 @@
 				);
 
 				if (fileContentResponse.ok) {
-					const fileContent = (await fileContentResponse.json()).contents; // Get the content of the file
-					editorText.set(fileContent); // Update the editor text
-					cache.set(currentFilePath, fileContent);
+					const fileContent = await fileContentResponse.json(); // Get the content of the file
+					console.log(fileContent);
+					editorText.set(fileContent.contents); // Update the editor text
+					cache.set(currentFilePath, fileContent.contents);
 				} else {
 					console.error(
 						'Failed to fetch the file content:',

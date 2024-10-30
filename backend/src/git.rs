@@ -58,6 +58,7 @@ impl Interface {
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
+        warn!("Checking existence of document at: {:?}", path_to_doc);
         if !path_to_doc.exists() {
             return Ok(None);
         }
@@ -132,11 +133,12 @@ impl Interface {
         self.checkout_or_create_branch(&repo, branch)?;
 
         // Step 2: Write the document to the specified path
-        let mut path_to_doc: PathBuf = PathBuf::from(".");
+        let mut path_to_doc: PathBuf = PathBuf::from("./");
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
 
         // Wipe and write the new contents
+        warn!("Opening file for writing: {:?}", path_to_doc);
         let mut file = fs::File::create(path_to_doc).wrap_err_with(|| {
             format!("Failed to wipe requested file for rewrite: {:?}", path.as_ref())
         })?;
@@ -145,17 +147,12 @@ impl Interface {
         })?;
 
         let msg = format!("[Hyde]: {message}");
-        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(&repo_url);
-        // Standard practice is to stage commits by adding them to an index.
-        relative_path.push(path);
 
         // Stage the changes for commit
-        Self::git_add(&repo, relative_path)?;
+        Self::git_add(&repo, ".")?;
 
         // Step 3: Commit the changes to the branch
-        let commit_id = Self::git_commit(&repo, msg, None)?;
-        debug!("New commit made with ID: {:?}", commit_id);
+        Self::git_commit(&repo, msg, None)?;
 
         // Step 4: Push the branch to the remote repository
         Self::git_push_to_branch(&repo, repo_url, branch, token)?;
@@ -164,7 +161,6 @@ impl Interface {
             "Document {:?} edited, committed to branch '{branch}' and pushed to GitHub with message: {message:?}",
             path.as_ref()
         );
-        debug!("Commit cleanup completed");
 
         Ok(())
     }
@@ -297,29 +293,42 @@ impl Interface {
     /// A code level re-implementation of `git commit`.
     /// A function used to checkout or create a new branch based on the name.
     pub fn checkout_or_create_branch(&self, repo: &Repository, branch_name: &str) -> Result<()> {
+        debug!("Attempting to checkout or create branch: {}", branch_name);
+    
         // Get the current head reference
         let head = repo.head().wrap_err("Failed to get the head reference")?;
+    
         // Peel the head to get the commit
         let commit = head.peel_to_commit().wrap_err("Failed to peel the head to commit")?;
-
+        debug!("Current commit for head: {:?}", commit.id());
+    
         // Check if the branch already exists
-        if repo.find_branch(branch_name, BranchType::Local).is_ok() {
-            // If the branch exists, check it out
-            repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
-                format!("Failed to set head to branch {branch_name}")
-            })?;
-        } else {
-            // If the branch does not exist, create it
-            repo.branch(branch_name, &commit, false).wrap_err_with(|| {
-                format!("Failed to create branch {branch_name}")
-            })?;
-
-            // Now check out the newly created branch
-            repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
-                format!("Failed to set head to new branch {branch_name}")
-            })?;
+        match repo.find_branch(branch_name, BranchType::Local) {
+            Ok(_branch) => {
+                info!("Branch '{}' already exists. Checking it out...", branch_name);
+                // If the branch exists, check it out
+                repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
+                    format!("Failed to set head to branch {}", branch_name)
+                })?;
+                info!("Checked out to existing branch '{}'", branch_name);
+            }
+            Err(_) => {
+                info!("Branch '{}' does not exist. Creating new branch...", branch_name);
+                // If the branch does not exist, create it
+                repo.branch(branch_name, &commit, false).wrap_err_with(|| {
+                    format!("Failed to create branch {}", branch_name)
+                })?;
+                info!("Successfully created new branch '{}'. Now checking it out...", branch_name);
+    
+                // Now check out the newly created branch
+                repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
+                    format!("Failed to set head to new branch {}", branch_name)
+                })?;
+                info!("Checked out to newly created branch '{}'", branch_name);
+            }
         }
-
+    
+        debug!("Successfully checked out or created branch: {}", branch_name);
         Ok(())
     }
 
@@ -398,49 +407,43 @@ impl Interface {
     #[tracing::instrument(skip(self))]
     pub fn git_pull_branch(&self, branch: &str) -> Result<()> {
         // Lock the repository
-        let repo = self.repo.lock().unwrap();
-
-        // Clear the index to ensure no staged changes interfere with the pull
-        let mut index = repo.index()?;
-        index.clear()?;
-        info!("Index cleared successfully.");
-
+        let repo = self.repo.lock().unwrap();  // Declare repo as mutable
+        debug!("Repository path: {:?}", repo.path());
+    
+        // Check if there are any uncommitted changes
+        let status = repo.statuses(None)?;
+        if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
+            info!("There are uncommitted changes. Discarding changes before pulling.");
+    
+            // Create a checkout builder with force option to discard local changes
+            let mut checkout_builder = CheckoutBuilder::new();
+            checkout_builder.force(); // Force the checkout to discard local changes
+    
+            // Reset to the last commit, discarding uncommitted changes
+            repo.checkout_head(Some(&mut checkout_builder))?;
+            info!("Discarded uncommitted changes and reset to the last commit.");
+        }
+    
         // Fetch the specified branch
         let fetch_head = Self::git_fetch_branch(&repo, branch)?;
         info!("Successfully fetched latest changes for branch '{}', merging...", branch);
-
-        // Merge the fetched changes into the specified branch
+    
+        // Perform a normal merge from the fetched branch
         Self::git_merge_from_branch(&repo, branch, fetch_head)?;
-        info!("Successfully merged latest changes for branch '{}'", branch);
-
-        {
-            // Limit the scope of `head_commit` and operations using it
-            let head_commit = repo.head()?.peel_to_commit()?;
-
-            // Check if there are any uncommitted changes
-            let status = repo.statuses(None)?;
-            if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
-                info!("There are uncommitted changes, updating working directory anyway.");
-
-                // Create a CheckoutBuilder instance with force option
-                let mut checkout_builder = CheckoutBuilder::new();
-                checkout_builder.force(); // Force the checkout to discard local changes
-
-                // Force checkout to discard local changes
-                repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
-            } else {
-                // No uncommitted changes, proceed with a standard checkout
-                repo.checkout_tree(head_commit.as_object(), None)?; // This updates the working directory
-            }
-            // `head_commit` goes out of scope here
-        }
-
-        // Explicitly drop the lock on `repo` here
-        drop(repo);
-
+    
+        // Limit the scope of `head_commit` and operations using it
+        let head_commit = repo.head()?.peel_to_commit()?;
+        debug!("Head commit for branch '{}': {:?}", branch, head_commit.id());
+    
+        // Force checkout to the latest commit
+        let mut checkout_builder = CheckoutBuilder::new();
+        checkout_builder.force(); // Force the checkout to discard local changes
+        repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
+        info!("Checked out to the latest commit.");
+    
         Ok(())
-    }
-
+    }        
+    
     /// A code level re-implementation of `git fetch`. `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
     /// merge those changes into `main`.
     ///
