@@ -1,7 +1,11 @@
 <script lang="ts">
 	import type { INode } from '$lib/main';
 	import { apiAddress, assetTree } from '$lib/main';
+	import { addToast, ToastType } from '$lib/toast';
+	import { tick } from 'svelte';
 	import { blur } from 'svelte/transition';
+	import ConfirmationDialogue from '../elements/ConfirmationDialogue.svelte';
+	import LoadingIcon from '../elements/LoadingIcon.svelte';
 
 	export let assetFolderPath = '';
 	let uploadedFiles: FileList;
@@ -14,16 +18,33 @@
 
 	async function fileUploadHandler() {
 		if (uploadedFiles && uploadedFiles.length > 0) {
+			loadingIconVisible = true;
 			const file = uploadedFiles.item(0)!;
-			console.log(file);
 			// TODO: increase the max body limit or
 			// switch to multipart forms or something
-			fetch(`${apiAddress}/api/asset/${assetFolderPath}/${file.name}`, {
+			const r = await fetch(`${apiAddress}/api/asset/${assetFolderPath}/${file.name}`, {
 				method: 'PUT',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/octet-stream' },
 				body: await file.arrayBuffer()
 			});
+			assetTree.set(await (await fetch(`${apiAddress}/api/tree/asset`)).json());
+			loadingIconVisible = false;
+			if (r.ok) {
+				addToast({
+					message: `"${file.name}" was uploaded successfully`,
+					type: ToastType.Info,
+					dismissible: true,
+					timeout: 1500
+				});
+			} else {
+				addToast({
+					message: `Failed to upload file, please report issue to the developer`,
+					type: ToastType.Error,
+					dismissible: true,
+					timeout: 1500
+				});
+			}
 		}
 	}
 
@@ -38,16 +59,11 @@
 	let fullScreenHttpInfo: Response | undefined;
 	$: {
 		if (fullScreenImagePath !== '') {
-			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, { cache: 'no-cache' }).then(
-				async (r) => {
-					fullScreenHttpInfo = r;
-					const objectUrl = URL.createObjectURL(await r.blob());
-					fullScreenImage.onload = () => {
-						URL.revokeObjectURL(objectUrl);
-					};
-					fullScreenImage.src = objectUrl;
-				}
-			);
+			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
+				fullScreenHttpInfo = r;
+				const objectUrl = URL.createObjectURL(await r.blob());
+				fullScreenImage.src = objectUrl;
+			});
 		}
 		// So basically, Svelte doesn't understand updates the browser makes to an image object,
 		// so it doesn't react to changes. This is fixed by manually starting a polling cycle
@@ -68,9 +84,25 @@
 		children: []
 	};
 
-	assetTree.subscribe((t) => (tree = t));
-</script>
+	assetTree.subscribe(async (t) => {
+		fullScreenImagePath = '';
+		tree = {
+			name: '',
+			children: []
+		};
+		for (let i = 0; i < 20; i++) {
+			await tick();
+		}
+		tree = t;
+	});
 
+	let deletionConfirmationVisible = false;
+	let loadingIconVisible = false;
+</script>
+{#if loadingIconVisible}
+	<LoadingIcon bind:visible={loadingIconVisible}/>
+{/if}
+<!-- Full screen image editor -->
 {#if fullScreenImagePath !== ''}
 	<div
 		class="fullscreen-backdrop"
@@ -114,41 +146,93 @@
 						>
 					</p>
 				{/if}
-				<!-- {/await} -->
+				<button on:click={() => {
+					deletionConfirmationVisible = true;
+				}} class="delete-button">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						height="24px"
+						viewBox="0 -960 960 960"
+						width="24px"
+						><path
+							d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"
+						/></svg
+					>
+					Delete Image
+				</button>
+				{#if deletionConfirmationVisible}
+					<ConfirmationDialogue
+						bind:visible={deletionConfirmationVisible}
+						confirmHandler={async () => {
+							loadingIconVisible = true;
+							const r = await fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, {
+								method: 'DELETE',
+								credentials: 'include'
+							});
+							if (r.ok) {
+								addToast({
+									message: `"${fullScreenImagePath}" was deleted successfully`,
+									type: ToastType.Info,
+									dismissible: true,
+									timeout: 1500
+								});
+							} else {
+								addToast({
+									message: `Failed to delete file, please report issue to the developer`,
+									type: ToastType.Error,
+									dismissible: true,
+									timeout: 1500
+								});
+							}
+							assetTree.set(await (await fetch(`${apiAddress}/api/tree/asset`)).json());
+							fullScreenImagePath = '';
+							loadingIconVisible = false;
+
+						}}
+						><p>Are you sure you want to delete the file <code>{fullScreenImagePath}</code>?</p>
+					</ConfirmationDialogue>
+				{/if}
 			</div>
 		</div>
 	</div>
 {/if}
 
-<div class="status-bar">
-	<!-- TODO: better message for no directory selected -->
-	<p>You're viewing the assets for <strong>"{assetFolderPath}"</strong></p>
-</div>
+<!-- Catalogue and status bar, or placeholder for no assets -->
+{#if assetFolderPath !== ''}
+	<div class="status-bar">
+		<!-- TODO: better message for no directory selected -->
+		<p>You're viewing the assets for <strong>"{assetFolderPath}"</strong></p>
+	</div>
 
-<div class="asset-catalogue">
-	{#each tree.children.find((n) => n.name === assetFolderPath)?.children ?? [] as asset}
-		<button
-			on:click={() => {
-				fullScreenImagePath = `${assetFolderPath}/${asset.name}`;
-			}}
-			class="asset"
-			title={asset.name}
-		>
-			<img
-				src={`${apiAddress}/api/asset/${assetFolderPath}/${asset.name}`}
-				alt={`${assetFolderPath}/${asset.name}`}
-			/>
-			<code>{asset.name}</code>
-		</button>
-	{/each}
-	<input bind:files={uploadedFiles} type="file" id="upload-new" style="display: none" />
-	<label for="upload-new" class="asset upload-new" title="Upload new asset">
-		<svg xmlns="http://www.w3.org/2000/svg" height="80%" viewBox="0 -960 960 960" width="80%"
-			><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
-		>
-		<code>Upload new asset</code>
-	</label>
-</div>
+	<div class="asset-catalogue">
+		{#each tree.children.find((n) => n.name === assetFolderPath)?.children ?? [] as asset}
+			<button
+				on:click={() => {
+					fullScreenImagePath = `${assetFolderPath}/${asset.name}`;
+				}}
+				class="asset"
+				title={asset.name}
+			>
+				<img
+					src={`${apiAddress}/api/asset/${assetFolderPath}/${asset.name}`}
+					alt={`${assetFolderPath}/${asset.name}`}
+				/>
+				<code>{asset.name}</code>
+			</button>
+		{/each}
+		<input bind:files={uploadedFiles} type="file" id="upload-new" style="display: none" />
+		<label for="upload-new" class="asset upload-new" title="Upload new asset">
+			<svg xmlns="http://www.w3.org/2000/svg" height="80%" viewBox="0 -960 960 960" width="80%"
+				><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
+			>
+			<code>Upload new asset</code>
+		</label>
+	</div>
+{:else}
+	<p class="noasset-placeholder">
+		No folder selected, please select a folder to start managing assets.
+	</p>
+{/if}
 
 <style>
 	:root {
@@ -294,6 +378,7 @@
 	.fullscreen-info {
 		color: var(--foreground-1);
 		width: 40vw;
+		pointer-events: all;
 
 		/* height: 60vh; */
 		box-sizing: content-box;
@@ -302,5 +387,29 @@
 
 	.fullscreen-info h2 {
 		color: var(--foreground-0);
+	}
+
+	.delete-button {
+		display: flex;
+		align-items: center;
+		cursor: pointer;
+		fill: var(--red);
+		color: var(--red);
+		background-color: transparent;
+		border-radius: 5px;
+		border: 1px solid var(--red);
+		padding: 0.3rem 3rem;
+		margin-left: -0.5rem;
+	}
+
+	.delete-button:hover {
+		background-color: var(--red);
+		fill: var(--background-0);
+		color: var(--background-0);
+	}
+
+	.noasset-placeholder {
+		margin: 10%;
+		margin-top: 5%;
 	}
 </style>

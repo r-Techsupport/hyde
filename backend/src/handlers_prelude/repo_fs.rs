@@ -3,7 +3,7 @@ use crate::git::INode;
 use axum::{
     body::Bytes,
     debug_handler,
-    extract::{Path, Query, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::get,
@@ -243,6 +243,40 @@ pub async fn put_asset_handler(
     Ok(StatusCode::CREATED)
 }
 
+/// This handler creates or replaces the asset at the provided path
+/// with a new asset
+pub async fn delete_asset_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(path): Path<Vec<String>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let path = path.join("/");
+    let author = require_perms(
+        State(&state),
+        headers,
+        &[Permission::ManageContent],
+    )
+    .await?;
+    // Generate commit message combining author and default update message
+    let message = format!("{} deleted {}", author.username, path);
+    state
+        .git
+        .delete_asset(
+            &state.config.files.asset_path,
+            &state.config.files.repo_url,
+            &path,
+            &message,
+            &state
+                .gh_credentials
+                .get(&state.reqwest_client, &state.config.oauth.github.client_id)
+                .await
+                .map_err(eyre_to_axum_err)?,
+        )
+        .map_err(eyre_to_axum_err)?;
+
+    Ok(StatusCode::OK)
+}
+
 pub async fn create_tree_route() -> Router<AppState> {
     Router::new()
         .route("/tree/doc", get(get_doc_tree_handler))
@@ -255,6 +289,7 @@ pub async fn create_tree_route() -> Router<AppState> {
         .route("/tree/asset", get(get_asset_tree_handler))
         .route(
             "/asset/*path",
-            get(get_asset_handler).put(put_asset_handler),
+            get(get_asset_handler).put(put_asset_handler).delete(delete_asset_handler),
         )
+        .layer(DefaultBodyLimit::disable())
 }

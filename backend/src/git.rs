@@ -254,6 +254,49 @@ impl Interface {
         Ok(())
     }
 
+    /// Delete the document at the specified `path`.
+    /// and `token` is a valid github auth token.
+    ///
+    /// # Panics
+    /// This function will panic if it's called when the repo mutex is already held by the current
+    /// thread.
+    ///
+    /// # Errors
+    /// This function will return an error if filesystem operations fail, or if any of the git
+    /// operations fail.
+    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
+    // but when applied, it creates errors that note the destructor for other values failing
+    // because of it (tree)
+    pub fn delete_asset<P: AsRef<Path> + Copy>(
+        &self,
+        asset_folder_path: &str,
+        repo_url: &str,
+        path: P,
+        message: &str,
+        token: &str,
+    ) -> Result<()> {
+        let repo = self.repo.lock().unwrap();
+        let mut path_to_asset: PathBuf = PathBuf::from(asset_folder_path);
+        path_to_asset.push(path);
+        let msg = format!("[Hyde]: {message}");
+        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
+        let mut relative_path = PathBuf::from(asset_folder_path);
+        // Standard practice is to stage commits by adding them to an index.
+        relative_path.push(path);
+        Self::delete_file(&path_to_asset)?;
+        Self::git_add(&repo, ".")?;
+        let commit_id = Self::git_commit(&repo, msg, None)?;
+        debug!("New commit made with ID: {:?}", commit_id);
+        Self::git_push(&repo, token, repo_url)?;
+        drop(repo);
+        info!(
+            "Asset {:?} removed and changes synced to Github with message: {message:?}",
+            path.as_ref()
+        );
+        debug!("Commit cleanup completed");
+        Ok(())
+    }
+
     /// If the repository at the provided path exists, open it and fetch the latest changes from the `master` branch.
     /// If not, clone into the provided path.
     #[tracing::instrument]
