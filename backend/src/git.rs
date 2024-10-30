@@ -225,21 +225,15 @@ impl Interface {
     // because of it (tree)
     pub fn delete_doc<P: AsRef<Path> + Copy>(
         &self,
-        doc_path: &str,
         repo_url: &str,
         path: P,
         message: &str,
         token: &str,
     ) -> Result<()> {
         let repo = self.repo.lock().unwrap();
-        let mut path_to_doc: PathBuf = PathBuf::new();
-        path_to_doc.push(&self.doc_path);
+        let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
         path_to_doc.push(path);
         let msg = format!("[Hyde]: {message}");
-        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(doc_path);
-        // Standard practice is to stage commits by adding them to an index.
-        relative_path.push(path);
         Self::delete_file(&path_to_doc)?;
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;

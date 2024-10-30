@@ -135,7 +135,6 @@ pub async fn delete_doc_handler(
         .git
         // TODO: this appears to be broken in main, fix when main gets fixed
         .delete_doc(
-            &query.path,
             &state.config.files.repo_url,
             &query.path,
             &format!("{} deleted {}", author.username, query.path),
