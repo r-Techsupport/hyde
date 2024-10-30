@@ -14,6 +14,7 @@ use std::{
 };
 use tracing::{debug, info, warn};
 
+/// Interacts with a Jekyll repo's version control and filesystem.
 #[derive(Clone)]
 pub struct Interface {
     repo: Arc<Mutex<Repository>>,
@@ -25,6 +26,11 @@ pub struct Interface {
     ///
     /// EG: `./repo/assets`
     asset_path: PathBuf,
+    /// The remote URL of the repository.
+    ///
+    /// EG `https://github.com/foo/bar`
+    repo_url: String,
+    // TODO: if we move the github token generator here then we can clean up the interface massively
 }
 
 /// This is used for `get_doc_tree`
@@ -54,6 +60,7 @@ impl Interface {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
             asset_path,
+            repo_url,
         })
     }
 
@@ -135,7 +142,6 @@ impl Interface {
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
-        repo_url: &str,
         path: P,
         new_doc: &str,
         message: &str,
@@ -153,7 +159,7 @@ impl Interface {
         // Self::git_add(&repo, &path_to_doc)?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, repo_url)?;
+        Self::git_push(&repo, token, &self.repo_url)?;
         info!(
             "Document {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
@@ -167,10 +173,9 @@ impl Interface {
     /// message, and `token` is a valid github auth token.
     ///
     /// # Arguments
-    /// - `repo_url` - the URL of the remote for the wiki repository
     /// - `path` - the path of the asset to put relative to the assets folder
-    /// - `contents` - contents of the new document
-    /// - `message` - textual context associated with the message
+    /// - `contents` - A buffer containing the new asset data
+    /// - `message` - textual context included with the git commit message
     /// - `token` - github authentication token
     ///
     /// # Panics
@@ -187,7 +192,6 @@ impl Interface {
     #[tracing::instrument(skip_all)]
     pub fn put_asset<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
-        repo_url: &str,
         path: P,
         contents: &[u8],
         message: &str,
@@ -201,7 +205,7 @@ impl Interface {
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, repo_url)?;
+        Self::git_push(&repo, token, &self.repo_url)?;
         info!(
             "Asset {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
@@ -225,7 +229,6 @@ impl Interface {
     // because of it (tree)
     pub fn delete_doc<P: AsRef<Path> + Copy>(
         &self,
-        repo_url: &str,
         path: P,
         message: &str,
         token: &str,
@@ -238,7 +241,7 @@ impl Interface {
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, repo_url)?;
+        Self::git_push(&repo, token, &self.repo_url)?;
         drop(repo);
         info!(
             "Document {:?} removed and changes synced to Github with message: {message:?}",
@@ -263,25 +266,20 @@ impl Interface {
     // because of it (tree)
     pub fn delete_asset<P: AsRef<Path> + Copy>(
         &self,
-        asset_folder_path: &str,
-        repo_url: &str,
         path: P,
         message: &str,
         token: &str,
     ) -> Result<()> {
         let repo = self.repo.lock().unwrap();
-        let mut path_to_asset: PathBuf = PathBuf::from(asset_folder_path);
+        let mut path_to_asset: PathBuf = PathBuf::from(&self.asset_path);
         path_to_asset.push(path);
         let msg = format!("[Hyde]: {message}");
-        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(asset_folder_path);
         // Standard practice is to stage commits by adding them to an index.
-        relative_path.push(path);
         Self::delete_file(&path_to_asset)?;
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, repo_url)?;
+        Self::git_push(&repo, token, &self.repo_url)?;
         drop(repo);
         info!(
             "Asset {:?} removed and changes synced to Github with message: {message:?}",
@@ -313,13 +311,13 @@ impl Interface {
 
     /// Completely clone and open a new repository, deleting the old one.
     #[tracing::instrument(skip_all)]
-    pub fn reclone(&self, repo_url: &str) -> Result<()> {
+    pub fn reclone(&self) -> Result<()> {
         // First clone a repo into `repo__tmp`, open that, swap out
         // TODO: nuke `repo__tmp` if it exists already
         let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
         let tmp_path = Path::new("./repo__tmp"); // TODO: Same here?
         info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
-        let tmp_repo = Repository::clone(repo_url, tmp_path)?;
+        let tmp_repo = Repository::clone(&self.repo_url, tmp_path)?;
         info!("Pointing changes to new temp repository");
         let mut lock = self.repo.lock().unwrap();
         *lock = tmp_repo;

@@ -96,13 +96,10 @@ pub async fn put_doc_handler(
     let default_commit_message = format!("{} updated {}", author.username, body.path);
     let final_commit_message = format!("{}\n\n{}", default_commit_message, body.commit_message);
 
-    match state.git.put_doc(
-        &state.config.files.repo_url,
-        &body.path,
-        &body.contents,
-        &final_commit_message,
-        &gh_token,
-    ) {
+    match state
+        .git
+        .put_doc(&body.path, &body.contents, &final_commit_message, &gh_token)
+    {
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
             error!("Failed to complete put_doc call with error: {e:?}");
@@ -135,7 +132,6 @@ pub async fn delete_doc_handler(
         .git
         // TODO: this appears to be broken in main, fix when main gets fixed
         .delete_doc(
-            &state.config.files.repo_url,
             &query.path,
             &format!("{} deleted {}", author.username, query.path),
             &gh_token,
@@ -227,7 +223,6 @@ pub async fn put_asset_handler(
     state
         .git
         .put_asset(
-            &state.config.files.repo_url,
             &path,
             &body,
             &message,
@@ -256,8 +251,6 @@ pub async fn delete_asset_handler(
     state
         .git
         .delete_asset(
-            &state.config.files.asset_path,
-            &state.config.files.repo_url,
             &path,
             &message,
             &state
