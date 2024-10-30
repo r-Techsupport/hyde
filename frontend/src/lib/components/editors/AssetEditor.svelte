@@ -1,17 +1,16 @@
 <script lang="ts">
 	import type { INode } from '$lib/main';
 	import { apiAddress, assetTree } from '$lib/main';
-	import { onMount, tick } from 'svelte';
 	import { blur } from 'svelte/transition';
 
 	export let assetFolderPath = '';
 	let uploadedFiles: FileList;
 
+	// Whenever the list of uploaded files changes, call the handler
 	$: {
 		uploadedFiles;
 		fileUploadHandler();
 	}
-
 
 	async function fileUploadHandler() {
 		if (uploadedFiles && uploadedFiles.length > 0) {
@@ -34,40 +33,34 @@
 	 */
 	let fullScreenImagePath = '';
 	let fullScreenImage: HTMLImageElement;
-	onMount(() => {
-
-		// fullScreenImage.loading = 'eager'  URL.revokeObjectURL(url);
-		// console.log(fullScreenImage.naturalWidth + 'x' + fullScreenImage.naturalHeight);
-		// console.log(fullScreenImage);
-	});
+	let width = 0;
+	let height = 0;
 	let fullScreenHttpInfo: Response | undefined;
-	// TODO: there's a race condition here that makes image
-	// resolution only load *sometimes*
-	async function loadHttpInfo() {
-		while (!fullScreenImage.complete) {
-			await tick();
-		}
-		setTimeout(async () => {
-			// if (fullScreenImage.complete) {
-				fullScreenHttpInfo = await fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, {method: "GET", headers: {
-			"Accept": "image/*"
-				}});
-			// }
-		}, 100);
-	}
 	$: {
 		if (fullScreenImagePath !== '') {
-			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
-				fullScreenHttpInfo = r;
-				const objectUrl = URL.createObjectURL(await r.blob());
-				fullScreenImage.onload = () => {
-					URL.revokeObjectURL(objectUrl);
-				};
-				fullScreenImage.src = objectUrl;
-			});
-
-			loadHttpInfo();
+			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, { cache: 'no-cache' }).then(
+				async (r) => {
+					fullScreenHttpInfo = r;
+					const objectUrl = URL.createObjectURL(await r.blob());
+					fullScreenImage.onload = () => {
+						URL.revokeObjectURL(objectUrl);
+					};
+					fullScreenImage.src = objectUrl;
+				}
+			);
 		}
+		// So basically, Svelte doesn't understand updates the browser makes to an image object,
+		// so it doesn't react to changes. This is fixed by manually starting a polling cycle
+		// that loads it as soon as it's complete
+		function cb() {
+			if (fullScreenImage?.complete) {
+				width = fullScreenImage?.naturalWidth ?? 0;
+				height = fullScreenImage?.naturalHeight ?? 0;
+			} else {
+				setTimeout(cb, 50);
+			}
+		}
+		cb();
 	}
 
 	let tree: INode = {
@@ -96,18 +89,14 @@
 				bind:this={fullScreenImage}
 				class="fullscreen-img"
 				src={`${apiAddress}/api/asset/${fullScreenImagePath}`}
-				loading="eager"
 				alt={`${fullScreenImagePath}`}
 			/>
 			<div class="fullscreen-info">
 				<h2>{fullScreenImagePath.split('/')[1]}</h2>
 				<p>
 					<strong>Resolution:</strong>
-					<code>{fullScreenImage.naturalWidth}x{fullScreenImage.naturalHeight}</code>
+					<code>{width}x{height}</code>
 				</p>
-				<!-- {#await fullScreenHttpInfo}
-					<p>Loading more info...</p>
-				{:then httpInfo} -->
 				{#if fullScreenHttpInfo}
 					<p>
 						<strong>Encoding:</strong> <code>{fullScreenHttpInfo.headers.get('Content-Type')}</code>
@@ -118,7 +107,8 @@
 							>{(Number(fullScreenHttpInfo.headers.get('Content-Length')) / 1000).toLocaleString(
 								'EN-us',
 								{
-									useGrouping: 'always'
+									useGrouping: 'always',
+									maximumFractionDigits: 1
 								}
 							)}kB</code
 						>
