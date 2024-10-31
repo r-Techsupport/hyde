@@ -439,11 +439,7 @@ impl Interface {
         }
     
         // Checkout the latest commit
-        let head_commit = repo.head()?.peel_to_commit()?;
-        let mut checkout_builder = CheckoutBuilder::new();
-        checkout_builder.force();
-        repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
-        info!("Checked out to the latest commit.");
+        self.checkout_latest_commit(&repo)?;
     
         Ok(())
     }
@@ -727,6 +723,30 @@ impl Interface {
         let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
         obj.into_commit()
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))
+    }
+
+    /// Checks out the latest commit in the specified repository.
+    ///
+    /// This function retrieves the most recent commit from the repository's head and performs a 
+    /// checkout to that commit. It ensures that the working directory reflects the state of the 
+    /// latest commit in the current branch. If the checkout operation fails, an error will be 
+    /// returned.
+    ///
+    /// # Arguments
+    /// * `repo` - A reference to the `git2::Repository` from which the latest commit is retrieved.
+    ///
+    /// # Errors
+    /// Returns an error if the repository cannot be accessed, if the commit cannot be found, or 
+    /// if the checkout operation fails.
+    fn checkout_latest_commit(&self, repo: &Repository) -> Result<()> {
+        // Reuse find_last_commit here as well
+        let head_commit = Self::find_last_commit(repo)?;
+        let mut checkout_builder = CheckoutBuilder::new();
+        checkout_builder.force();
+        repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
+        info!("Checked out to the latest commit.");
+        
+        Ok(())
     }
 
     /// Provides a mutable reference to the locked repository.
