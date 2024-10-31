@@ -12,7 +12,7 @@ repo_url = "https://github.com/r-Techsupport/rTS_Wiki.git"
 # Discord is related to discord specific information to pass to Hyde.
 [discord]
 # The discord username of the admin account
-admin_username = "username"
+admin_username = "krol430"
 
 # OAuth for Discord and GitHub, handles passing all relevant information to clients in Hyde
 [oauth.discord]

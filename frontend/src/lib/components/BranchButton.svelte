@@ -11,6 +11,8 @@
 	let protectedBranches: string[] = [];
 	let nonProtectedBranches: string[] = []
 	let newBranchName: string = '';
+	let showInput = false;
+	let showDots = false;
 
 	const currentBranch = derived(branchName, ($branchName) => $branchName);
 
@@ -231,18 +233,46 @@
 
 	function closeMenu() {
 		showMenu = false;
+		showInput = false;
 	}
 </script>
 
 <div class="branch-dropdown">
 	<button on:click={toggleMenu} class="branch-button" title="Set Branch Name">
-		{$currentBranch}
+		Select Branch
 	</button>
 
 	{#if showMenu}
 		<div class="branch-menu">
 			<button class="close-button" on:click={closeMenu} aria-label="Close menu">✖</button>
-			<h4>Select Existing Branch</h4>
+
+			<h4 class="branch-heading" on:mouseenter={() => showDots = true} on:mouseleave={() => showDots = false}>
+				Select Branch
+				<button class="dots" on:click={() => showInput = true} aria-label="Create new branch">
+					...
+				</button>
+			</h4>
+
+			{#if showInput}
+				<div class="create-branch-container">
+					<h4 class="create-branch-title">Create Branch</h4>
+					<input
+						type="text"
+						bind:value={newBranchName}
+						on:keydown={(e) => {
+							if (e.key === 'Enter') {
+								setBranchName(newBranchName); // Call the function to set the branch name
+								newBranchName = ''; // Reset input field after setting the branch name
+								showInput = false; // Optionally hide input after creating
+							}
+						}}
+						placeholder="Enter new branch name"
+						class="new-branch-input"
+					/>
+				</div>
+			{/if}
+
+			<!-- Display existing branches as a list -->
 			<ul class="branch-list">
 				{#each nonProtectedBranches as branch}
 					<li>
@@ -253,22 +283,13 @@
 							aria-label={`Select branch ${branch}`}
 						>
 							{branch}
-							<!-- This line will display the branch name -->
 						</button>
 					</li>
 				{/each}
 				{#if nonProtectedBranches.length === 0}
 					<li>No branches available</li>
-					<!-- Show message if no branches -->
 				{/if}
 			</ul>
-			<h4>Create New Branch</h4>
-			<input
-				type="text"
-				bind:value={newBranchName}
-				on:keydown={(e) => e.key === 'Enter' && setBranchName(newBranchName)}
-			/>
-			<button on:click={() => setBranchName(newBranchName)}>Create Branch</button>
 		</div>
 	{/if}
 </div>
@@ -279,6 +300,7 @@
 	}
 
 	.branch-button {
+		position: relative;
 		background-color: var(--button-background);
 		color: var(--button-text);
 		border: none;
@@ -300,22 +322,50 @@
 		border: 1px solid #ccc;
 		padding: 1rem;
 		z-index: 1000;
+		min-width: 200px;
+	}
+
+	.branch-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.dots {
+		visibility: hidden;
+		cursor: pointer;
+		margin-left: 0.5rem;
+		position: relative;
+	}
+
+	.branch-heading:hover .dots {
+		visibility: visible;
+	}
+
+	.branch-list {
+		max-height: 200px;
+		overflow-y: scroll;
+		margin: 0;
+		padding: 0;
+		list-style: none;
 	}
 
 	.close-button {
-		background: none;
+		background: transparent;
 		border: none;
 		color: #f00;
 		cursor: pointer;
-		font-size: 1.2rem;
 		position: absolute;
-		top: 0.5rem;
-		right: 0.5rem;
+		top: 0.01rem;
+		right: 0.01rem;
 	}
 
 	.branch-option {
-		padding: 0.5rem;
+		padding: 0.5rem 1rem;
 		cursor: pointer;
+		width: 100%;
+		text-align: left;
+		box-sizing: border-box;
 	}
 
 	.branch-option:hover {
@@ -327,6 +377,7 @@
 		padding: 0.5rem;
 		border: 1px solid #ccc;
 		border-radius: 0.3rem;
+		width: calc(100% - 1rem);
 	}
 
 	button {
@@ -341,5 +392,14 @@
 
 	button:hover {
 		background-color: var(--button-hover);
+	}
+
+	.create-branch-container {
+		margin-top: 0.5rem;
+	}
+
+	.create-branch-title {
+		font-weight: bold;
+		margin-bottom: 0.01rem;
 	}
 </style>

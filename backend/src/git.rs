@@ -414,6 +414,11 @@ impl Interface {
             bail!("Repository is not initialized correctly");
         }
 
+        // Update the index to ensure it's in sync
+        let mut index = repo.index()?;
+        index.add_all(&Vec::<String>::new(), git2::IndexAddOption::DEFAULT, None)?;
+        index.write()?;
+
         // Check for uncommitted changes and reset if necessary
         {
             // Check the index and working directory status
