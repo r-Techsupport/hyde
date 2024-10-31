@@ -25,9 +25,7 @@ use color_eyre::Result;
 use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
-#[cfg(target_family = "unix")]
-use tracing::{debug, error, info, info_span, warn};
-// use tracing_subscriber::filter::LevelFilter;
+use tracing::{debug, info, info_span, warn};
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
@@ -36,8 +34,6 @@ use reqwest::{
 use std::env::current_exe;
 use std::sync::Arc;
 use std::time::Duration;
-#[cfg(target_family = "unix")]
-use tokio::signal::unix::{signal, SignalKind};
 use tracing::{Level, Span};
 
 use crate::app_conf::AppConf;
@@ -88,7 +84,6 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_max_level(cli_args.logging_level)
         .without_time()
-        // .with_span_events(FmtSpan::CLOSE)
         .init();
     debug!("Initialized logging");
 
@@ -114,7 +109,9 @@ async fn main() -> Result<()> {
     // In docker, because the process is running with a PID of 1,
     // we need to implement our own SIGINT/TERM handlers
     #[cfg(target_family = "unix")]
-    {
+    {   
+        use tracing::error;
+        use tokio::signal::unix::{signal, SignalKind};
         debug!("Unix environment detected, starting custom interrupt handler");
         for sig in [SignalKind::interrupt(), SignalKind::terminate()] {
             task::spawn(async move {
@@ -243,8 +240,6 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
                 }),
         );
 
-    // `localhost` works on macos, but 0.0.0.0 breaks it, but 0.0.0.0 works everywhere but macos and in production
-    // TODO: figure it out
     let address = if cfg!(debug_assertions) {
         format!("localhost:{}", cli_args.port)
     } else {

@@ -111,6 +111,7 @@ pub async fn put_doc_handler(
     }
 }
 
+/// Deletes the document at the provided path, if the user has perms.
 pub async fn delete_doc_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -130,7 +131,6 @@ pub async fn delete_doc_handler(
         .unwrap();
     state
         .git
-        // TODO: this appears to be broken in main, fix when main gets fixed
         .delete_doc(
             &query.path,
             &format!("{} deleted {}", author.username, query.path),

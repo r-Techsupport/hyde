@@ -22,8 +22,6 @@
 		if (uploadedFiles && uploadedFiles.length > 0) {
 			loadingIconVisible = true;
 			const file = uploadedFiles.item(0)!;
-			// TODO: increase the max body limit or
-			// switch to multipart forms or something
 			const r = await fetch(`${apiAddress}/api/asset/${assetFolderPath}/${file.name}`, {
 				method: 'PUT',
 				credentials: 'include',
@@ -61,7 +59,7 @@
 	let fullScreenHttpInfo: Response | undefined;
 	// So basically, Svelte doesn't understand updates the browser makes to an image object,
 	// so it doesn't react to changes. This is fixed by manually starting a polling cycle
-	// that loads it as soon as it's complete
+	// that updates the image resolution when the image has finished loading
 	function cb() {
 		if (fullScreenImage?.complete) {
 			width = fullScreenImage?.naturalWidth ?? 0;
@@ -205,7 +203,6 @@
 <!-- Catalogue and status bar, or placeholder for no assets -->
 {#if assetFolderPath !== ''}
 	<div class="status-bar">
-		<!-- TODO: better message for no directory selected -->
 		<p>You're viewing the assets for <strong>"{assetFolderPath}"</strong></p>
 	</div>
 
@@ -243,18 +240,6 @@
 	:root {
 		font-family: var(--font-family);
 		color: var(--foreground-2);
-	}
-
-	.asset,
-	.asset::before,
-	.asset::after,
-	.upload-new,
-	.upload-new::before,
-	.upload-new::after,
-	.asset-catalogue,
-	.asset-catalogue::before,
-	.asset-catalogue::after {
-		box-sizing: border-box;
 	}
 
 	.asset-catalogue {
@@ -325,8 +310,6 @@
 	.upload-new svg {
 		object-fit: contain;
 		height: calc(100% - 2.1rem);
-
-		/* height: calc(100% -2rem); */
 	}
 
 	.status-bar {
@@ -374,7 +357,6 @@
 		pointer-events: all;
 		margin: 2rem;
 
-		/* height: 80vh; */
 		width: 40vw;
 		max-height: 80vh;
 		object-fit: contain;
@@ -385,7 +367,6 @@
 		width: 40vw;
 		pointer-events: all;
 
-		/* height: 60vh; */
 		box-sizing: content-box;
 		padding: 2rem;
 	}
@@ -400,7 +381,8 @@
 		cursor: pointer;
 		fill: var(--red);
 		color: var(--red);
-		background-color: transparent;
+		background-color: rgba(0 0 0 / 30%);
+		backdrop-filter: blur(20px);
 		border-radius: 5px;
 		border: 1px solid var(--red);
 		padding: 0.3rem 3rem;
