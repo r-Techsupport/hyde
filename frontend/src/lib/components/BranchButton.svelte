@@ -54,7 +54,11 @@
 			// Handle error without try-catch
 			response.json().then((errorMessage) => {
 				console.error('Failed to fetch branches:', errorMessage);
-				alert(`Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`);
+				addToast({
+					message: `Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`,
+					type: ToastType.Error,
+					dismissible: true
+				});
 			});
 			return; // Exit if response is not OK
 		}
@@ -188,13 +192,11 @@
 		if (treeResponse.ok) {
 			const updatedTree = await treeResponse.json();
 			documentTreeStore.set(updatedTree); // Update the store with the new tree
-			console.log('Updated document tree:', updatedTree);
 
 			cache.flush();
 
 			// After updating the tree, check if there's a current file
 			const currentFilePath = get(currentFile);
-			console.log('Current file path:', currentFilePath);
 			if (currentFilePath) {
 				// Fetch the content of the current file
 				const fileContentResponse = await fetch(
@@ -207,7 +209,6 @@
 
 				if (fileContentResponse.ok) {
 					const fileContent = await fileContentResponse.json(); // Get the content of the file
-					console.log(fileContent);
 					editorText.set(fileContent.contents); // Update the editor text
 					cache.set(currentFilePath, fileContent.contents);
 				} else {
@@ -366,6 +367,7 @@
 		width: calc(100% - 1.5rem);
 		box-sizing: border-box;
 	}
+
 	button {
 		margin-top: 0.5rem;
 		padding: 0.5rem 1rem;
