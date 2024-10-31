@@ -25,7 +25,6 @@ use color_eyre::Result;
 use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
-use tracing::{debug, info, info_span, warn};
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
@@ -34,6 +33,7 @@ use reqwest::{
 use std::env::current_exe;
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::{debug, info, info_span, warn};
 use tracing::{Level, Span};
 
 use crate::app_conf::AppConf;
@@ -109,9 +109,9 @@ async fn main() -> Result<()> {
     // In docker, because the process is running with a PID of 1,
     // we need to implement our own SIGINT/TERM handlers
     #[cfg(target_family = "unix")]
-    {   
-        use tracing::error;
+    {
         use tokio::signal::unix::{signal, SignalKind};
+        use tracing::error;
         debug!("Unix environment detected, starting custom interrupt handler");
         for sig in [SignalKind::interrupt(), SignalKind::terminate()] {
             task::spawn(async move {

@@ -356,7 +356,6 @@
 		border-radius: 5px;
 		pointer-events: all;
 		margin: 2rem;
-
 		width: 40vw;
 		max-height: 80vh;
 		object-fit: contain;
@@ -366,7 +365,6 @@
 		color: var(--foreground-1);
 		width: 40vw;
 		pointer-events: all;
-
 		box-sizing: content-box;
 		padding: 2rem;
 	}
