@@ -404,54 +404,32 @@ impl Interface {
     /// where `FETCH_HEAD` is a reference to the latest commit that has just been fetched from the remote repository.
     #[tracing::instrument(skip(self))]
     pub fn git_pull_branch(&self, branch: &str) -> Result<()> {
-        // Lock the repository
-        let mut repo = self.repo.lock().unwrap();
-        debug!("Repository path: {:?}", repo.path());
-
-        // Check if the repository is valid
-        if repo.is_bare() {
-            info!("Repository is not initialized correctly, aborting operation.");
-            bail!("Repository is not initialized correctly");
-        }
-
+        // Lock and check the repository
+        let repo = self.lock_and_check_repo()?;
+    
         // Update the index to ensure it's in sync
-        let mut index = repo.index()?;
-        index.add_all(&Vec::<String>::new(), git2::IndexAddOption::DEFAULT, None)?;
-        index.write()?;
-
+        self.update_index(&repo)?;
+    
         // Check for uncommitted changes and reset if necessary
-        {
-            // Check the index and working directory status
-            let status = repo.statuses(None)?;
-            for entry in status.iter() {
-                debug!("File: {:?}, Status: {:?}", entry.path(), entry.status());
-            }
-            if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
-                info!("Uncommitted changes found. Discarding changes before pulling.");
-                let mut checkout_builder = CheckoutBuilder::new();
-                checkout_builder.force();
-                repo.checkout_head(Some(&mut checkout_builder))?;
-                info!("Discarded uncommitted changes and reset to the last commit.");
-            }
-        }
-
+        self.check_and_reset_uncommitted_changes(&repo)?;
+    
         // Find the local branch
         let branch_name = {
             let branch = repo.find_branch(branch, git2::BranchType::Local)?;
             branch.name()?.unwrap_or("unknown").to_string()
         };
-
+    
         // Attempt to set upstream for the branch
-        self.set_branch_upstream(&mut repo, &branch_name)?;
-
+        self.set_branch_upstream(&repo, &branch_name)?;
+    
         // Fetch and pull changes
         let fetch_head = Self::git_fetch_branch(&repo, branch_name.as_str())?;
         info!("Successfully fetched latest changes for branch '{}', merging...", branch_name);
-
+    
         // Check for divergence
         let local_commit = repo.head()?.peel_to_commit()?;
         let remote_commit = fetch_head.id();
-
+    
         if local_commit.id() != remote_commit {
             // If there are diverged commits, perform a merge
             info!("Local branch and remote branch have diverged. Performing merge...");
@@ -459,20 +437,34 @@ impl Interface {
         } else {
             info!("Local branch is up to date with remote branch.");
         }
-
+    
         // Checkout the latest commit
         let head_commit = repo.head()?.peel_to_commit()?;
         let mut checkout_builder = CheckoutBuilder::new();
         checkout_builder.force();
         repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
         info!("Checked out to the latest commit.");
-
+    
         Ok(())
     }
 
-    fn set_branch_upstream(&self, repo: &mut git2::Repository, branch_name: &str) -> Result<(), git2::Error> {
+    /// Sets the upstream tracking branch for a given local branch.
+    ///
+    /// This function checks if the specified local branch has an upstream branch set. 
+    /// If not, it attempts to fetch the latest changes from the specified remote repository 
+    /// (defaulting to "origin") and sets the upstream to the corresponding remote branch.
+    ///
+    /// # Arguments
+    ///
+    /// * `repo` - A mutable reference to the `git2::Repository`.
+    /// * `branch_name` - The name of the local branch for which to set the upstream.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the upstream branch cannot be set or if the remote branch does not exist.
+    fn set_branch_upstream(&self, repo: &git2::Repository, branch_name: &str) -> Result<(), git2::Error> {
         // Get the local branch
-        let mut branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
+        let branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
     
         // Check if upstream is already set
         if branch.upstream().is_ok() {
@@ -482,18 +474,57 @@ impl Interface {
     
         // Fetch latest changes from remote
         let remote_name = "origin";
-        let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch_name);
+        self.fetch_remote_branch(repo, branch_name)?;
     
-        // Attempt to fetch from the remote
-        let mut remote = repo.find_remote(remote_name)?;
+        // Attempt to set upstream for the branch
+        self.set_upstream_if_exists(repo, branch_name, remote_name)
+    }
+    
+    /// Fetches the specified branch from the remote repository.
+    ///
+    /// This function connects to the remote named "origin" and fetches the latest updates for the given
+    /// branch. If the fetch is successful, the branch will be updated with the latest changes from the remote.
+    ///
+    /// # Arguments
+    ///
+    /// * `repo` - A reference to the local Git repository.
+    /// * `branch_name` - The name of the branch to fetch from the remote.
+    ///
+    /// # Returns
+    ///
+    /// This function returns a `Result` indicating success or failure. If the fetch operation fails,
+    /// it will return a `git2::Error`.
+    fn fetch_remote_branch(&self, repo: &git2::Repository, branch_name: &str) -> Result<(), git2::Error> {
+        let mut remote = repo.find_remote("origin")?;
         remote.fetch::<&str>(&[branch_name], None, None)?;
+        Ok(())
+    }
+    
+    /// Sets the upstream for a local branch to a corresponding remote branch if it exists.
+    ///
+    /// This function checks if the specified remote branch exists. If it does, it sets the upstream
+    /// of the local branch to the remote branch. The upstream branch is used for tracking remote changes.
+    ///
+    /// # Arguments
+    ///
+    /// * `repo` - A reference to the local Git repository.
+    /// * `branch_name` - The name of the local branch for which the upstream is being set.
+    /// * `remote_name` - The name of the remote (typically "origin") from which the upstream is being set.
+    ///
+    /// # Returns
+    ///
+    /// This function returns a `Result` indicating success or failure. If the remote branch does not exist
+    /// or setting the upstream fails, it will return a `git2::Error`.
+    fn set_upstream_if_exists(&self, repo: &git2::Repository, branch_name: &str, remote_name: &str) -> Result<(), git2::Error> {
+        let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch_name);
     
         // Check if the remote branch exists
         match repo.find_reference(&remote_ref) {
             Ok(remote_branch) => {
-                // Get the shorthand branch name (e.g., "newbranch") instead of the full reference path
+                // Get the shorthand branch name
                 if let Some(remote_branch_name) = remote_branch.shorthand() {
                     info!("Setting upstream for local branch '{}' to remote '{}'", branch_name, remote_branch_name);
+                    let mut branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
                     branch.set_upstream(Some(remote_branch_name))?;
                     info!("Successfully set upstream for branch '{}' to '{}'", branch_name, remote_branch_name);
                 } else {
@@ -506,7 +537,6 @@ impl Interface {
                 return Err(git2::Error::from_str("Remote branch not found."));
             }
         }
-    
         Ok(())
     }
 
@@ -699,8 +729,81 @@ impl Interface {
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))
     }
 
-    /// Making the repo public
+    /// Provides a mutable reference to the locked repository.
+    ///
+    /// This function locks the repository and returns a `MutexGuard`, allowing 
+    /// access to the repository for operations that modify its state. 
+    ///
+    /// # Panics
+    /// This function will panic if the lock cannot be acquired.
     pub fn get_repo(&self) -> std::sync::MutexGuard<'_, Repository> {
         self.repo.lock().unwrap()
+    }
+
+    /// Locks the repository and checks its validity.
+    ///
+    /// This function ensures that the repository is not bare and is initialized correctly.
+    ///
+    /// # Errors
+    /// Returns an error if the repository is not initialized correctly.
+    fn lock_and_check_repo(&self) -> Result<std::sync::MutexGuard<'_, git2::Repository>> {
+        let repo = self.repo.lock().unwrap();
+        debug!("Repository path: {:?}", repo.path());
+    
+        if repo.is_bare() {
+            info!("Repository is not initialized correctly, aborting operation.");
+            bail!("Repository is not initialized correctly");
+        }
+    
+        Ok(repo)
+    }
+
+    /// Updates the repository index to ensure it is in sync.
+    ///
+    /// This function adds all changes in the working directory to the index. 
+    /// It ensures that the index is updated before performing any pull operations.
+    ///
+    /// # Errors
+    /// This function will return an error if updating the index fails.
+    fn update_index(&self, repo: &git2::Repository) -> Result<()> {
+        let mut index = repo.index()?;
+        index.add_all(std::iter::once(&"*"), git2::IndexAddOption::DEFAULT, None)?;
+        
+        Ok(())
+    }
+
+    /// Checks for uncommitted changes in the repository and resets if found.
+    ///
+    /// This function checks the status of the repository and, if any uncommitted 
+    /// changes are detected, it discards those changes by checking out the last 
+    /// committed state. This ensures that the working directory is clean before 
+    /// pulling changes from the remote.
+    ///
+    /// # Errors
+    /// This function will return an error if retrieving the status fails or if 
+    /// checking out the head fails.
+    fn check_and_reset_uncommitted_changes(&self, repo: &git2::Repository) -> Result<()> {
+        // Get the current status of the repository
+        let status = repo.statuses(None)?;
+        
+        // Log the status of each file
+        for entry in status.iter() {
+            debug!("File: {:?}, Status: {:?}", entry.path(), entry.status());
+        }
+    
+        // Check for uncommitted changes
+        if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
+            info!("Uncommitted changes found. Discarding changes before pulling.");
+            
+            // Create a checkout builder to discard changes
+            let mut checkout_builder = CheckoutBuilder::new();
+            checkout_builder.force();
+            
+            // Checkout HEAD to discard uncommitted changes
+            repo.checkout_head(Some(&mut checkout_builder))?;
+            info!("Discarded uncommitted changes and reset to the last commit.");
+        }
+    
+        Ok(())
     }
 }
