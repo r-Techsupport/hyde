@@ -10,7 +10,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, error};
 
 #[derive(Clone)]
 pub struct Interface {
@@ -58,7 +58,6 @@ impl Interface {
         let mut path_to_doc: PathBuf = PathBuf::from(".");
         path_to_doc.push(&self.doc_path);
         path_to_doc.push(path);
-        warn!("Checking existence of document at: {:?}", path_to_doc);
         if !path_to_doc.exists() {
             return Ok(None);
         }
@@ -138,7 +137,6 @@ impl Interface {
         path_to_doc.push(path);
 
         // Wipe and write the new contents
-        warn!("Opening file for writing: {:?}", path_to_doc);
         let mut file = fs::File::create(path_to_doc).wrap_err_with(|| {
             format!("Failed to wipe requested file for rewrite: {:?}", path.as_ref())
         })?;
@@ -407,43 +405,106 @@ impl Interface {
     #[tracing::instrument(skip(self))]
     pub fn git_pull_branch(&self, branch: &str) -> Result<()> {
         // Lock the repository
-        let repo = self.repo.lock().unwrap();  // Declare repo as mutable
+        let mut repo = self.repo.lock().unwrap();
         debug!("Repository path: {:?}", repo.path());
-    
-        // Check if there are any uncommitted changes
-        let status = repo.statuses(None)?;
-        if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
-            info!("There are uncommitted changes. Discarding changes before pulling.");
-    
-            // Create a checkout builder with force option to discard local changes
-            let mut checkout_builder = CheckoutBuilder::new();
-            checkout_builder.force(); // Force the checkout to discard local changes
-    
-            // Reset to the last commit, discarding uncommitted changes
-            repo.checkout_head(Some(&mut checkout_builder))?;
-            info!("Discarded uncommitted changes and reset to the last commit.");
+
+        // Check if the repository is valid
+        if repo.is_bare() {
+            info!("Repository is not initialized correctly, aborting operation.");
+            bail!("Repository is not initialized correctly");
         }
-    
-        // Fetch the specified branch
-        let fetch_head = Self::git_fetch_branch(&repo, branch)?;
-        info!("Successfully fetched latest changes for branch '{}', merging...", branch);
-    
-        // Perform a normal merge from the fetched branch
-        Self::git_merge_from_branch(&repo, branch, fetch_head)?;
-    
-        // Limit the scope of `head_commit` and operations using it
+
+        // Check for uncommitted changes and reset if necessary
+        {
+            // Check the index and working directory status
+            let status = repo.statuses(None)?;
+            for entry in status.iter() {
+                debug!("File: {:?}, Status: {:?}", entry.path(), entry.status());
+            }
+            if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
+                info!("Uncommitted changes found. Discarding changes before pulling.");
+                let mut checkout_builder = CheckoutBuilder::new();
+                checkout_builder.force();
+                repo.checkout_head(Some(&mut checkout_builder))?;
+                info!("Discarded uncommitted changes and reset to the last commit.");
+            }
+        }
+
+        // Find the local branch
+        let branch_name = {
+            let branch = repo.find_branch(branch, git2::BranchType::Local)?;
+            branch.name()?.unwrap_or("unknown").to_string()
+        };
+
+        // Attempt to set upstream for the branch
+        self.set_branch_upstream(&mut repo, &branch_name)?;
+
+        // Fetch and pull changes
+        let fetch_head = Self::git_fetch_branch(&repo, branch_name.as_str())?;
+        info!("Successfully fetched latest changes for branch '{}', merging...", branch_name);
+
+        // Check for divergence
+        let local_commit = repo.head()?.peel_to_commit()?;
+        let remote_commit = fetch_head.id();
+
+        if local_commit.id() != remote_commit {
+            // If there are diverged commits, perform a merge
+            info!("Local branch and remote branch have diverged. Performing merge...");
+            Self::git_merge_from_branch(&repo, branch_name.as_str(), fetch_head)?;
+        } else {
+            info!("Local branch is up to date with remote branch.");
+        }
+
+        // Checkout the latest commit
         let head_commit = repo.head()?.peel_to_commit()?;
-        debug!("Head commit for branch '{}': {:?}", branch, head_commit.id());
-    
-        // Force checkout to the latest commit
         let mut checkout_builder = CheckoutBuilder::new();
-        checkout_builder.force(); // Force the checkout to discard local changes
+        checkout_builder.force();
         repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
         info!("Checked out to the latest commit.");
+
+        Ok(())
+    }
+
+    fn set_branch_upstream(&self, repo: &mut git2::Repository, branch_name: &str) -> Result<(), git2::Error> {
+        // Get the local branch
+        let mut branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
+    
+        // Check if upstream is already set
+        if branch.upstream().is_ok() {
+            info!("Upstream is already set for branch '{}'", branch_name);
+            return Ok(());
+        }
+    
+        // Fetch latest changes from remote
+        let remote_name = "origin";
+        let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch_name);
+    
+        // Attempt to fetch from the remote
+        let mut remote = repo.find_remote(remote_name)?;
+        remote.fetch::<&str>(&[branch_name], None, None)?;
+    
+        // Check if the remote branch exists
+        match repo.find_reference(&remote_ref) {
+            Ok(remote_branch) => {
+                // Get the shorthand branch name (e.g., "newbranch") instead of the full reference path
+                if let Some(remote_branch_name) = remote_branch.shorthand() {
+                    info!("Setting upstream for local branch '{}' to remote '{}'", branch_name, remote_branch_name);
+                    branch.set_upstream(Some(remote_branch_name))?;
+                    info!("Successfully set upstream for branch '{}' to '{}'", branch_name, remote_branch_name);
+                } else {
+                    error!("Failed to get shorthand name for remote branch '{}'", remote_ref);
+                    return Err(git2::Error::from_str("Remote branch shorthand retrieval failed."));
+                }
+            }
+            Err(err) => {
+                error!("Remote branch '{}' not found; cannot set upstream: {:?}", remote_ref, err);
+                return Err(git2::Error::from_str("Remote branch not found."));
+            }
+        }
     
         Ok(())
-    }        
-    
+    }
+
     /// A code level re-implementation of `git fetch`. `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
     /// merge those changes into `main`.
     ///
@@ -623,6 +684,7 @@ impl Interface {
         repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
         Ok(())
     }
+
     /// Returns the latest commit from `HEAD`.
     ///
     /// <https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html>
