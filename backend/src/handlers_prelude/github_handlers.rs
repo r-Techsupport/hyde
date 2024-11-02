@@ -71,19 +71,17 @@ async fn get_github_token(state: &AppState) -> Result<String, (StatusCode, Strin
 }
 
 /// Fetches the list of branches from a GitHub repository.
-///
+/// 
 /// This function interacts with the GitHub API to retrieve all branches
 /// for a specific repository. It requires an access token for authentication.
-///
+/// 
 /// # Parameters
-/// - `reqwest_client`: An instance of `reqwest::Client` used to make HTTP requests.
-/// - `token`: A string slice representing the GitHub access token used for authentication.
-///
+/// - `State(state)`: The application state containing configuration and HTTP client information.
+/// 
 /// # Returns
-/// - On success, returns a `Result` containing a vector of branch names as strings.
-/// - On failure, returns an error that implements the `std::error::Error` trait, indicating
-///   what went wrong during the API request.
-///
+/// - On success, returns a `Result` containing a tuple of `(StatusCode, Json<ApiResponse<BranchesData>>)`.
+/// - On failure, returns an error that may vary in type, indicating what went wrong during the API request.
+/// 
 /// # Errors
 /// This function can fail due to network issues, invalid tokens, or other API-related errors.
 pub async fn list_branches_handler(
@@ -95,9 +93,13 @@ pub async fn list_branches_handler(
     let token = get_github_token(&state).await?;
 
     // Fetch the branch details from GitHub
-    let branch_details = get_all_branch_details(&state, &token).await.map_err(|err| {
+    let branch_details = get_all_branch_details(
+        &state.config.files.repo_url,
+        &state.reqwest_client,
+        &token,
+    ).await.map_err(|err| {
         eyre_to_axum_err(err)
-    })?; // Use string error
+    })?;
 
     // Extract branch names and protection status
     let branches: Vec<String> = branch_details
@@ -153,7 +155,8 @@ pub async fn create_pull_request_handler(
 
     // Create the pull request on GitHub
     let pull_request_url = create_pull_request(
-        &state,
+        &state.config.files.repo_url,
+        &state.reqwest_client,
         &token,
         &payload.head_branch,
         &payload.base_branch,
@@ -175,16 +178,33 @@ pub async fn create_pull_request_handler(
     ))
 }
 
+/// Handles the HTTP request to check out or create a Git branch.
+///
+/// This handler retrieves the branch name from the request path and attempts to
+/// check out the specified branch. If the branch does not exist, it will create
+/// it based on the current commit. The handler returns a success message if the
+/// operation is successful, or an error message if it fails.
+///
+/// # Arguments
+/// - `State(state)` - The application state containing the Git interface and other dependencies.
+/// - `Path(branch_name)` - The name of the branch to check out or create.
+///
+/// # Returns
+/// A result containing:
+/// - On success: A tuple of `(StatusCode, String)` with a 200 OK status and a success message.
+/// - On failure: A tuple of `(StatusCode, String)` with a 500 Internal Server Error status and an error message.
+///
+/// # Errors
+/// This function will return an error response if there is an issue checking out or creating the branch,
+/// including cases where the repository is locked or the branch operation fails.
 pub async fn checkout_or_create_branch_handler(
     State(state): State<AppState>,
-    Path(branch_name): Path<String>, // Use Path extractor for the branch name
+    Path(branch_name): Path<String>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
     info!("Checking out or creating branch: {}", branch_name);
 
-    let repo = state.git.get_repo();
-
-    // Call your checkout_or_create_branch function through the Interface
-    match state.git.checkout_or_create_branch(&repo, &branch_name) {
+    // Use the git interface to perform operations
+    match state.git.checkout_or_create_branch(&branch_name) {
         Ok(_) => {
             info!("Successfully checked out/created branch: {}", branch_name);
             Ok((StatusCode::OK, format!("Successfully checked out/created branch: {}", branch_name)))
@@ -231,6 +251,6 @@ pub async fn github_routes() -> Router<AppState> {
     Router::new()
         .route("/branches", get(list_branches_handler))
         .route("/pulls", post(create_pull_request_handler))
-        .route("/check-out/branches/:branch_name", put(checkout_or_create_branch_handler))
+        .route("/checkout/branches/:branch_name", put(checkout_or_create_branch_handler))
         .route("/pull/:branch", post(pull_handler))
 }

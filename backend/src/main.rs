@@ -33,7 +33,7 @@ use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
     Client, Method,
 };
-use std::env::{current_exe};
+use std::env::current_exe;
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(target_family = "unix")]

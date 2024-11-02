@@ -1,6 +1,5 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
-use crate::AppState;
 use chrono::DateTime;
 use color_eyre::eyre::{bail, Context};
 use color_eyre::Result;
@@ -173,21 +172,23 @@ fn gen_jwt_token(client_id: &str) -> Result<String> {
     )?)
 }
 
-/// Retrieve the repository name from the `REPO_URL` environment variable.
-/// 
-/// The `REPO_URL` must be in the format `<owner>/<repo>.git`. This function removes
-/// the `.git` suffix and parses the owner and repo name from the URL.
-/// 
+/// Extract the repository name from the `REPO_URL` environment variable in the format `<owner>/<repo>`.
+///
+/// The `REPO_URL` must follow the pattern `https://<host>/<owner>/<repo>.git`. This function removes
+/// the `.git` suffix and parses out the owner and repository name from the URL.
+///
+/// # Parameters
+///  - `repo_url`: A string slice representing the repository URL.
+///
 /// # Returns
-/// A `Result` containing the repository name in the format `<owner>/<repo>`, or an error if
-/// the environment variable is not set or the format is invalid.
-/// 
+/// A `Result` with a `String` in the format `<owner>/<repo>`, or an error if the `REPO_URL`
+/// environment variable is not set or does not match the expected format.
+///
 /// # Errors
-/// This function will return an error if `REPO_URL` is not set or has an invalid format.
-pub fn get_repo_name_from_url(state: &AppState) -> Result<String> {
-    // Get the repository URL from state
-    let repo_url = &state.config.files.repo_url;
-
+/// Returns an error if:
+/// - The `REPO_URL` environment variable is not set.
+/// - The format of `REPO_URL` is invalid (does not contain an `<owner>/<repo>` structure).
+pub fn get_repo_name_from_url(repo_url: &str) -> Result<String> {
     // Parse the repository name from the URL
     let repo_path = repo_url
         .trim_end_matches(".git")  // Remove the .git suffix
@@ -203,27 +204,37 @@ pub fn get_repo_name_from_url(state: &AppState) -> Result<String> {
     Ok(format!("{}/{}", repo_path[1], repo_path[0]))
 }
 
-/// Create a GitHub pull request using environment variables for configuration.
+/// Create a GitHub pull request using the provided parameters.
 ///
 /// # Parameters:
-/// - `req_client`: The `reqwest::Client` to make HTTP requests.
+/// - `repo_url`: A string slice that contains the GitHub repository URL in the format
+///   `https://<host>/<owner>/<repo>.git`. This is used to derive the repository name.
+/// - `reqwest_client`: The `reqwest::Client` used to make HTTP requests.
 /// - `token`: The GitHub access token for authentication.
 /// - `head_branch`: The branch where changes are made.
 /// - `base_branch`: The base branch to which the pull request is opened.
 /// - `pr_title`: The title for the pull request.
+/// - `pr_description`: The description for the pull request.
 ///
-/// The GitHub repository is pulled from the environment variable `REPO_NAME` in the `.env` file.
-/// If the environment variable is not found, the function will return an error.
+/// # Returns
+/// A `Result<String>` containing the URL of the created pull request if successful, or an error
+/// if the pull request creation fails.
+///
+/// # Errors
+/// Returns an error if:
+/// - The `repo_url` is not in the expected format.
+/// - The pull request creation request fails (e.g., due to authentication issues or invalid input).
 pub async fn create_pull_request(
-    state: &AppState,
+    repo_url: &str,
+    reqwest_client: &reqwest::Client,
     token: &str,
     head_branch: &str,
     base_branch: &str,
     pr_title: &str,
     pr_description: &str,
 ) -> Result<String> {
-    // Get the repository name
-    let repo_name = get_repo_name_from_url(state)?;
+    // Get the repository name using the updated function
+    let repo_name = get_repo_name_from_url(repo_url)?;
 
     // Prepare the JSON body for the pull request
     let pr_body = json!( {
@@ -236,7 +247,7 @@ pub async fn create_pull_request(
     info!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
 
     // Send the pull request creation request to the GitHub API
-    let response = state.reqwest_client
+    let response = reqwest_client
         .post(format!("{}/repos/{}/pulls", GITHUB_API_URL, repo_name))
         .bearer_auth(token)  // Use the GitHub access token for authentication
         .header("User-Agent", "Hyde")  // Set the User-Agent header to the app name
@@ -266,18 +277,31 @@ pub async fn create_pull_request(
     }
 }
 
-/// Fetch a list of branches from the GitHub repository.
+/// Fetch a list of branches from the specified GitHub repository.
 ///
 /// # Parameters:
-/// - `req_client`: The `reqwest::Client` to make HTTP requests.
+/// - `repo_url`: A string slice that contains the GitHub repository URL in the format
+///   `https://<host>/<owner>/<repo>.git`. This is used to derive the repository name.
+/// - `reqwest_client`: The `reqwest::Client` used to make HTTP requests.
 /// - `token`: The GitHub access token for authentication.
-/// - `repo_name`: The repository name in the format `<owner>/<repo>`.
 ///
-/// # Returns:
-/// A `Result` containing a vector of branch names or an error.
-pub async fn list_branches(state: &AppState, token: &str) -> Result<Vec<Branch>> {
-    let repo_name = get_repo_name_from_url(state)?;
-    let response = state.reqwest_client
+/// # Returns
+/// A `Result<Vec<Branch>>` containing a vector of `Branch` structs if successful,
+/// or an error if the request fails.
+///
+/// # Errors
+/// Returns an error if:
+/// - The `repo_url` is not in the expected format.
+/// - The request to fetch branches fails.
+pub async fn list_branches(
+    repo_url: &str,
+    reqwest_client: &reqwest::Client,
+    token: &str,
+) -> Result<Vec<Branch>> {
+    // Get the repository name using the updated function
+    let repo_name = get_repo_name_from_url(repo_url)?;
+
+    let response = reqwest_client
         .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
         .bearer_auth(token)
         .header("User-Agent", "Hyde")
@@ -287,7 +311,7 @@ pub async fn list_branches(state: &AppState, token: &str) -> Result<Vec<Branch>>
     if response.status().is_success() {
         info!("Branches fetched successfully for repository: {}", repo_name);
         let response_text = response.text().await?;
-        
+
         // Attempt deserialization with detailed error handling
         let branches: Vec<Branch> = match serde_json::from_str(&response_text) {
             Ok(branches) => branches,
@@ -310,17 +334,31 @@ pub async fn list_branches(state: &AppState, token: &str) -> Result<Vec<Branch>>
 }
 
 /// Fetch detailed information about a specific branch.
-/// 
+///
 /// # Parameters:
-/// - `req_client`: The `reqwest::Client` to make HTTP requests.
+/// - `repo_url`: A string slice that contains the GitHub repository URL in the format
+///   `https://<host>/<owner>/<repo>.git`. This is used to derive the repository name.
+/// - `reqwest_client`: The `reqwest::Client` used to make HTTP requests.
 /// - `token`: The GitHub access token for authentication.
 /// - `branch_name`: The name of the branch to fetch details for.
-/// 
+///
 /// # Returns:
-/// A `Result` containing the branch details or an error.
-async fn get_branch_details(state: &AppState, token: &str, branch_name: &str) -> Result<Branch> {
-    let repo_name = get_repo_name_from_url(state)?;
-    let response = state.reqwest_client
+/// A `Result<Branch>` containing the branch details if successful, or an error.
+///
+/// # Errors
+/// Returns an error if:
+/// - The `repo_url` is not in the expected format.
+/// - The request to fetch branch details fails.
+async fn get_branch_details(
+    repo_url: &str,
+    reqwest_client: &reqwest::Client,
+    token: &str,
+    branch_name: &str,
+) -> Result<Branch> {
+    // Get the repository name using the updated function
+    let repo_name = get_repo_name_from_url(repo_url)?;
+
+    let response = reqwest_client
         .get(format!("{}/repos/{}/branches/{}", GITHUB_API_URL, repo_name, branch_name))
         .bearer_auth(token)
         .header("User-Agent", "Hyde")
@@ -342,12 +380,28 @@ async fn get_branch_details(state: &AppState, token: &str, branch_name: &str) ->
 }
 
 /// Get details about all branches including whether they are protected or the default branch.
-pub async fn get_all_branch_details(state: &AppState, token: &str) -> Result<Vec<Branch>> {
-    let branches = list_branches(state, token).await?;
+///
+/// # Parameters:
+/// - `repo_url`: A string slice that contains the GitHub repository URL in the format
+///   `https://<host>/<owner>/<repo>.git`. This is used to derive the repository name.
+/// - `reqwest_client`: The `reqwest::Client` used to make HTTP requests.
+/// - `token`: The GitHub access token for authentication.
+///
+/// # Returns:
+/// A `Result<Vec<Branch>>` containing the details of all branches if successful, or an error.
+///
+/// # Errors
+/// Returns an error if the request to fetch branch details fails.
+pub async fn get_all_branch_details(
+    repo_url: &str,
+    reqwest_client: &reqwest::Client,
+    token: &str,
+) -> Result<Vec<Branch>> {
+    let branches = list_branches(repo_url, reqwest_client, token).await?;
     let mut branch_details = Vec::new();
 
     for branch in branches {
-        let details = get_branch_details(state, token, &branch.name).await?;
+        let details = get_branch_details(repo_url, reqwest_client, token, &branch.name).await?;
         branch_details.push(details);
     }
 

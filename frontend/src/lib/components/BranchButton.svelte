@@ -8,12 +8,17 @@
 	import { cache } from '$lib/cache';
 
 	let showMenu = false;
-	let protectedBranches: string[] = [];
-	let nonProtectedBranches: string[] = [];
+	let protectedBranches: Branch[] = [];
+	let nonProtectedBranches: Branch[] = [];
 	let newBranchName: string = '';
 	let showInput = false;
 
 	const currentBranch = derived(branchName, ($branchName) => $branchName);
+
+	interface Branch {
+		name: string;
+		isProtected: boolean;
+	}
 
 	/**
 	 * Fetches existing branches from the GitHub API.
@@ -40,7 +45,10 @@
 	 *   }
 	 * }
 	 */
-	async function fetchExistingBranches() {
+	async function fetchExistingBranches(): Promise<{
+		nonProtectedBranches: Branch[];
+		protectedBranches: Branch[];
+	}> {
 		const response = await fetch(`${apiAddress}/api/branches`, {
 			method: 'GET',
 			credentials: 'include',
@@ -51,40 +59,48 @@
 
 		// Check if the response is successful
 		if (!response.ok) {
-			// Handle error without try-catch
-			response.json().then((errorMessage) => {
-				console.error('Failed to fetch branches:', errorMessage);
-				addToast({
-					message: `Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`,
-					type: ToastType.Error,
-					dismissible: true
-				});
+			const errorMessage = await response.json();
+			console.error('Failed to fetch branches:', errorMessage);
+			addToast({
+				message: `Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`,
+				type: ToastType.Error,
+				dismissible: true
 			});
-			return; // Exit if response is not OK
+			return { nonProtectedBranches: [], protectedBranches: [] };
 		}
 
 		// Extract and set the branches if the response is successful
-		response.json().then((data) => {
-			if (data.data && data.data.branches) {
-				// Map through branches to filter out protected ones and extract branch names
-				nonProtectedBranches = data.data.branches
-					.filter((branch: string) => !branch.includes('(protected)')) // Filter out protected branches
-					.map((branch: string) => branch.split(' (')[0]); // Extract just branch names
-				protectedBranches = data.data.branches
-					.filter((branch: string) => branch.includes('(protected)')) // Filter out protected branches
-					.map((branch: string) => branch.split(' (')[0]); // Extract just branch names
-			} else {
-				protectedBranches = []; // Reset if no branches found
-				nonProtectedBranches = [];
-			}
-		});
+		const data = await response.json();
+		const branches: string[] = data.data?.branches || [];
+
+		// Map through branches to create Branch objects
+		const nonProtectedBranches: Branch[] = branches
+			.filter((branch: string) => !branch.includes('(protected)'))
+			.map((branch: string) => ({
+				name: branch.split(' (')[0],
+				isProtected: false
+			}));
+
+		const protectedBranches: Branch[] = branches
+			.filter((branch: string) => branch.includes('(protected)'))
+			.map((branch: string) => ({
+				name: branch.split(' (')[0],
+				isProtected: true
+			}));
+
+		return { nonProtectedBranches, protectedBranches };
 	}
 
-	onMount(() => {
-		fetchExistingBranches();
+	onMount(async () => {
+		const { nonProtectedBranches: fetchedNonProtected, protectedBranches: fetchedProtected } =
+			await fetchExistingBranches();
+		nonProtectedBranches = fetchedNonProtected;
+		protectedBranches = fetchedProtected;
 	});
 
 	async function setBranchName(input: string) {
+		if (!input) return;
+
 		// Define validation rules
 		const maxLength = 255; // Maximum length for branch name
 		const invalidCharacters = /[~^:?*<>|]/; // Invalid special characters
@@ -108,8 +124,6 @@
 			);
 		};
 
-		if (!input) return;
-
 		// Validate branch name
 		if (!isValidBranchName(input)) {
 			addToast({
@@ -120,7 +134,7 @@
 			return;
 		}
 
-		if (protectedBranches.includes(input)) {
+		if (protectedBranches.some((branch) => branch.name === input)) {
 			addToast({
 				message:
 					'Please select an existing branch name from the list of non-protected branches.\n You can also create your own',
@@ -136,7 +150,7 @@
 		newBranchName = '';
 		showMenu = false;
 
-		if (!nonProtectedBranches.includes(input)) {
+		if (!nonProtectedBranches.some((branch) => branch.name === input)) {
 			addToast({
 				message: `Changed branch name to "${input}".`,
 				type: ToastType.Success,
@@ -147,7 +161,7 @@
 		}
 
 		// Call backend to update working directory by checking out the branch
-		const response = await fetch(`${apiAddress}/api/check-out/branches/${input}`, {
+		const response = await fetch(`${apiAddress}/api/checkout/branches/${input}`, {
 			method: 'PUT',
 			credentials: 'include'
 		});
@@ -245,18 +259,31 @@
 
 	{#if showMenu}
 		<div class="branch-menu">
-			<button class="close-button" on:click={closeMenu} aria-label="Close menu">✖</button>
+			<button class="close-button" on:click={closeMenu} aria-label="Close menu">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					height="1.5rem"
+					viewBox="0 -960 960 960"
+					width="1.5rem"
+					role="none"
+				>
+					<title>Exit</title>
+					<path
+						d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"
+					/></svg
+				>
+			</button>
 			<h4>Select Existing Branch</h4>
 			<ul class="branch-list">
 				{#each nonProtectedBranches as branch}
 					<li>
 						<button
 							class="branch-option"
-							on:click={() => setBranchName(branch)}
-							on:keydown={(e) => e.key === 'Enter' && setBranchName(branch)}
-							aria-label={`Select branch ${branch}`}
+							on:click={() => setBranchName(branch.name)}
+							on:keydown={(e) => e.key === 'Enter' && setBranchName(branch.name)}
+							aria-label={`Select branch ${branch.name}`}
 						>
-							{branch}
+							{branch.name}
 						</button>
 					</li>
 				{/each}
@@ -305,8 +332,8 @@
 
 	.branch-button {
 		position: relative;
-		background-color: var(--button-background);
-		color: var(--button-text);
+		background-color: var(--background-0);
+		color: var(--foreground-0);
 		border: none;
 		border-radius: 0.3rem;
 		padding: 0.5rem 1rem;
@@ -316,17 +343,21 @@
 	}
 
 	.branch-button:hover {
-		background-color: var(--button-hover);
+		background-color: var(--background-1);
 		transition: background-color 0.3s ease;
 	}
 
 	.branch-menu {
 		position: absolute;
-		background-color: white;
-		border: 1px solid #ccc;
+		background-color: var(--background-1);
+		border: 1px solid var(--foreground-3);
 		padding: 1rem;
 		z-index: 1000;
 		min-width: 225px;
+	}
+
+	.branch-menu h4 {
+		color: var(--foreground-0);
 	}
 
 	.branch-list {
@@ -340,11 +371,14 @@
 	.close-button {
 		background: transparent;
 		border: none;
-		color: #f00;
 		cursor: pointer;
 		position: absolute;
 		top: 0.01rem;
 		right: 0.01rem;
+	}
+
+	.close-button path {
+		fill: var(--red);
 	}
 
 	.branch-option {
@@ -353,32 +387,35 @@
 		width: 100%;
 		text-align: left;
 		box-sizing: border-box;
+		color: var(--foreground-0);
 	}
 
 	.branch-option:hover {
-		background-color: var(--button-hover);
+		background-color: var(--background-0);
 	}
 
 	input {
 		margin-top: 0.5rem;
 		padding: 0.5rem 0.75rem;
-		border: 1px solid #ccc;
+		border: 1px solid var(--foreground-3);
 		border-radius: 0.3rem;
 		width: calc(100% - 1.5rem);
 		box-sizing: border-box;
+		background-color: var(--background-0);
+		color: var(--foreground-0);
 	}
 
 	button {
 		margin-top: 0.5rem;
 		padding: 0.5rem 1rem;
-		background-color: var(--button-background);
+		background-color: var(--background-1);
 		border: none;
 		border-radius: 0.3rem;
-		color: var(--button-text);
+		color: var(--foreground-0);
 		cursor: pointer;
 	}
 
 	button:hover {
-		background-color: var(--button-hover);
+		background-color: var(--background-2);
 	}
 </style>

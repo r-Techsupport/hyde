@@ -10,7 +10,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info, warn};
 
 #[derive(Clone)]
 pub struct Interface {
@@ -126,10 +126,10 @@ impl Interface {
         token: &str,
         branch: &str,  // Pass the branch name here
     ) -> Result<()> {
-        let repo = self.repo.lock().unwrap();
-
         // Step 1: Checkout or create the branch
-        self.checkout_or_create_branch(&repo, branch)?;
+        self.checkout_or_create_branch(branch)?;
+
+        let repo = self.repo.lock().unwrap();
 
         // Step 2: Write the document to the specified path
         let mut path_to_doc: PathBuf = PathBuf::from("./");
@@ -153,7 +153,7 @@ impl Interface {
         Self::git_commit(&repo, msg, None)?;
 
         // Step 4: Push the branch to the remote repository
-        Self::git_push_to_branch(&repo, repo_url, branch, token)?;
+        Self::git_push(&repo, repo_url, Some(branch), token)?;
 
         info!(
             "Document {:?} edited, committed to branch '{branch}' and pushed to GitHub with message: {message:?}",
@@ -194,7 +194,7 @@ impl Interface {
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, repo_url)?;
+        Self::git_push(&repo, token, None, repo_url)?;
         drop(repo);
         info!(
             "Document {:?} removed and changes synced to Github with message: {message:?}",
@@ -288,44 +288,61 @@ impl Interface {
     //     Ok(())
     // }
 
-    /// A code level re-implementation of `git commit`.
-    /// A function used to checkout or create a new branch based on the name.
-    pub fn checkout_or_create_branch(&self, repo: &Repository, branch_name: &str) -> Result<()> {
+    /// Checks out an existing branch or creates a new branch based on the given name.
+    ///
+    /// This function attempts to switch to a branch specified by `branch_name`. If the branch
+    /// does not exist, it creates a new branch at the current HEAD commit. It handles both
+    /// scenarios, logging the actions taken and returning an error if any operation fails.
+    ///
+    /// # Arguments
+    /// - `branch_name` - A string slice that holds the name of the branch to check out or create.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The current HEAD reference cannot be retrieved.
+    /// - The branch cannot be found or created.
+    /// - The HEAD cannot be set to the specified branch.
+    pub fn checkout_or_create_branch(&self, branch_name: &str) -> Result<()> {
         debug!("Attempting to checkout or create branch: {}", branch_name);
     
-        // Get the current head reference
-        let head = repo.head().wrap_err("Failed to get the head reference")?;
-    
-        // Peel the head to get the commit
-        let commit = head.peel_to_commit().wrap_err("Failed to peel the head to commit")?;
-        debug!("Current commit for head: {:?}", commit.id());
-    
-        // Check if the branch already exists
-        match repo.find_branch(branch_name, BranchType::Local) {
-            Ok(_branch) => {
-                info!("Branch '{}' already exists. Checking it out...", branch_name);
-                // If the branch exists, check it out
-                repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
-                    format!("Failed to set head to branch {}", branch_name)
-                })?;
-                info!("Checked out to existing branch '{}'", branch_name);
-            }
-            Err(_) => {
-                info!("Branch '{}' does not exist. Creating new branch...", branch_name);
-                // If the branch does not exist, create it
-                repo.branch(branch_name, &commit, false).wrap_err_with(|| {
-                    format!("Failed to create branch {}", branch_name)
-                })?;
-                info!("Successfully created new branch '{}'. Now checking it out...", branch_name);
-    
-                // Now check out the newly created branch
-                repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
-                    format!("Failed to set head to new branch {}", branch_name)
-                })?;
-                info!("Checked out to newly created branch '{}'", branch_name);
+        // Lock the repository
+        let repo = self.repo.lock().unwrap();
+
+        // Use the repo within this scope
+        {
+            // Get the current head reference
+            let head = repo.head().wrap_err("Failed to get the head reference")?;
+        
+            // Peel the head to get the commit
+            let commit = head.peel_to_commit().wrap_err("Failed to peel the head to commit")?;
+            debug!("Current commit for head: {:?}", commit.id());
+        
+            // Check if the branch already exists
+            match repo.find_branch(branch_name, BranchType::Local) {
+                Ok(_branch) => {
+                    info!("Branch '{}' already exists. Checking it out...", branch_name);
+                    // If the branch exists, check it out
+                    repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
+                        format!("Failed to set head to branch {}", branch_name)
+                    })?;
+                    info!("Checked out to existing branch '{}'", branch_name);
+                }
+                Err(_) => {
+                    info!("Branch '{}' does not exist. Creating new branch...", branch_name);
+                    // If the branch does not exist, create it
+                    repo.branch(branch_name, &commit, false).wrap_err_with(|| {
+                        format!("Failed to create branch {}", branch_name)
+                    })?;
+                    info!("Successfully created new branch '{}'. Now checking it out...", branch_name);
+        
+                    // Now check out the newly created branch
+                    repo.set_head(&format!("refs/heads/{}", branch_name)).wrap_err_with(|| {
+                        format!("Failed to set head to new branch {}", branch_name)
+                    })?;
+                    info!("Checked out to newly created branch '{}'", branch_name);
+                }
             }
         }
-    
         debug!("Successfully checked out or created branch: {}", branch_name);
         Ok(())
     }
@@ -347,40 +364,40 @@ impl Interface {
         Ok(repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?)
     }
 
-    /// A code level re-implementation of `git push`.
+    /// Pushes commits to a specified branch or all branches if no branch name is provided.
     ///
-    /// Pushes the latest commit on the `master` branch to `origin/master`.
+    /// # Arguments
+    /// - `repo` - A reference to the `Repository` to push to.
+    /// - `repo_url` - The URL of the remote repository.
+    /// - `branch_name` - An optional name of the branch to push to. If `None`, pushes all branches.
+    /// - `token` - The authentication token for the remote repository.
     ///
-    /// `token` is a valid Github auth token.
-    // TODO: stop hardcoding refspec and make it an argument.
-    fn git_push(repo: &Repository, token: &str, repo_url: &str) -> Result<()> {
-        let authenticated_url =
-            repo_url.replace("https://", &format!("https://x-access-token:{token}@"));
-        repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
-        let mut remote = repo.find_remote("origin")?;
-        remote.connect(git2::Direction::Push)?;
-        // Push master here, to master there
-        remote.push(&["refs/heads/master:refs/heads/master"], None)?;
-        remote.disconnect()?;
-        Ok(())
-    }
-
-    /// Pushes the commits to a branch instead of the master branch.
-    pub fn git_push_to_branch(
+    /// # Returns
+    /// A `Result` indicating success or failure.
+    pub fn git_push(
         repo: &Repository,
         repo_url: &str,
-        branch_name: &str,
+        branch_name: Option<&str>,
         token: &str,
     ) -> Result<()> {
         let authenticated_url = repo_url.replace("https://", &format!("https://x-access-token:{token}@"));
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
-        
+
         let mut remote = repo.find_remote("origin")?;
         remote.connect(git2::Direction::Push)?;
-    
-        remote.push(&[&format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name)], None)?;
+
+        match branch_name {
+            Some(branch) => {
+                // Push only the specified branch
+                remote.push(&[&format!("refs/heads/{}:refs/heads/{}", branch, branch)], None)?;
+            },
+            None => {
+                // Push all branches
+                remote.push(&["+refs/heads/*:refs/heads/*"], None)?;
+            }
+        }
+
         remote.disconnect()?;
-        
         Ok(())
     }
 
@@ -391,56 +408,70 @@ impl Interface {
     fn git_pull(repo: &Repository) -> Result<()> {
         // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs
         // TODO: configure branch via environment variables
-        let fetch_head = Self::git_fetch(repo)?;
+        let fetch_head = Self::git_fetch(repo, None)?;
         info!("Successfully fetched latest changes, merging...");
         Self::git_merge(repo, "master", fetch_head)?;
         info!("Successfully merged latest changes");
         Ok(())
     }
 
-    /// A code level re-implementation of `git pull` for a specified branch.
-    /// 
-    /// Under the hood, `git pull` is shorthand for `git fetch`, followed by `git merge FETCH_HEAD`,
-    /// where `FETCH_HEAD` is a reference to the latest commit that has just been fetched from the remote repository.
+   /// Pull the latest changes for a specified branch in the repository.
+    ///
+    /// This function performs a series of operations that mimic the behavior of the `git pull` command:
+    /// 1. **Reset Local Changes**: Discards any local changes in the working directory to ensure that the 
+    ///    repository is in a clean state before pulling new changes.
+    /// 2. **Check Branch Existence**: Verifies whether the specified local branch exists. If it does not,
+    ///    an error is returned.
+    /// 3. **Set Upstream Tracking**: Attempts to set the upstream tracking reference for the specified branch 
+    ///    if it is not already set. This allows the local branch to track changes from the corresponding 
+    ///    remote branch.
+    /// 4. **Fetch Changes**: Retrieves the latest changes from the remote repository for the specified branch.
+    /// 5. **Reset Local Branch**: Resets the local branch to match the state of the upstream branch, effectively 
+    ///    discarding any local commits that are not present in the upstream branch.
+    ///
+    /// # Parameters
+    /// - `branch`: A string slice that represents the name of the local branch to pull changes for.
+    ///
+    /// # Errors
+    /// This function will return an error if any of the following occur:
+    /// - The specified branch does not exist.
+    /// - There are issues with resetting the repository or finding references.
+    /// - Fetching changes from the remote repository fails.
     #[tracing::instrument(skip(self))]
     pub fn git_pull_branch(&self, branch: &str) -> Result<()> {
         // Lock and check the repository
-        let repo = self.lock_and_check_repo()?;
-    
-        // Update the index to ensure it's in sync
-        self.update_index(&repo)?;
-    
-        // Check for uncommitted changes and reset if necessary
-        self.check_and_reset_uncommitted_changes(&repo)?;
-    
-        // Find the local branch
-        let branch_name = {
+        let repo = self.repo.lock().unwrap();
+        
+        debug!("Current repository state: {:?}", repo.state()); //leaving here incase of errors
+
+        // Discard any local changes
+        self.git_reset(&repo)?;
+
+        // Check if the local branch exists
+        let _branch_reference = {
             let branch = repo.find_branch(branch, git2::BranchType::Local)?;
-            branch.name()?.unwrap_or("unknown").to_string()
+            branch.get().peel_to_commit() // Get the commit for the branch
         };
-    
-        // Attempt to set upstream for the branch
-        self.set_branch_upstream(&repo, &branch_name)?;
-    
-        // Fetch and pull changes
-        let fetch_head = Self::git_fetch_branch(&repo, branch_name.as_str())?;
-        info!("Successfully fetched latest changes for branch '{}', merging...", branch_name);
-    
-        // Check for divergence
-        let local_commit = repo.head()?.peel_to_commit()?;
-        let remote_commit = fetch_head.id();
-    
-        if local_commit.id() != remote_commit {
-            // If there are diverged commits, perform a merge
-            info!("Local branch and remote branch have diverged. Performing merge...");
-            Self::git_merge_from_branch(&repo, branch_name.as_str(), fetch_head)?;
-        } else {
-            info!("Local branch is up to date with remote branch.");
-        }
-    
-        // Checkout the latest commit
-        self.checkout_latest_commit(&repo)?;
-    
+
+        // Attempt to set upstream for the branch if it isn't already set
+        self.set_branch_upstream(&repo, branch)?;
+
+        // Fetch changes from the remote for this branch
+        Self::git_fetch(&repo, Some(branch))?;
+        info!("Successfully fetched latest changes for branch '{}'.", branch);
+
+        // Prepare to reset the local branch to match the upstream branch
+        let upstream_ref = format!("refs/remotes/origin/{}", branch);
+
+        // Reset the local branch to match the upstream branch
+        {
+            let upstream_commit = repo.find_reference(&upstream_ref)?.peel_to_commit()?;
+            let upstream_object = upstream_commit.as_object();
+            repo.reset(upstream_object, git2::ResetType::Hard, None)?;
+        } // `repo` will be dropped here after its last use
+
+        info!("Local branch '{}' has been reset to match upstream branch '{}'.", branch, upstream_ref);
+
         Ok(())
     }
 
@@ -451,14 +482,12 @@ impl Interface {
     /// (defaulting to "origin") and sets the upstream to the corresponding remote branch.
     ///
     /// # Arguments
-    ///
-    /// * `repo` - A mutable reference to the `git2::Repository`.
-    /// * `branch_name` - The name of the local branch for which to set the upstream.
+    /// - `repo` - A mutable reference to the `git2::Repository`.
+    /// - `branch_name` - The name of the local branch for which to set the upstream.
     ///
     /// # Errors
-    ///
     /// Returns an error if the upstream branch cannot be set or if the remote branch does not exist.
-    fn set_branch_upstream(&self, repo: &git2::Repository, branch_name: &str) -> Result<(), git2::Error> {
+    fn set_branch_upstream(&self, repo: &git2::Repository, branch_name: &str) -> Result<()> {
         // Get the local branch
         let branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
     
@@ -482,11 +511,8 @@ impl Interface {
     /// branch. If the fetch is successful, the branch will be updated with the latest changes from the remote.
     ///
     /// # Arguments
-    ///
-    /// * `repo` - A reference to the local Git repository.
-    /// * `branch_name` - The name of the branch to fetch from the remote.
-    ///
-    /// # Returns
+    /// - `repo` - A reference to the local Git repository.
+    /// - `branch_name` - The name of the branch to fetch from the remote.
     ///
     /// This function returns a `Result` indicating success or failure. If the fetch operation fails,
     /// it will return a `git2::Error`.
@@ -502,123 +528,88 @@ impl Interface {
     /// of the local branch to the remote branch. The upstream branch is used for tracking remote changes.
     ///
     /// # Arguments
-    ///
-    /// * `repo` - A reference to the local Git repository.
-    /// * `branch_name` - The name of the local branch for which the upstream is being set.
-    /// * `remote_name` - The name of the remote (typically "origin") from which the upstream is being set.
+    /// - `repo` - A reference to the local Git repository.
+    /// - `branch_name` - The name of the local branch for which the upstream is being set.
+    /// - `remote_name` - The name of the remote (typically "origin") from which the upstream is being set.
     ///
     /// # Returns
-    ///
-    /// This function returns a `Result` indicating success or failure. If the remote branch does not exist
-    /// or setting the upstream fails, it will return a `git2::Error`.
-    fn set_upstream_if_exists(&self, repo: &git2::Repository, branch_name: &str, remote_name: &str) -> Result<(), git2::Error> {
+    /// This function returns a `Result` indicating success or failure. 
+    /// If the remote branch does not exist, or if an error occurs while setting the upstream,
+    /// it will return a `color_eyre::eyre::Result`, which contains context about the failure.
+    fn set_upstream_if_exists(
+        &self,
+        repo: &git2::Repository,
+        branch_name: &str,
+        remote_name: &str,
+    ) -> Result<()> {
         let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch_name);
-    
+
         // Check if the remote branch exists
-        match repo.find_reference(&remote_ref) {
-            Ok(remote_branch) => {
-                // Get the shorthand branch name
-                if let Some(remote_branch_name) = remote_branch.shorthand() {
-                    info!("Setting upstream for local branch '{}' to remote '{}'", branch_name, remote_branch_name);
-                    let mut branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
-                    branch.set_upstream(Some(remote_branch_name))?;
-                    info!("Successfully set upstream for branch '{}' to '{}'", branch_name, remote_branch_name);
-                } else {
-                    error!("Failed to get shorthand name for remote branch '{}'", remote_ref);
-                    return Err(git2::Error::from_str("Remote branch shorthand retrieval failed."));
-                }
-            }
-            Err(err) => {
-                error!("Remote branch '{}' not found; cannot set upstream: {:?}", remote_ref, err);
-                return Err(git2::Error::from_str("Remote branch not found."));
-            }
-        }
+        let remote_branch = repo.find_reference(&remote_ref)
+            .context(format!("Remote branch '{}' not found", remote_ref))?;
+
+        // Get the shorthand branch name
+        let remote_branch_name = remote_branch.shorthand()
+            .ok_or_else(|| color_eyre::eyre::eyre!("Failed to get shorthand name for remote branch '{}'", remote_ref))?;
+
+        info!(
+            "Setting upstream for local branch '{}' to remote '{}'",
+            branch_name, remote_branch_name
+        );
+
+        let mut branch = repo.find_branch(branch_name, git2::BranchType::Local)
+            .context("Failed to find local branch")?;
+
+        branch.set_upstream(Some(remote_branch_name))
+            .context("Failed to set upstream")?;
+
+        info!("Successfully set upstream for branch '{}' to '{}'", branch_name, remote_branch_name);
+
         Ok(())
     }
 
-    /// A code level re-implementation of `git fetch`. `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
-    /// merge those changes into `main`.
-    ///
-    /// This implementation fetches all branches.
-    ///
-    /// Returns a reference to the latest commit fetched from remote (`FETCH_HEAD`). This is done if you'd like to merge the remote changes into a local branch.
-    fn git_fetch(repo: &Repository) -> Result<AnnotatedCommit<'_>> {
-        let mut remote = repo.find_remote("origin")?;
-        // "Always fetch all tags."
-        // In Git, a `tag` is just a way to mark specific points in a repository's history. They're typically used for releases, eg `v1.0`.
-        let mut fetch_options = FetchOptions::new();
-        fetch_options.download_tags(git2::AutotagOption::All);
-        // https://git-scm.com/book/en/v2/Git-Internals-The-Refspec
-        remote.fetch(
-            &["+refs/heads/*:refs/remotes/origin/*"],
-            Some(&mut fetch_options),
-            None,
-        )?;
-        drop(remote);
-
-        let fetch_head = repo.find_reference("FETCH_HEAD")?;
-        Ok(repo.reference_to_annotated_commit(&fetch_head)?)
-    }
-
-    /// A code level re-implementation of `git fetch` for a specified branch.
+    /// A code level re-implementation of `git fetch`.
     /// `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
     /// merge those changes into your local branch.
     /// 
-    /// This implementation fetches only the specified branch.
-    /// 
-    /// Returns a reference to the latest commit fetched from remote (`FETCH_HEAD`). This is done if you'd like to merge the remote changes into a local branch.
-    fn git_fetch_branch<'a>(repo: &'a Repository, branch: &'a str) -> Result<AnnotatedCommit<'a>> {
+    /// This implementation can fetch either all branches or a specified branch.
+    ///
+    /// Returns a reference to the latest commit fetched from remote (`FETCH_HEAD`).
+    fn git_fetch<'a>(repo: &'a Repository, branch: Option<&'a str>) -> Result<AnnotatedCommit<'a>> {
         let mut remote = repo.find_remote("origin")?;
-    
+
         let mut fetch_options = FetchOptions::new();
         fetch_options.download_tags(git2::AutotagOption::All);
-    
-        // Fetch only the specified branch
-        remote.fetch(
-            &[&format!("refs/heads/{branch}:refs/remotes/origin/{branch}")],
-            Some(&mut fetch_options),
-            None,
-        )?;
+        
+        match branch {
+            Some(branch_name) => {
+                // Fetch only the specified branch
+                remote.fetch(
+                    &[&format!("refs/heads/{branch_name}:refs/remotes/origin/{branch_name}")],
+                    Some(&mut fetch_options),
+                    None,
+                )?;
+            },
+            None => {
+                // Fetch all branches
+                remote.fetch(
+                    &["+refs/heads/*:refs/remotes/origin/*"],
+                    Some(&mut fetch_options),
+                    None,
+                )?;
+            },
+        }
         drop(remote);
-    
+
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
+        let fetch_head_name = fetch_head.name().unwrap_or("unknown");
+        debug!("Fetched HEAD: {}", fetch_head_name);
         Ok(repo.reference_to_annotated_commit(&fetch_head)?)
     }
 
     /// A code level re-implementation of `git merge`. It accepts a [`git2::AnnotatedCommit`]. The interface
     /// is specifically written as the second half of `git pull`, so it would probably need to be modified to support
-    /// more than that.
     fn git_merge(
-        repo: &Repository,
-        remote_branch: &str,
-        fetch_commit: AnnotatedCommit<'_>,
-    ) -> Result<()> {
-        // First perform a merge analysis, this is done so that we know whether or not to fast forward
-        let analysis = repo.merge_analysis(&[&fetch_commit])?;
-
-        // Then select the appropriate merge, either a fast forward or a normal merge
-        if analysis.0.is_fast_forward() {
-            debug!("Performing fast forward merge");
-            let refname = format!("refs/heads/{}", remote_branch);
-            // This code will return early with an error if pulling into an empty repository.
-            // That *should* never happen, so that handling was omitted, but if it's needed,
-            // an example can be found at:
-            // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs#L160
-            let mut reference = repo.find_reference(&refname)?;
-            Self::fast_forward(repo, &mut reference, &fetch_commit)?;
-        } else if analysis.0.is_normal() {
-            debug!("Performing normal merge");
-            let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
-            Self::normal_merge(repo, &fetch_commit, &head_commit)?;
-        } else {
-            debug!("No work needed to merge");
-        }
-        Ok(())
-    }
-
-    /// A code level re-implementation of `git merge` for a specified remote branch.
-    /// This function handles the merge process for pulling changes specifically from the given branch.
-    fn git_merge_from_branch(
         repo: &Repository,
         remote_branch: &str,
         fetch_commit: AnnotatedCommit<'_>,
@@ -725,105 +716,41 @@ impl Interface {
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))
     }
 
-    /// Checks out the latest commit in the specified repository.
-    ///
-    /// This function retrieves the most recent commit from the repository's head and performs a 
-    /// checkout to that commit. It ensures that the working directory reflects the state of the 
-    /// latest commit in the current branch. If the checkout operation fails, an error will be 
-    /// returned.
-    ///
-    /// # Arguments
-    /// * `repo` - A reference to the `git2::Repository` from which the latest commit is retrieved.
-    ///
-    /// # Errors
-    /// Returns an error if the repository cannot be accessed, if the commit cannot be found, or 
-    /// if the checkout operation fails.
-    fn checkout_latest_commit(&self, repo: &Repository) -> Result<()> {
-        // Reuse find_last_commit here as well
-        let head_commit = Self::find_last_commit(repo)?;
-        let mut checkout_builder = CheckoutBuilder::new();
-        checkout_builder.force();
-        repo.checkout_tree(head_commit.as_object(), Some(&mut checkout_builder))?;
-        info!("Checked out to the latest commit.");
-        
-        Ok(())
-    }
-
-    /// Provides a mutable reference to the locked repository.
-    ///
-    /// This function locks the repository and returns a `MutexGuard`, allowing 
-    /// access to the repository for operations that modify its state. 
-    ///
-    /// # Panics
-    /// This function will panic if the lock cannot be acquired.
-    pub fn get_repo(&self) -> std::sync::MutexGuard<'_, Repository> {
-        self.repo.lock().unwrap()
-    }
-
-    /// Locks the repository and checks its validity.
-    ///
-    /// This function ensures that the repository is not bare and is initialized correctly.
-    ///
-    /// # Errors
-    /// Returns an error if the repository is not initialized correctly.
-    fn lock_and_check_repo(&self) -> Result<std::sync::MutexGuard<'_, git2::Repository>> {
-        let repo = self.repo.lock().unwrap();
-        debug!("Repository path: {:?}", repo.path());
-    
-        if repo.is_bare() {
-            info!("Repository is not initialized correctly, aborting operation.");
-            bail!("Repository is not initialized correctly");
-        }
-    
-        Ok(repo)
-    }
-
-    /// Updates the repository index to ensure it is in sync.
-    ///
-    /// This function adds all changes in the working directory to the index. 
-    /// It ensures that the index is updated before performing any pull operations.
-    ///
-    /// # Errors
-    /// This function will return an error if updating the index fails.
-    fn update_index(&self, repo: &git2::Repository) -> Result<()> {
-        let mut index = repo.index()?;
-        index.add_all(std::iter::once(&"*"), git2::IndexAddOption::DEFAULT, None)?;
-        
-        Ok(())
-    }
-
-    /// Checks for uncommitted changes in the repository and resets if found.
-    ///
+    /// Resets the working directory to the last committed state, discarding any uncommitted changes.
+    /// 
     /// This function checks the status of the repository and, if any uncommitted 
-    /// changes are detected, it discards those changes by checking out the last 
-    /// committed state. This ensures that the working directory is clean before 
-    /// pulling changes from the remote.
-    ///
+    /// changes are detected, it resets the working directory to the last committed state. 
+    /// This ensures that the working directory is clean before pulling changes from the remote.
+    /// 
+    /// This function is equivalent to running `git reset --hard`.
+    /// 
     /// # Errors
     /// This function will return an error if retrieving the status fails or if 
     /// checking out the head fails.
-    fn check_and_reset_uncommitted_changes(&self, repo: &git2::Repository) -> Result<()> {
+    fn git_reset(&self, repo: &git2::Repository) -> Result<()> {
         // Get the current status of the repository
         let status = repo.statuses(None)?;
-        
+
         // Log the status of each file
         for entry in status.iter() {
             debug!("File: {:?}, Status: {:?}", entry.path(), entry.status());
         }
-    
+
         // Check for uncommitted changes
         if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
             info!("Uncommitted changes found. Discarding changes before pulling.");
-            
+
             // Create a checkout builder to discard changes
             let mut checkout_builder = CheckoutBuilder::new();
             checkout_builder.force();
-            
+
             // Checkout HEAD to discard uncommitted changes
-            repo.checkout_head(Some(&mut checkout_builder))?;
+            repo.checkout_head(Some(&mut checkout_builder))
+                .wrap_err("Failed to checkout HEAD and discard uncommitted changes")?;
             info!("Discarded uncommitted changes and reset to the last commit.");
         }
-    
+
         Ok(())
     }
+
 }

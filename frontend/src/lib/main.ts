@@ -15,19 +15,9 @@ export const me: Writable<User> = writable({
 	permissions: []
 });
 
-/**
- * New store for branch name
- */
 export const branchName: Writable<string> = writable('Set Branch'); // Default branch name
-/**
- * New store for the tree
- */
 export const documentTreeStore = writable<INode>({
 	name: '',
 	children: []
 });
-
-/**
- * New store for the page
- */
 export const editorText = writable<string>('');
