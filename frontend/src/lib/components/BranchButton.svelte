@@ -152,10 +152,10 @@
 
 		if (!nonProtectedBranches.some((branch) => branch.name === input)) {
 			addToast({
-				message: `Changed branch name to "${input}".`,
+				message: `Now working on a new branch: "${input}".`,
 				type: ToastType.Success,
 				dismissible: true,
-				timeout: 1500
+				timeout: 1800
 			});
 			return;
 		}
@@ -253,27 +253,29 @@
 </script>
 
 <div class="branch-dropdown">
-	<button on:click={toggleMenu} class="branch-button" title="Set Branch Name">
+	<button on:click={toggleMenu} class="branch-button">
 		{$currentBranch.length > 100 ? `${$currentBranch.slice(0, 100)}...` : $currentBranch}
 	</button>
 
 	{#if showMenu}
 		<div class="branch-menu">
-			<button class="close-button" on:click={closeMenu} aria-label="Close menu">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					height="1.5rem"
-					viewBox="0 -960 960 960"
-					width="1.5rem"
-					role="none"
-				>
-					<title>Exit</title>
-					<path
-						d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"
-					/></svg
-				>
-			</button>
-			<h4>Select Existing Branch</h4>
+			<div class="branch-menu-header">
+				<h4>Select Existing Branch</h4>
+				<button class="close-button" on:click={closeMenu} aria-label="Close menu">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						height="1.5rem"
+						viewBox="0 -960 960 960"
+						width="1.5rem"
+						role="none"
+					>
+						<title>Exit</title>
+						<path
+							d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"
+						/>
+					</svg>
+				</button>
+			</div>
 			<ul class="branch-list">
 				{#each nonProtectedBranches as branch}
 					<li>
@@ -356,8 +358,17 @@
 		min-width: 225px;
 	}
 
+	.branch-menu-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.5rem;
+	}
+
 	.branch-menu h4 {
 		color: var(--foreground-0);
+		margin: 0;
+		font-size: 1rem;
 	}
 
 	.branch-list {
@@ -382,7 +393,7 @@
 	}
 
 	.branch-option {
-		padding: 0.5rem 1rem;
+		padding: 0.5rem 0.1rem;
 		cursor: pointer;
 		width: 100%;
 		text-align: left;
@@ -395,8 +406,7 @@
 	}
 
 	input {
-		margin-top: 0.5rem;
-		padding: 0.5rem 0.75rem;
+		padding: 0.5rem 0.1rem;
 		border: 1px solid var(--foreground-3);
 		border-radius: 0.3rem;
 		width: calc(100% - 1.5rem);
