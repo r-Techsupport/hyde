@@ -33,12 +33,12 @@ export const me: Writable<User> = writable({
  * The filesystem tree for the document folder
  */
 export const documentTree: Writable<INode> = writable({
-	name: 'Loading...',
+	name: '',
 	children: []
 });
 
 export const assetTree: Writable<INode> = writable({
-	name: 'Loading...',
+	name: '',
 	children: []
 });
 

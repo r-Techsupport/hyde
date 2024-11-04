@@ -31,11 +31,6 @@
 	/** The path to the currently selected assets folder */
 	let assetFolderPath = '';
 
-	let docTree: INode = {
-		name: '',
-		children: []
-	};
-
 	async function documentSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if (get(currentFile) === '' || (await cache.get(get(currentFile))) === editorText) {
@@ -93,8 +88,6 @@
 		// Fetch the document tree
 		const docResponse = await fetch(`${apiAddress}/api/tree/doc`);
 		documentTree.set(await docResponse.json());
-		documentTree.subscribe((t) => (docTree = t));
-		console.log(docTree);
 
 		// Fetch the asset tree
 		const assetResponse = await fetch(`${apiAddress}/api/tree/asset`);
@@ -161,7 +154,7 @@
 		<div class="directory-nav">
 			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->
 			{#if mode === SelectedMode.Documents}
-				<FileNavigation on:fileselect={documentSelectionHandler} {...docTree} />
+				<FileNavigation on:fileselect={documentSelectionHandler} {...$documentTree} />
 			{:else}
 				<!-- Display a button that switches the mode to docs -->
 				<MockDirectory

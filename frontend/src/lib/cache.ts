@@ -21,7 +21,9 @@ class DocumentCache {
 	 */
 	public async get(path: string): Promise<CacheEntry | null> {
 		// Stupid hack fix because I don't want to do a real fix
-		path.replace('docs/', '');
+		if (path.startsWith("docs")) {
+			path = path.replace('docs', '');
+		}
 		const hasKey = this.values.has(path);
 		let entry: CacheEntry;
 		// Re-insert to mark it as most recently accessed
