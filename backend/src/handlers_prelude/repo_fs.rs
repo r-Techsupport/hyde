@@ -67,15 +67,12 @@ pub async fn put_doc_handler(
     headers: HeaderMap,
     Json(body): Json<PutDocRequestBody>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    // Unauthorized means that the client has not identified itself, where as forbidden
-    // means that the client has identified itself, and it does not have the required permissions
     let author = require_perms(
         axum::extract::State(&state),
         headers,
         &[Permission::ManageContent],
     )
     .await?;
-    // let config = Arc::clone(&state.config);
 
     let gh_token = match &state
         .gh_credentials
@@ -280,5 +277,6 @@ pub async fn create_tree_route() -> Router<AppState> {
                 .put(put_asset_handler)
                 .delete(delete_asset_handler),
         )
-        .layer(DefaultBodyLimit::disable())
+        // 256 MiB
+        .layer(DefaultBodyLimit::max((256_u16 * (2_u16.pow(20))).into()))
 }
