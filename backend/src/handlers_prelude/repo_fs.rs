@@ -278,5 +278,5 @@ pub async fn create_tree_route() -> Router<AppState> {
                 .delete(delete_asset_handler),
         )
         // 256 MiB
-        .layer(DefaultBodyLimit::max((256_u16 * (2_u16.pow(20))).into()))
+        .layer(DefaultBodyLimit::max((256_u32 * (2_u32.pow(20))).try_into().unwrap()))
 }
