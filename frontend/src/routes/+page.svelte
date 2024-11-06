@@ -5,7 +5,7 @@
 	import ChangeDialogue from '../lib/components/elements/ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
-	import { apiAddress, assetTree, documentTree, type INode } from '$lib/main';
+	import { apiAddress, assetTree, documentTree } from '$lib/main';
 	import LoadingIcon from '../lib/components/elements/LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from '../lib/components/elements/Toasts.svelte';
