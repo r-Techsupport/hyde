@@ -2,9 +2,10 @@
 
 use color_eyre::eyre::{bail, ContextCompat};
 use color_eyre::{eyre::Context, Result};
-use git2::{AnnotatedCommit, FetchOptions, Oid, Repository, Signature, Status};
+use fs_err as fs;
+use git2::{AnnotatedCommit, FetchOptions, IndexAddOption, Oid, Repository, Signature, Status};
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::{
@@ -13,13 +14,23 @@ use std::{
 };
 use tracing::{debug, info, warn};
 
+/// Interacts with a Jekyll repo's version control and filesystem.
 #[derive(Clone)]
 pub struct Interface {
     repo: Arc<Mutex<Repository>>,
     /// The path to the documents folder, relative to the server executable.
-    /// 
+    ///
     /// EG: `./repo/docs`
     doc_path: PathBuf,
+    /// The path to the assets folder, relative to the server executable.
+    ///
+    /// EG: `./repo/assets`
+    asset_path: PathBuf,
+    /// The remote URL of the repository.
+    ///
+    /// EG `https://github.com/foo/bar`
+    repo_url: String,
+    // TODO: if we move the github token generator here then we can clean up the interface massively
 }
 
 /// This is used for `get_doc_tree`
@@ -36,13 +47,20 @@ impl Interface {
     /// # Errors
     /// This function will return an error if any of the git initialization steps fail, or if
     /// the required environment variables are not set.
-    pub fn new(repo_url: String, repo_path: String, docs_path: String) -> Result<Self> {
-        let mut doc_path = PathBuf::from(&repo_path);
-        doc_path.push(docs_path);
+    pub fn new(
+        repo_url: String,
+        repo_path: String,
+        docs_path: String,
+        assets_path: String,
+    ) -> Result<Self> {
+        let doc_path = PathBuf::from(docs_path);
+        let asset_path = PathBuf::from(assets_path);
         let repo = Self::load_repository(&repo_url, &repo_path)?;
         Ok(Self {
             repo: Arc::new(Mutex::new(repo)),
             doc_path,
+            asset_path,
+            repo_url,
         })
     }
 
@@ -56,17 +74,27 @@ impl Interface {
     /// This function will return an error if filesystem operations fail.
     #[tracing::instrument(skip(self))]
     pub fn get_doc<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<Option<String>> {
-        let mut path_to_doc: PathBuf = PathBuf::from(".");
-        path_to_doc.push(&self.doc_path);
+        let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
         path_to_doc.push(path);
-        if !path_to_doc.exists() {
-            return Ok(None);
-        }
+        let doc = Self::get_file(&path_to_doc)?.map(|v| String::from_utf8(v).unwrap());
+        Ok(doc)
+    }
 
-        let mut file = fs::File::open(path_to_doc)?;
-        let mut s = String::new();
-        file.read_to_string(&mut s)?;
-        Ok(Some(s))
+    /// Return the asset from the provided `path`, where `path` is the
+    /// path to the markdown file relative to the root of the assets folder.
+    ///
+    /// The return type is a little bit messy, but I needed to differentiate between
+    /// "file not found", and "failed to read file"
+    ///
+    /// # Errors
+    /// This function will return an error if filesystem operations fail.
+    #[tracing::instrument(skip(self))]
+    pub fn get_asset<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<Option<Vec<u8>>> {
+        let mut path_to_asset: PathBuf = PathBuf::from(".");
+        path_to_asset.push(&self.asset_path);
+        path_to_asset.push(path);
+        let asset = Self::get_file(&path_to_asset)?;
+        Ok(asset)
     }
 
     /// Read the document folder into a tree-style structure.
@@ -75,88 +103,111 @@ impl Interface {
     /// This function fails if filesystem ops fail (reading file, reading directory)
     #[tracing::instrument(skip(self))]
     pub fn get_doc_tree(&self) -> Result<INode> {
-        fn recurse_tree(dir: &Path, node: &mut INode) -> Result<()> {
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                let entry_name = entry.file_name().to_string_lossy().to_string();
-                // path is a directory, recurse over children
-                if path.is_dir() {
-                    let mut inner_node = INode {
-                        name: entry_name,
-                        children: Vec::new(),
-                    };
-                    recurse_tree(&path, &mut inner_node)?;
-                    node.children.push(inner_node);
-                } else {
-                    // path is a file, add to children
-                    node.children.push(INode {
-                        name: entry_name,
-                        children: Vec::new(),
-                    });
-                }
-            }
-            Ok(())
-        }
-
-        let mut root_node = INode {
-            name: String::from("documents"),
-            children: Vec::new(),
-        };
-
-        recurse_tree(Path::new(&self.doc_path), &mut root_node)?;
-        Ok(root_node)
+        let doc_tree = Self::get_file_tree(&self.doc_path)?;
+        Ok(doc_tree)
     }
 
-    /// Create or overwrite the document at the provided `path` and populate it with the value of `new_doc`.
-    /// `message` will be included in the commit message, and `token` is a valid github auth token.
-    ///
-    /// # Panics
-    /// This function will panic if it's called when the repo mutex is already held by the current thread
+    /// Read the assets folder into a tree-style structure.
     ///
     /// # Errors
-    /// This function will return an error if filesystem operations fail, or if any of the git operations fail
-    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
-    // it creates errors that note the destructor for other values failing because of it (tree)
+    /// This function fails if filesystem ops fail (reading file, reading directory)
+    #[tracing::instrument(skip(self))]
+    pub fn get_asset_tree(&self) -> Result<INode> {
+        let asset_tree = Self::get_file_tree(&self.asset_path)?;
+        Ok(asset_tree)
+    }
+
+    /// Create or overwrite the document at the provided `path`
+    /// and populate it with the value of `new_doc`.`message` will be included in the commit
+    /// message, and `token` is a valid github auth token.
+    ///
+    /// # Arguments
+    /// - `repo_url` - the URL of the remote for the wiki repository
+    /// - `path` - the path of the document to put relative to the documents folder
+    /// - `new_doc` - contents of the new document
+    /// - `message` - textual context associated with the message
+    /// - `token` - github authentication token
+    ///
+    /// # Panics
+    /// This function will panic if it's called when the repo mutex is already held by the current
+    /// thread.
+    ///
+    /// # Errors
+    /// This function will return an error if filesystem operations fail, or if any of the git
+    ///operations fail.
+    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
+    // but when applied, it creates errors that note the destructor for other values failing
+    // because of it (tree)
     #[allow(clippy::significant_drop_tightening)]
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
-        repo_url: &str,
         path: P,
         new_doc: &str,
         message: &str,
         token: &str,
     ) -> Result<()> {
+        // TODO: refactoring hopefully means that all paths can just assume that it's relative to
+        // the root of the repo
         let repo = self.repo.lock().unwrap();
-        let mut path_to_doc: PathBuf = PathBuf::from(".");
-        path_to_doc.push(&self.doc_path);
-        path_to_doc.push(path);
-        // wipe the file
-        let mut file = fs::File::create(path_to_doc).wrap_err_with(|| {
-            format!(
-                "Failed to wipe requested file for rewrite: {:?}",
-                path.as_ref()
-            )
-        })?;
-        // write the new contents in
-        file.write_all(new_doc.as_bytes()).wrap_err_with(|| {
-            format!(
-                "Failed to write new contents into file: {:?}",
-                path.as_ref()
-            )
-        })?;
+        let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
+        path_to_doc.push(path.as_ref());
+        Self::put_file(&path_to_doc, new_doc.as_bytes())?;
         let msg = format!("[Hyde]: {message}");
-        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(&repo_url);
-        // Standard practice is to stage commits by adding them to an index.
-        relative_path.push(path);
-        Self::git_add(&repo, relative_path)?;
+        // Self::git_add(&repo, ".")?;
+        Self::git_add(&repo, ".")?;
+        // Self::git_add(&repo, &path_to_doc)?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, repo_url)?;
+        Self::git_push(&repo, token, &self.repo_url)?;
         info!(
             "Document {:?} edited and pushed to GitHub with message: {message:?}",
+            path.as_ref()
+        );
+        debug!("Commit cleanup completed");
+        Ok(())
+    }
+
+    /// Create or overwrite the asset at the provided `path`
+    /// with `contents`. `message` will be included in the commit
+    /// message, and `token` is a valid github auth token.
+    ///
+    /// # Arguments
+    /// - `path` - the path of the asset to put relative to the assets folder
+    /// - `contents` - A buffer containing the new asset data
+    /// - `message` - textual context included with the git commit message
+    /// - `token` - github authentication token
+    ///
+    /// # Panics
+    /// This function will panic if it's called when the repo mutex is already held by the current
+    /// thread.
+    ///
+    /// # Errors
+    /// This function will return an error if filesystem operations fail, or if any of the git
+    ///operations fail.
+    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
+    // but when applied, it creates errors that note the destructor for other values failing
+    // because of it (tree)
+    #[allow(clippy::significant_drop_tightening)]
+    #[tracing::instrument(skip_all)]
+    pub fn put_asset<P: AsRef<Path> + Copy + std::fmt::Debug>(
+        &self,
+        path: P,
+        contents: &[u8],
+        message: &str,
+        token: &str,
+    ) -> Result<()> {
+        let repo = self.repo.lock().unwrap();
+        let mut path_to_asset: PathBuf = PathBuf::from(&self.asset_path);
+        path_to_asset.push(path.as_ref());
+        Self::put_file(&path_to_asset, contents)?;
+        let msg = format!("[Hyde]: {message}");
+        Self::git_add(&repo, ".")?;
+        let commit_id = Self::git_commit(&repo, msg, None)?;
+        debug!("New commit made with ID: {:?}", commit_id);
+        Self::git_push(&repo, token, &self.repo_url)?;
+        info!(
+            "Asset {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
         );
         debug!("Commit cleanup completed");
@@ -167,37 +218,71 @@ impl Interface {
     /// `message` will be included in the commit message, and `token` is a valid github auth token.
     ///
     /// # Panics
-    /// This function will panic if it's called when the repo mutex is already held by the current thread
+    /// This function will panic if it's called when the repo mutex is already held by the current
+    /// thread.
     ///
     /// # Errors
-    /// This function will return an error if filesystem operations fail, or if any of the git operations fail
-    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop, but when applied,
-    // it creates errors that note the destructor for other values failing because of it (tree)
+    /// This function will return an error if filesystem operations fail, or if any of the git
+    /// operations fail.
+    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
+    // but when applied, it creates errors that note the destructor for other values failing
+    // because of it (tree)
     pub fn delete_doc<P: AsRef<Path> + Copy>(
         &self,
-        doc_path: &str,
-        repo_url: &str,
         path: P,
         message: &str,
         token: &str,
     ) -> Result<()> {
         let repo = self.repo.lock().unwrap();
-        let mut path_to_doc: PathBuf = PathBuf::new();
-        path_to_doc.push(&self.doc_path);
+        let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
         path_to_doc.push(path);
         let msg = format!("[Hyde]: {message}");
-        // Relative to the root of the repo, not the current dir, so typically `./docs` instead of `./repo/docs`
-        let mut relative_path = PathBuf::from(doc_path);
-        // Standard practice is to stage commits by adding them to an index.
-        relative_path.push(path);
-        fs::remove_file(&path_to_doc).wrap_err_with(|| format!("Failed to remove document the document at {path_to_doc:?}"))?;
+        Self::delete_file(&path_to_doc)?;
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, repo_url)?;
+        Self::git_push(&repo, token, &self.repo_url)?;
         drop(repo);
         info!(
             "Document {:?} removed and changes synced to Github with message: {message:?}",
+            path.as_ref()
+        );
+        debug!("Commit cleanup completed");
+        Ok(())
+    }
+
+    /// Delete the document at the specified `path`.
+    /// and `token` is a valid github auth token.
+    ///
+    /// # Panics
+    /// This function will panic if it's called when the repo mutex is already held by the current
+    /// thread.
+    ///
+    /// # Errors
+    /// This function will return an error if filesystem operations fail, or if any of the git
+    /// operations fail.
+    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
+    // but when applied, it creates errors that note the destructor for other values failing
+    // because of it (tree)
+    pub fn delete_asset<P: AsRef<Path> + Copy>(
+        &self,
+        path: P,
+        message: &str,
+        token: &str,
+    ) -> Result<()> {
+        let repo = self.repo.lock().unwrap();
+        let mut path_to_asset: PathBuf = PathBuf::from(&self.asset_path);
+        path_to_asset.push(path);
+        let msg = format!("[Hyde]: {message}");
+        // Standard practice is to stage commits by adding them to an index.
+        Self::delete_file(&path_to_asset)?;
+        Self::git_add(&repo, ".")?;
+        let commit_id = Self::git_commit(&repo, msg, None)?;
+        debug!("New commit made with ID: {:?}", commit_id);
+        Self::git_push(&repo, token, &self.repo_url)?;
+        drop(repo);
+        info!(
+            "Asset {:?} removed and changes synced to Github with message: {message:?}",
             path.as_ref()
         );
         debug!("Commit cleanup completed");
@@ -226,13 +311,13 @@ impl Interface {
 
     /// Completely clone and open a new repository, deleting the old one.
     #[tracing::instrument(skip_all)]
-    pub fn reclone(&self, repo_url: &str) -> Result<()> {
+    pub fn reclone(&self) -> Result<()> {
         // First clone a repo into `repo__tmp`, open that, swap out
         // TODO: nuke `repo__tmp` if it exists already
         let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
         let tmp_path = Path::new("./repo__tmp"); // TODO: Same here?
         info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
-        let tmp_repo = Repository::clone(repo_url, tmp_path)?;
+        let tmp_repo = Repository::clone(&self.repo_url, tmp_path)?;
         info!("Pointing changes to new temp repository");
         let mut lock = self.repo.lock().unwrap();
         *lock = tmp_repo;
@@ -253,40 +338,35 @@ impl Interface {
     }
 
     /// A code level re-implementation of `git add`.
-    #[tracing::instrument(skip(repo))]
+    #[tracing::instrument(skip(repo), err)]
     fn git_add<P: AsRef<Path> + std::fmt::Debug>(repo: &Repository, path: P) -> Result<()> {
         let mut index = repo.index()?;
-        // index.add_path(path.as_ref())?;
         let callback = &mut |path: &Path, _matched_spec: &[u8]| -> i32 {
+            debug!("Processing file: {path:?}");
             let status = repo.status_file(path).unwrap();
             let actions = vec![
                 (Status::WT_DELETED, "deleted"),
                 (Status::WT_MODIFIED, "modified"),
                 (Status::WT_NEW, "added"),
-                (Status::WT_RENAMED, "renamed")
+                (Status::WT_RENAMED, "renamed"),
             ];
 
-           for (action, msg) in actions {
+            for (action, msg) in actions {
                 if status.contains(action) {
                     info!("Index updated, {path:?} will be {msg} in the next commit");
                 }
             }
             0
         };
-
+        // So as far as I can tell, `update_all` doesn't catch
+        // *new* files, so add is called first.
+        info!("Adding everything to the index");
+        index.add_all(["*"], IndexAddOption::DEFAULT, Some(callback))?;
+        info!("Updating the index for {path:?}");
         index.update_all([path.as_ref()], Some(callback))?;
         index.write()?;
         Ok(())
     }
-
-    // /// A code level re-implementation of `git rm`.
-    // fn git_rm<P: AsRef<Path>>(repo: &Repository, path: P) -> Result<()> {
-    //     let mut index = repo.index()?;
-    //     // index.add_path(path.as_ref())?;
-    //     index.remove(path.as_ref(), 1)?;
-    //     index.write()?;
-    //     Ok(())
-    // }
 
     /// A code level re-implementation of `git commit`.
     ///
@@ -328,7 +408,7 @@ impl Interface {
     /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
     ///
     /// Under the hood, `git pull` is shorthand for `git fetch`, followed by `git merge FETCH_HEAD`,
-    /// where`FETCH_HEAD` is a reference to the latest commit that has just been fetched from the remote repository.
+    /// where `FETCH_HEAD` is a reference to the latest commit that has just been fetched from the remote repository.
     fn git_pull(repo: &Repository) -> Result<()> {
         // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs
         // TODO: configure branch via environment variables
@@ -472,3 +552,113 @@ impl Interface {
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))
     }
 }
+
+impl RepoFileSystem for Interface {
+    fn get_file<P: AsRef<Path> + Copy>(path: P) -> Result<Option<Vec<u8>>> {
+        let mut path_to_file: PathBuf = PathBuf::from("./repo");
+        path_to_file.push(path);
+        if !path_to_file.exists() {
+            return Ok(None);
+        }
+
+        let mut file = fs::File::open(path_to_file)?;
+        let mut o: Vec<u8> = Vec::new();
+        file.read_to_end(&mut o)?;
+        Ok(Some(o))
+    }
+
+    #[tracing::instrument(skip(contents))]
+    fn put_file<P: AsRef<Path> + Copy + Debug>(path: P, contents: &[u8]) -> Result<()> {
+        let mut path_to_file: PathBuf = PathBuf::from("./repo");
+        path_to_file.push(path);
+        // wipe the file
+        let mut file = fs::File::create(path_to_file).wrap_err_with(|| {
+            format!(
+                "Failed to wipe requested file for rewrite: {:?}",
+                path.as_ref()
+            )
+        })?;
+        // write the new contents in
+        file.write_all(contents).wrap_err_with(|| {
+            format!(
+                "Failed to write new contents into file: {:?}",
+                path.as_ref()
+            )
+        })?;
+        Ok(())
+    }
+
+    fn delete_file<P: AsRef<Path> + Copy>(path: P) -> Result<()> {
+        let mut path_to_file: PathBuf = PathBuf::from("./repo");
+        path_to_file.push(path);
+        fs::remove_file(&path_to_file)
+            .wrap_err_with(|| format!("Failed to remove the document at {path_to_file:?}"))?;
+        Ok(())
+    }
+
+    fn get_file_tree<P: AsRef<Path> + Copy>(path: P) -> Result<INode> {
+        fn recurse_tree(dir: &Path, node: &mut INode) -> Result<()> {
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                let entry_name = entry.file_name().to_string_lossy().to_string();
+                // path is a directory, recurse over children
+                if path.is_dir() {
+                    let mut inner_node = INode {
+                        name: entry_name,
+                        children: Vec::new(),
+                    };
+                    recurse_tree(&path, &mut inner_node)?;
+                    node.children.push(inner_node);
+                } else {
+                    // path is a file, add to children
+                    node.children.push(INode {
+                        name: entry_name,
+                        children: Vec::new(),
+                    });
+                }
+            }
+            // Sort entries alphabetically
+            node.children.sort_by_cached_key(|e| e.name.clone());
+            Ok(())
+        }
+
+        let mut root_node = INode {
+            name: path
+                .as_ref()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string(),
+            children: Vec::new(),
+        };
+        let mut trunk_path = PathBuf::from("./repo");
+        trunk_path.push(path.as_ref());
+        recurse_tree(&trunk_path, &mut root_node)?;
+        Ok(root_node)
+    }
+}
+
+/// An abstraction over the filesystem for the git repository. Does not implement the version
+/// control side of things
+trait RepoFileSystem {
+    /// Read the file at the provided location, relative to the root of the repo
+    fn get_file<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<Option<Vec<u8>>>;
+
+    /// Create a file at the provided location, or overwrite it if it exists, relative to
+    /// the root of the repo
+    fn put_file<P: AsRef<Path> + Copy + Debug>(path: P, contents: &[u8]) -> Result<()>;
+
+    /// Delete the file at the provided location, relative to the root of the repo
+    fn delete_file<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<()>;
+
+    /// Read the directory at the provided location and create a representation of that dir's
+    /// filesystem tree.
+    fn get_file_tree<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<INode>;
+}
+
+// TODO: Split git code out into a new (hopefully git backend agnostic) trait so that the impl block
+// isn't so massive
+// trait Git {}
+
+// TODO: unit tests for get_inode_path and that sort of thing

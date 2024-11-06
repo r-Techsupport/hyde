@@ -3,10 +3,10 @@
 use chrono::DateTime;
 use color_eyre::eyre::{bail, Context};
 use color_eyre::Result;
+use fs_err as fs;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -151,7 +151,7 @@ async fn get_installation_id(req_client: &Client, client_id: &str) -> Result<Str
 
 /// Generate a new JWT token for use with github api interactions.
 fn gen_jwt_token(client_id: &str) -> Result<String> {
-    let mut private_key_file = File::open("hyde-data/key.pem")
+    let mut private_key_file = fs::File::open("hyde-data/key.pem")
         .wrap_err("Failed to read private key from `hyde-data/key.pem`")?;
     let mut private_key = Vec::new();
     private_key_file.read_to_end(&mut private_key)?;

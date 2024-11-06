@@ -1,7 +1,7 @@
-use axum::http::HeaderMap;
-use axum::Router;
-use axum::routing::get;
 use crate::AppState;
+use axum::http::HeaderMap;
+use axum::routing::get;
+use axum::Router;
 
 /// Tell the browser on the other end to overwrite the access token, effectively logging the user out
 pub async fn get_logout_handler() -> HeaderMap {
