@@ -246,6 +246,48 @@ pub async fn pull_handler(
     }
 }
 
+/// Handler for fetching the current branch of the repository.
+///
+/// This handler interacts with the `git::Interface` from the AppState to fetch the
+/// current branch name of the Git repository. It uses the `get_current_branch` method
+/// to retrieve the branch and returns a response with the branch name.
+///
+/// # Returns
+/// - A `StatusCode::OK` with a JSON response containing the branch name if the request
+///   succeeds.
+/// - A `StatusCode::INTERNAL_SERVER_ERROR` with an error message if the request fails.
+///
+/// # Errors
+/// If there's an issue fetching the current branch (e.g., if the repository is
+/// uninitialized or the git command fails), an internal server error will be returned.
+pub async fn get_current_branch_handler(State(state): State<AppState>) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+    info!("Received request to fetch current branch");
+
+    // Use the git::Interface from AppState to get the current branch
+    match state.git.get_current_branch().await {
+        Ok(branch_name) => {
+            info!("Current branch is: {}", branch_name);
+            
+            // Return the branch name in the response
+            Ok((
+                StatusCode::OK,
+                Json(ApiResponse {
+                    status: "success".to_string(),
+                    message: "Current branch fetched successfully.".to_string(),
+                    data: Some(branch_name),
+                }),
+            ))
+        }
+        Err(err) => {
+            error!("Failed to get current branch: {}", err);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get current branch: {}", err),
+            ))
+        }
+    }
+}
+
 /// Route definitions for GitHub operations
 pub async fn github_routes() -> Router<AppState> {
     Router::new()
@@ -253,4 +295,5 @@ pub async fn github_routes() -> Router<AppState> {
         .route("/pulls", post(create_pull_request_handler))
         .route("/checkout/branches/:branch_name", put(checkout_or_create_branch_handler))
         .route("/pull/:branch", post(pull_handler))
+        .route("/current-branch", get(get_current_branch_handler))
 }

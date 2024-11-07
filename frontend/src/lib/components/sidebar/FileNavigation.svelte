@@ -7,7 +7,7 @@
 	import ConfirmationDialogue from '../elements/ConfirmationDialogue.svelte';
 	import { apiAddress } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
-	import type { INode } from '$lib/main';
+	import type { INode } from '$lib/types';
 	export let name = '';
 	export let children: INode[];
 	export let indent = 1;

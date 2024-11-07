@@ -433,16 +433,24 @@ impl Interface {
         Ok(repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?)
     }
 
-    /// Pushes commits to a specified branch or all branches if no branch name is provided.
+    /// Pushes commits to a specified branch on a remote repository, or pushes all branches if no branch name is provided.
+    ///
+    /// This function mimics the behavior of `git push`, allowing you to push changes from a local repository to a remote repository.
+    /// You can specify a particular branch to push to, or if no branch name is provided, the current branch will be pushed.
+    ///
+    /// The function authenticates using the provided token and pushes the specified branch (or the current branch) to the remote repository.
     ///
     /// # Arguments
-    /// - `repo` - A reference to the `Repository` to push to.
-    /// - `repo_url` - The URL of the remote repository.
-    /// - `branch_name` - An optional name of the branch to push to. If `None`, pushes all branches.
-    /// - `token` - The authentication token for the remote repository.
+    /// - `repo`: A reference to the local `Repository` object from which to push commits.
+    /// - `repo_url`: The URL of the remote repository to push to. This URL must be in the format `https://<hostname>/<user>/<repo>`.
+    /// - `branch_name`: An optional string specifying the name of the branch to push. If `None`, the current branch will be pushed.
+    /// - `token`: The authentication token to use for pushing to the remote repository. This token will be injected into the URL for authentication.
     ///
     /// # Returns
-    /// A `Result` indicating success or failure.
+    /// - `Result<()>`: A `Result` indicating success or failure of the push operation. Returns `Ok(())` on success, or an error if something goes wrong.
+    ///   
+    /// # Errors
+    /// - The function may return errors if the push fails, such as authentication errors, network issues, or problems with the remote repository.
     pub fn git_push(
         repo: &Repository,
         repo_url: &str,
@@ -515,7 +523,7 @@ impl Interface {
         // Lock and check the repository
         let repo = self.repo.lock().unwrap();
         
-        debug!("Current repository state: {:?}", repo.state()); //leaving here incase of errors
+        debug!("Current repository state: {:?}", repo.state());
 
         // Discard any local changes
         self.git_reset(&repo)?;
@@ -641,16 +649,32 @@ impl Interface {
         Ok(())
     }
 
-    /// A code level re-implementation of `git fetch`.
-    /// `git fetch` will sync your local `origin/[BRANCH]` with the remote, but it won't
-    /// merge those changes into your local branch.
-    /// 
-    /// This implementation can fetch either all branches or a specified branch.
+    /// A Rust implementation of `git fetch` that synchronizes the local repository with the remote.
     ///
-    /// Returns a reference to the latest commit fetched from remote (`FETCH_HEAD`).
+    /// This function mimics the behavior of `git fetch`, which fetches changes from a remote repository 
+    /// (typically `origin`) and updates the local references (e.g., `origin/[BRANCH]`), but does not 
+    /// merge those changes into the current working branch.
+    ///
+    /// The function can either fetch all branches from the remote repository or just a specific branch
+    /// if a branch name is provided. It also ensures that tags are fetched automatically along with the branches.
+    ///
+    /// After fetching, the function returns a reference to the latest commit fetched from the remote, 
+    /// corresponding to the `FETCH_HEAD` reference, which points to the fetched commit.
+    ///
+    /// # Parameters
+    /// - `repo`: A reference to the local Git repository (`Repository`) to fetch from.
+    /// - `branch`: An optional string representing the branch name to fetch. If `None`, all branches are fetched.
+    ///
+    /// # Returns
+    /// - `Result<AnnotatedCommit<'a>>`: A result containing the `AnnotatedCommit` representing the latest commit 
+    ///   fetched from the remote. If an error occurs (e.g., network issues, repository errors), the result will be an `Err`.
+    ///   
+    /// # Errors
+    /// - Returns an error if the fetch operation fails, such as if the remote reference cannot be found or if the 
+    ///   `FETCH_HEAD` reference is missing.
     fn git_fetch<'a>(repo: &'a Repository, branch: Option<&'a str>) -> Result<AnnotatedCommit<'a>> {
         let mut remote = repo.find_remote("origin")?;
-
+    
         let mut fetch_options = FetchOptions::new();
         fetch_options.download_tags(git2::AutotagOption::All);
         
@@ -673,15 +697,19 @@ impl Interface {
             },
         }
         drop(remote);
-
+    
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
-        let fetch_head_name = fetch_head.name().unwrap_or("unknown");
+        let fetch_head_name = fetch_head.name().ok_or_else(|| {
+            color_eyre::eyre::eyre!("FETCH_HEAD reference name is missing")
+        })?;
         debug!("Fetched HEAD: {}", fetch_head_name);
+        // Return the annotated commit
         Ok(repo.reference_to_annotated_commit(&fetch_head)?)
     }
 
     /// A code level re-implementation of `git merge`. It accepts a [`git2::AnnotatedCommit`]. The interface
     /// is specifically written as the second half of `git pull`, so it would probably need to be modified to support
+    /// more than that.
     fn git_merge(
         repo: &Repository,
         remote_branch: &str,
@@ -815,7 +843,7 @@ impl Interface {
 
         // Check for uncommitted changes
         if status.iter().any(|s| s.status() != git2::Status::CURRENT) {
-            info!("Uncommitted changes found. Discarding changes before pulling.");
+            warn!("Uncommitted changes found. Discarding changes before pulling.");
 
             // Create a checkout builder to discard changes
             let mut checkout_builder = CheckoutBuilder::new();
@@ -828,6 +856,24 @@ impl Interface {
         }
 
         Ok(())
+    }
+
+    /// Fetches the current branch name from the repository.
+    ///
+    /// This method locks the repository to ensure thread safety and retrieves the current
+    /// branch name by calling Git's `HEAD` reference. If successful, it returns the branch name as a string.
+    ///
+    /// # Returns
+    /// - `Ok(String)`: The name of the current branch if the operation is successful.
+    /// - `Err(String)`: An error message if the operation fails (e.g., if the `HEAD` reference cannot be determined).
+    ///
+    /// # Errors
+    /// - If the repository is unavailable or the `head()` operation fails, an error is returned with a description of the failure.
+    pub async fn get_current_branch(&self) -> Result<String, String> {
+        let repo = self.repo.lock().unwrap();
+        let head = repo.head().map_err(|e| e.to_string())?;
+        let branch_name = head.shorthand().ok_or_else(|| "Could not determine current branch".to_string())?;
+        Ok(branch_name.to_string())
     }
 
 }

@@ -172,22 +172,25 @@ fn gen_jwt_token(client_id: &str) -> Result<String> {
     )?)
 }
 
-/// Extract the repository name from the `REPO_URL` environment variable in the format `<owner>/<repo>`.
-///
-/// The `REPO_URL` must follow the pattern `https://<host>/<owner>/<repo>.git`. This function removes
-/// the `.git` suffix and parses out the owner and repository name from the URL.
-///
+/// Extracts the repository name and owner from a GitHub repository URL in the format `<owner>/<repo>`.
+/// 
+/// This function expects the `repo_url` to be in the format `https://<host>/<owner>/<repo>.git` (e.g., 
+/// `https://github.com/owner/repository.git`). It removes the `.git` suffix and extracts the owner 
+/// and repository name. The result is returned as a string in the format `<owner>/<repo>`.
+/// 
 /// # Parameters
-///  - `repo_url`: A string slice representing the repository URL.
-///
+/// - `repo_url`: A string slice representing the full repository URL (e.g., 
+///   `https://github.com/owner/repository.git`).
+/// 
 /// # Returns
-/// A `Result` with a `String` in the format `<owner>/<repo>`, or an error if the `REPO_URL`
-/// environment variable is not set or does not match the expected format.
-///
+/// A `Result<String>` where:
+/// - `Ok(<owner>/<repo>)`: A string in the format `<owner>/<repo>` representing the repository name and owner.
+/// - `Err(e)`: Returns an error if the `repo_url` is missing the expected format or `.git` suffix.
+/// 
 /// # Errors
 /// Returns an error if:
-/// - The `REPO_URL` environment variable is not set.
-/// - The format of `REPO_URL` is invalid (does not contain an `<owner>/<repo>` structure).
+/// - The URL does not contain both an owner and a repository name (e.g., `https://github.com`).
+/// - The URL does not match the expected pattern (missing or incorrect `.git` suffix).
 pub fn get_repo_name_from_url(repo_url: &str) -> Result<String> {
     // Parse the repository name from the URL
     let repo_path = repo_url

@@ -139,18 +139,21 @@
 	</button>
 	<!-- Pull Request -->
 	<button on:click={createPullRequestHandler} class="pull-request" title="Create Pull Request">
-		<span>Create Pull Request</span>
 		<svg
-			role="button"
-			tabindex="0"
 			xmlns="http://www.w3.org/2000/svg"
-			height="40px"
+			width="25px"
+			height="25px"
 			viewBox="0 0 24 24"
-			width="40px"
+			fill="none"
 		>
-			<title>Create Pull Request</title>
-			<path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm5 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
+			<path
+				fill-rule="evenodd"
+				clip-rule="evenodd"
+				d="M14.7071 2.70711L13.4142 4H14C17.3137 4 20 6.68629 20 10V16.1707C21.1652 16.5825 22 17.6938 22 19C22 20.6569 20.6569 22 19 22C17.3431 22 16 20.6569 16 19C16 17.6938 16.8348 16.5825 18 16.1707V10C18 7.79086 16.2091 6 14 6H13.4142L14.7071 7.29289C15.0976 7.68342 15.0976 8.31658 14.7071 8.70711C14.3166 9.09763 13.6834 9.09763 13.2929 8.70711L10.2929 5.70711C9.90237 5.31658 9.90237 4.68342 10.2929 4.29289L13.2929 1.29289C13.6834 0.902369 14.3166 0.902369 14.7071 1.29289C15.0976 1.68342 15.0976 2.31658 14.7071 2.70711ZM18 19C18 18.4477 18.4477 18 19 18C19.5523 18 20 18.4477 20 19C20 19.5523 19.5523 20 19 20C18.4477 20 18 19.5523 18 19ZM6 4C5.44772 4 5 4.44772 5 5C5 5.55228 5.44772 6 6 6C6.55228 6 7 5.55228 7 5C7 4.44772 6.55228 4 6 4ZM7 7.82929C8.16519 7.41746 9 6.30622 9 5C9 3.34315 7.65685 2 6 2C4.34315 2 3 3.34315 3 5C3 6.30622 3.83481 7.41746 5 7.82929V16.1707C3.83481 16.5825 3 17.6938 3 19C3 20.6569 4.34315 22 6 22C7.65685 22 9 20.6569 9 19C9 17.6938 8.16519 16.5825 7 16.1707V7.82929ZM6 18C5.44772 18 5 18.4477 5 19C5 19.5523 5.44772 20 6 20C6.55228 20 7 19.5523 7 19C7 18.4477 6.55228 18 6 18Z"
+				fill="#000000"
+			/>
 		</svg>
+		<span>Create Pull Request</span>
 	</button>
 </div>
 <div class="editor-panes">
@@ -282,6 +285,21 @@
 
 	.editor-pane:focus {
 		outline-width: 0;
+	}
+
+	.pull-request {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.125rem 0.25rem;
+	}
+
+	.pull-request span {
+		margin-left: 0.25rem;
+	}
+
+	.pull-request svg {
+		margin-top: 0.125rem;
 	}
 
 	.preview-pane {

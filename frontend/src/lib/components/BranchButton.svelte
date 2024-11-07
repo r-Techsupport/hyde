@@ -1,53 +1,49 @@
 <!-- BranchButton.svelte -->
 <script lang="ts">
-	import { branchName, documentTreeStore, currentFile, editorText, apiAddress } from '$lib/main';
-	import { derived, get } from 'svelte/store';
+	import {
+		branchName,
+		documentTree,
+		currentFile,
+		editorText,
+		apiAddress,
+		allBranches
+	} from '$lib/main';
 	import { onMount } from 'svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import { cache } from '$lib/cache';
+	import type { Branch } from '$lib/types';
 
 	let showMenu = false;
-	let protectedBranches: Branch[] = [];
-	let nonProtectedBranches: Branch[] = [];
 	let newBranchName: string = '';
 	let showInput = false;
 
-	const currentBranch = derived(branchName, ($branchName) => $branchName);
-
-	interface Branch {
-		name: string;
-		isProtected: boolean;
-	}
-
 	/**
-	 * Fetches existing branches from the GitHub API.
+	 * Fetches the list of branches from the GitHub API, categorizing them as protected or non-protected.
 	 *
-	 * This asynchronous function sends a GET request to retrieve the list of branches
-	 * from the specified GitHub repository. If the request is successful, it returns
-	 * a promise that resolves to an array containing the branch data. If the request
-	 * fails (e.g., due to network issues, authentication problems, or server errors),
-	 * it returns a promise that rejects with an error object containing details about the failure.
+	 * This asynchronous function sends a GET request to the specified GitHub repository's API endpoint
+	 * to retrieve the branches. The function handles both successful and failed requests:
+	 * - On success, it returns a promise that resolves to an object containing two arrays:
+	 *   - `nonProtectedBranches`: A list of branches that are not protected.
+	 *   - `protectedBranches`: A list of branches that are marked as protected.
+	 * - On failure, it returns an object with empty arrays for both `nonProtectedBranches` and `protectedBranches`.
 	 *
-	 * @returns {Promise<Array>} A promise that resolves to an array of branches on success,
-	 * or rejects with an error object containing details about the failure.
+	 * @returns {Promise<{ nonProtectedBranches: Branch[]; protectedBranches: Branch[]; }>} A promise that resolves to an object with two properties:
+	 * - `nonProtectedBranches`: An array of non-protected branches.
+	 * - `protectedBranches`: An array of protected branches.
+	 * If the request fails, both arrays will be empty.
 	 *
-	 * @throws Will throw an error if the response from the API is not successful. The error object
-	 * will include the status code and any additional error message from the API.
+	 * @throws {Error} Will throw an error if the response from the API is unsuccessful, with details including the status code and error message from the server.
 	 *
 	 * @example
 	 * async function main() {
 	 *   try {
-	 *     const branches = await fetchExistingBranches();
-	 *     console.log('Existing branches:', branches);
+	 *     const { nonProtectedBranches, protectedBranches } = await fetchExistingBranches();
 	 *   } catch (err) {
-	 *     console.error('Failed to fetch branches:', err);
+	 *     console.error('Error fetching branches:', err);
 	 *   }
 	 * }
 	 */
-	async function fetchExistingBranches(): Promise<{
-		nonProtectedBranches: Branch[];
-		protectedBranches: Branch[];
-	}> {
+	async function fetchExistingBranches(): Promise<Branch[]> {
 		const response = await fetch(`${apiAddress}/api/branches`, {
 			method: 'GET',
 			credentials: 'include',
@@ -65,36 +61,41 @@
 				type: ToastType.Error,
 				dismissible: true
 			});
-			return { nonProtectedBranches: [], protectedBranches: [] };
+			return [];
 		}
 
-		// Extract and set the branches if the response is successful
 		const data = await response.json();
-		const branches: string[] = data.data?.branches || [];
-
-		// Map through branches to create Branch objects
-		const nonProtectedBranches: Branch[] = branches
-			.filter((branch: string) => !branch.includes('(protected)'))
-			.map((branch: string) => ({
+		return (
+			data.data?.branches?.map((branch: string) => ({
 				name: branch.split(' (')[0],
-				isProtected: false
-			}));
+				isProtected: branch.includes('(protected)')
+			})) || []
+		);
+	}
 
-		const protectedBranches: Branch[] = branches
-			.filter((branch: string) => branch.includes('(protected)'))
-			.map((branch: string) => ({
-				name: branch.split(' (')[0],
-				isProtected: true
-			}));
+	/**
+	 * Fetches the current branch name from the backend and updates the branchName store.
+	 */
+	async function fetchCurrentBranch() {
+		try {
+			const response = await fetch(`${apiAddress}/api/current-branch`);
 
-		return { nonProtectedBranches, protectedBranches };
+			if (response.ok) {
+				const data = await response.json();
+				const currentBranch = data.data;
+				branchName.set(currentBranch);
+			} else {
+				console.error('Failed to fetch current branch:', response.statusText);
+			}
+		} catch (error) {
+			console.error('Error fetching current branch:', error);
+		}
 	}
 
 	onMount(async () => {
-		const { nonProtectedBranches: fetchedNonProtected, protectedBranches: fetchedProtected } =
-			await fetchExistingBranches();
-		nonProtectedBranches = fetchedNonProtected;
-		protectedBranches = fetchedProtected;
+		fetchCurrentBranch();
+		const branches = await fetchExistingBranches();
+		allBranches.set(branches);
 	});
 
 	async function setBranchName(input: string) {
@@ -133,13 +134,13 @@
 			return;
 		}
 
-		if (protectedBranches.some((branch) => branch.name === input)) {
+		if ($allBranches.some((branch) => branch.name === input && branch.isProtected)) {
 			addToast({
 				message:
-					'Please select an existing branch name from the list of non-protected branches.\n You can also create your own',
+					'Please select an existing branch name from the list of non-protected branches.\nYou can also create your own.',
 				type: ToastType.Warning,
 				dismissible: true,
-				timeout: 1500
+				timeout: 1800
 			});
 			return;
 		}
@@ -149,7 +150,7 @@
 		newBranchName = '';
 		showMenu = false;
 
-		if (!nonProtectedBranches.some((branch) => branch.name === input)) {
+		if (!$allBranches.some((branch) => branch.name === input)) {
 			addToast({
 				message: `Now working on a new branch: "${input}".`,
 				type: ToastType.Success,
@@ -180,36 +181,35 @@
 			credentials: 'include'
 		});
 
-		if (!pullResponse.ok) {
-			addToast({
-				message: `Failed to pull latest changes for branch "${input}".`,
-				type: ToastType.Error,
-				dismissible: true
-			});
-			return;
-		} else {
+		if (pullResponse.ok) {
 			addToast({
 				message: `Branch "${input}" checked out and updated successfully.`,
 				type: ToastType.Success,
 				dismissible: true,
 				timeout: 1200
 			});
+		} else {
+			addToast({
+				message: `Failed to pull latest changes for branch "${input}".`,
+				type: ToastType.Error,
+				dismissible: true
+			});
+			return;
 		}
-
 		// Fetch the updated document tree after pulling changes
-		const treeResponse = await fetch(`${apiAddress}/api/tree`, {
+		const treeResponse = await fetch(`${apiAddress}/api/tree/doc`, {
 			method: 'GET',
 			credentials: 'include'
 		});
 
 		if (treeResponse.ok) {
 			const updatedTree = await treeResponse.json();
-			documentTreeStore.set(updatedTree); // Update the store with the new tree
+			documentTree.set(updatedTree); // Update the store with the new tree
 
 			cache.flush();
 
 			// After updating the tree, check if there's a current file
-			const currentFilePath = get(currentFile);
+			const currentFilePath = $currentFile;
 			if (currentFilePath) {
 				// Fetch the content of the current file
 				const fileContentResponse = await fetch(
@@ -253,13 +253,24 @@
 
 <div class="branch-dropdown">
 	<button on:click={toggleMenu} class="branch-button">
-		{$currentBranch.length > 100 ? `${$currentBranch.slice(0, 100)}...` : $currentBranch}
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			fill="currentColor"
+			width="18px"
+			height="18px"
+			viewBox="0 0 512 512"
+		>
+			<path
+				d="M416,160a64,64,0,1,0-96.27,55.24c-2.29,29.08-20.08,37-75,48.42-17.76,3.68-35.93,7.45-52.71,13.93V151.39a64,64,0,1,0-64,0V360.61a64,64,0,1,0,64.42.24c2.39-18,16-24.33,65.26-34.52,27.43-5.67,55.78-11.54,79.78-26.95,29-18.58,44.53-46.78,46.36-83.89A64,64,0,0,0,416,160ZM160,64a32,32,0,1,1-32,32A32,32,0,0,1,160,64Zm0,384a32,32,0,1,1,32-32A32,32,0,0,1,160,448ZM352,192a32,32,0,1,1,32-32A32,32,0,0,1,352,192Z"
+			/>
+		</svg>
+		{$branchName.length > 100 ? `${$branchName.slice(0, 100)}...` : $branchName}
 	</button>
 
 	{#if showMenu}
 		<div class="branch-menu">
 			<div class="branch-menu-header">
-				<h4>Select Existing Branch</h4>
+				<h4>Select or Create a Branch</h4>
 				<button class="close-button" on:click={closeMenu} aria-label="Close menu">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -276,19 +287,21 @@
 				</button>
 			</div>
 			<ul class="branch-list">
-				{#each nonProtectedBranches as branch}
+				{#each $allBranches.sort((a, b) => a.name.localeCompare(b.name)) as branch}
 					<li>
 						<button
 							class="branch-option"
 							on:click={() => setBranchName(branch.name)}
 							on:keydown={(e) => e.key === 'Enter' && setBranchName(branch.name)}
 							aria-label={`Select branch ${branch.name}`}
+							disabled={branch.isProtected}
+							class:protected={branch.isProtected}
 						>
 							{branch.name}
 						</button>
 					</li>
 				{/each}
-				{#if nonProtectedBranches.length === 0}
+				{#if $allBranches.length === 0}
 					<li>No branches available</li>
 				{/if}
 
@@ -303,7 +316,7 @@
 							}}
 							aria-label="Create new branch"
 						>
-							+
+							+ Create New Branch
 						</button>
 					{:else}
 						<input
@@ -332,15 +345,24 @@
 	}
 
 	.branch-button {
-		position: relative;
-		background-color: var(--background-0);
-		color: var(--foreground-0);
-		border: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+		color: var(--background-5);
 		border-radius: 0.3rem;
 		padding: 0.5rem 1rem;
 		cursor: pointer;
-		font-size: medium;
+		margin: 0 auto;
 		margin-right: 1rem;
+		margin-left: 1rem;
+		font-size: 1.25rem;
+	}
+
+	.branch-button svg {
+		margin-right: 0.25rem;
+		width: 1.5rem;
+		height: 1.5rem;
 	}
 
 	.branch-button:hover {
@@ -374,7 +396,7 @@
 		max-height: 200px;
 		overflow-y: scroll;
 		margin: 0;
-		padding: 0;
+		padding: 0 0 0.25rem;
 		list-style: none;
 	}
 
@@ -383,8 +405,9 @@
 		border: none;
 		cursor: pointer;
 		position: absolute;
-		top: 0.01rem;
-		right: 0.01rem;
+		top: 0.25rem;
+		right: 0.25rem;
+		padding: 0.25rem;
 	}
 
 	.close-button path {
@@ -392,7 +415,7 @@
 	}
 
 	.branch-option {
-		padding: 0.5rem 0.1rem;
+		padding: 0.5rem 0.5rem 0.5rem 1rem;
 		cursor: pointer;
 		width: 100%;
 		text-align: left;
@@ -404,14 +427,21 @@
 		background-color: var(--background-0);
 	}
 
+	.branch-option.protected {
+		color: var(--foreground-3);
+		cursor: not-allowed;
+	}
+
 	input {
 		padding: 0.5rem 0.1rem;
-		border: 1px solid var(--foreground-3);
+		padding-left: 0.5rem;
+		border: 0.1rem solid var(--foreground-3);
 		border-radius: 0.3rem;
 		width: calc(100% - 1.5rem);
 		box-sizing: border-box;
 		background-color: var(--background-0);
 		color: var(--foreground-0);
+		margin: 0.5rem;
 	}
 
 	button {

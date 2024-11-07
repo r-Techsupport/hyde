@@ -35,3 +35,8 @@ export interface INode {
 	name: string;
 	children: INode[];
 }
+
+export interface Branch {
+	name: string;
+	isProtected: boolean;
+}

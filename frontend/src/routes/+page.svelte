@@ -5,12 +5,19 @@
 	import ChangeDialogue from '../lib/components/elements/ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
-	import { apiAddress, assetTree, documentTree } from '$lib/main';
 	import LoadingIcon from '../lib/components/elements/LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from '../lib/components/elements/Toasts.svelte';
-	import { currentFile, me, branchName, documentTreeStore, editorText } from '$lib/main';
-	import { get } from 'svelte/store';
+	import {
+		currentFile,
+		me,
+		branchName,
+		documentTree,
+		editorText,
+		apiAddress,
+		assetTree,
+		allBranches
+	} from '$lib/main';
 	import { onMount, onDestroy } from 'svelte';
 	import { dev } from '$app/environment';
 	import SettingsMenu from '$lib/components/topbar/SettingsMenu.svelte';
@@ -35,33 +42,19 @@
 	let lastKeyPressedTime = Date.now();
 	let rootNode: INode = { name: '', children: [] };
 
-	const unsubscribe = documentTreeStore.subscribe((value) => {
+	const unsubscribe = documentTree.subscribe((value) => {
 		rootNode = value;
 	});
 
 	onMount(async () => {
-		const response = await fetch(`${apiAddress}/api/tree`);
+		const response = await fetch(`${apiAddress}/api/tree/doc`);
 		const fetchedRootNode = await response.json();
-		documentTreeStore.set(fetchedRootNode); // Update the store with the fetched data
+		documentTree.set(fetchedRootNode); // Update the store with the fetched data
 	});
 
 	onDestroy(() => {
 		unsubscribe();
 	});
-
-	/**
-	 * This function is called whenever a key is pressed.
-	 *
-	 * @see https://svelte.dev/repl/162005fa12cc4feb9f668e09260595a7?version=3.24.1
-	 */
-	async function onKeyDown() {
-		lastKeyPressedTime = Date.now();
-		setTimeout(() => {
-			if (lastKeyPressedTime + DEBOUNCE_TIME >= Date.now()) {
-				renderMarkdown($editorText, previewWindow);
-			}
-		}, DEBOUNCE_TIME);
-	}
 
 	let showChangeDialogue: boolean;
 	let showLoadingIcon: boolean;
@@ -92,10 +85,11 @@
 	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
 
-		const currentBranchName = $branchName;
-		if (currentBranchName === 'Set Branch') {
+		const branch = $allBranches.find((b) => b.name === $branchName);
+
+		if (branch && branch.isProtected) {
 			addToast({
-				message: 'Please set a valid branch name before saving changes.',
+				message: `The branch '${$branchName}' is protected and cannot be modified.`,
 				type: ToastType.Warning,
 				dismissible: true
 			});
@@ -113,7 +107,7 @@
 				contents: $editorText,
 				path: $currentFile,
 				commit_message: commitMessage,
-				branch_name: currentBranchName
+				branch_name: $branchName
 			})
 		});
 		showLoadingIcon = false;
