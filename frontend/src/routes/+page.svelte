@@ -18,11 +18,11 @@
 		assetTree,
 		allBranches
 	} from '$lib/main';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
 	import SettingsMenu from '$lib/components/topbar/SettingsMenu.svelte';
 	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
-	import { Permission, type INode } from '$lib/types';
+	import { Permission } from '$lib/types';
 	import DocumentEditor from '$lib/components/editors/DocumentEditor.svelte';
 	import AssetSelector from '$lib/components/sidebar/AssetSelector.svelte';
 	import MockDirectory from '$lib/components/sidebar/MockDirectory.svelte';
@@ -33,27 +33,11 @@
 	// TODO: figure out how to move this out of +page.svelte and into the document editor
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement;
-	/**
-	 * The time in milliseconds that must pass after a keypress
-	 * before markdown is rendered
-	 */
-	const DEBOUNCE_TIME: number = 500;
-
-	let lastKeyPressedTime = Date.now();
-	let rootNode: INode = { name: '', children: [] };
-
-	const unsubscribe = documentTree.subscribe((value) => {
-		rootNode = value;
-	});
 
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree/doc`);
 		const fetchedRootNode = await response.json();
 		documentTree.set(fetchedRootNode); // Update the store with the fetched data
-	});
-
-	onDestroy(() => {
-		unsubscribe();
 	});
 
 	let showChangeDialogue: boolean;
