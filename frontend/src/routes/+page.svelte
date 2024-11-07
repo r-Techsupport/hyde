@@ -15,11 +15,8 @@
 	import { dev } from '$app/environment';
 	import SettingsMenu from '$lib/components/topbar/SettingsMenu.svelte';
 	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
-	import Editor from '$lib/components/Editor.svelte';
-	import { Permission, type INode } from '$lib/types.d';
-
+	import { Permission, type INode } from '$lib/types';
 	import DocumentEditor from '$lib/components/editors/DocumentEditor.svelte';
-	import { Permission } from '$lib/types';
 	import AssetSelector from '$lib/components/sidebar/AssetSelector.svelte';
 	import MockDirectory from '$lib/components/sidebar/MockDirectory.svelte';
 	import { SelectedMode } from '$lib/main';
@@ -27,12 +24,8 @@
 
 	let mode = SelectedMode.Documents;
 	// TODO: figure out how to move this out of +page.svelte and into the document editor
-	/** The text currently displayed in the document editing window */
-	let editorText = '';
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement;
-	/** The width of the sidebar */
-	export let sidebarWidth = '14rem';
 	/**
 	 * The time in milliseconds that must pass after a keypress
 	 * before markdown is rendered
@@ -65,7 +58,7 @@
 		lastKeyPressedTime = Date.now();
 		setTimeout(() => {
 			if (lastKeyPressedTime + DEBOUNCE_TIME >= Date.now()) {
-				renderMarkdown(get(editorText), previewWindow);
+				renderMarkdown($editorText, previewWindow);
 			}
 		}, DEBOUNCE_TIME);
 	}
@@ -80,15 +73,15 @@
 
 	async function documentSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
-		if (get(currentFile) === '' || (await cache.get(get(currentFile))) === get(editorText)) {
+		if ($currentFile === '' || (await cache.get($currentFile)) === $editorText) {
 			showEditor = true;
 			currentFile.set(e.detail.path);
 			editorText.set(
 				(await cache.get(e.detail.path)) ??
 					'Something went wrong, the file tree reported by the backend references a nonexistent file.'
 			);
-			renderMarkdown(get(editorText), previewWindow);
-		} else if (e.detail.path === get(currentFile)) {
+			renderMarkdown($editorText, previewWindow);
+		} else if (e.detail.path === $currentFile) {
 			// Do nothing
 		} else {
 			// Unsaved changes
@@ -99,7 +92,7 @@
 	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
 
-		const currentBranchName = get(branchName);
+		const currentBranchName = $branchName;
 		if (currentBranchName === 'Set Branch') {
 			addToast({
 				message: 'Please set a valid branch name before saving changes.',
@@ -117,8 +110,8 @@
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				contents: get(editorText),
-				path: get(currentFile),
+				contents: $editorText,
+				path: $currentFile,
 				commit_message: commitMessage,
 				branch_name: currentBranchName
 			})
@@ -154,12 +147,6 @@
 		const assetResponse = await fetch(`${apiAddress}/api/tree/asset`);
 		assetTree.set(await assetResponse.json());
 	});
-
-	let showChangeDialogue: boolean;
-	let showLoadingIcon: boolean;
-	let showSettingsMenu: boolean;
-	let adminDashboardDialog: HTMLDialogElement;
-	let showEditor: boolean = false;
 
 	onMount(async () => {
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
@@ -209,9 +196,9 @@
 	});
 
 	let createPullRequestHandler = async (): Promise<void> => {
-		const title = `Pull request for ${get(currentFile)}`;
-		const description = `This pull request contains changes made by ${get(me).username}.`;
-		const headBranch = get(branchName);
+		const title = `Pull request for ${$currentFile}`;
+		const description = `This pull request contains changes made by ${$me.username}.`;
+		const headBranch = $branchName;
 
 		const response = await fetch(`${apiAddress}/api/pulls`, {
 			method: 'POST',
@@ -302,7 +289,7 @@
 		/>
 		{#if mode === SelectedMode.Documents}
 			{#if showEditor && $currentFile !== ''}
-				<DocumentEditor bind:saveChangesHandler bind:editorText bind:previewWindow />
+				<DocumentEditor bind:saveChangesHandler bind:previewWindow bind:createPullRequestHandler />
 			{:else}
 				<span class="nofile-placeholder">
 					<p>

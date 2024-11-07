@@ -1,9 +1,8 @@
 <!-- BranchButton.svelte -->
 <script lang="ts">
-	import { branchName, documentTreeStore, currentFile, editorText } from '$lib/main';
+	import { branchName, documentTreeStore, currentFile, editorText, apiAddress } from '$lib/main';
 	import { derived, get } from 'svelte/store';
 	import { onMount } from 'svelte';
-	import { apiAddress } from '$lib/net';
 	import { ToastType, addToast } from '$lib/toast';
 	import { cache } from '$lib/cache';
 

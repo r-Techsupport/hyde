@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { currentFile } from '$lib/main';
+	import { currentFile, editorText } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
 	import { get } from 'svelte/store';
 	import { cache } from '$lib/cache';
 	import { renderMarkdown } from '$lib/render';
-	export let editorText: string;
 	export let previewWindow: HTMLElement;
 
 	const charCount = 500;
@@ -31,7 +30,7 @@
 		lastKeyPressedTime = Date.now();
 		setTimeout(() => {
 			if (lastKeyPressedTime + DEBOUNCE_TIME >= Date.now()) {
-				renderMarkdown(editorText, previewWindow);
+				renderMarkdown($editorText, previewWindow);
 			}
 		}, DEBOUNCE_TIME);
 	}
@@ -42,7 +41,7 @@
 	 */
 	async function hasChanges(): Promise<boolean> {
 		const storedText = await cache.get(get(currentFile));
-		return editorText !== (storedText ?? '');
+		return $editorText !== (storedText ?? '');
 	}
 
 	async function confirmCommitHandler() {
@@ -66,8 +65,8 @@
 	export let createPullRequestHandler: () => Promise<void>;
 
 	async function cancelChangesHandler() {
-		if (editorText !== get(currentFile)) {
-			editorText =
+		if ($editorText !== get(currentFile)) {
+			$editorText =
 				(await cache.get(get(currentFile))) ??
 				"The current file doesn't exist in cache, please report to the developer";
 			addToast({
@@ -89,7 +88,7 @@
 
 	currentFile.subscribe(async (v) => {
 		if (v !== '') {
-			editorText = (await cache.get(v)) ?? '';
+			$editorText = (await cache.get(v)) ?? '';
 		}
 	});
 
@@ -98,7 +97,7 @@
 			showCommitModal = false;
 		}
 		previousFile = file;
-		editorText = (await cache.get(file)) ?? '';
+		$editorText = (await cache.get(file)) ?? '';
 	});
 
 	onDestroy(() => {
@@ -155,7 +154,7 @@
 	</button>
 </div>
 <div class="editor-panes">
-	<textarea bind:value={editorText} class="editor-pane"></textarea>
+	<textarea bind:value={$editorText} class="editor-pane"></textarea>
 	<div bind:this={previewWindow} class="preview-pane"></div>
 </div>
 

@@ -3,14 +3,6 @@ import type { User, INode } from './types';
 export const currentFile = writable('');
 import { dev } from '$app/environment';
 
-/**
- * A file or directory
- */
-export interface INode {
-	name: string;
-	children: INode[];
-}
-
 /** The type of media currently being edited */
 export enum SelectedMode {
 	Documents,
