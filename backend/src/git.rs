@@ -116,53 +116,6 @@ impl Interface {
         Ok(asset_tree)
     }
 
-    /// Create or overwrite the document at the provided `path`
-    /// and populate it with the value of `new_doc`.`message` will be included in the commit
-    /// message, and `token` is a valid github auth token.
-    ///
-    /// # Arguments
-    /// - `repo_url` - the URL of the remote for the wiki repository
-    /// - `path` - the path of the document to put relative to the documents folder
-    /// - `new_doc` - contents of the new document
-    /// - `message` - textual context associated with the message
-    /// - `token` - github authentication token
-    ///
-    /// # Panics
-    /// This function will panic if it's called when the repo mutex is already held by the current
-    /// thread.
-        fn recurse_tree(dir: &Path, node: &mut INode) -> Result<()> {
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                let entry_name = entry.file_name().to_string_lossy().to_string();
-                // path is a directory, recurse over children
-                if path.is_dir() {
-                    let mut inner_node = INode {
-                        name: entry_name,
-                        children: Vec::new(),
-                    };
-                    recurse_tree(&path, &mut inner_node)?;
-                    node.children.push(inner_node);
-                } else {
-                    // path is a file, add to children
-                    node.children.push(INode {
-                        name: entry_name,
-                        children: Vec::new(),
-                    });
-                }
-            }
-            Ok(())
-        }
-
-        let mut root_node = INode {
-            name: String::from("documents"),
-            children: Vec::new(),
-        };
-
-        recurse_tree(Path::new(&self.doc_path), &mut root_node)?;
-        Ok(root_node)
-    }
-
     /// Create or overwrite the document at the provided `path` and populate it with the value of `new_doc`.
     /// `message` will be included in the commit message, and `branch` specifies which branch to commit to.
     /// `token` is a valid github auth token.
@@ -184,18 +137,18 @@ impl Interface {
         branch: &str,  // Pass the branch name here
     ) -> Result<()> {
         // TODO: refactoring hopefully means that all paths can just assume that it's relative to
+        // Step 1: Checkout or create the branch
+        self.checkout_or_create_branch(branch)?;
         // the root of the repo
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
         path_to_doc.push(path.as_ref());
         Self::put_file(&path_to_doc, new_doc.as_bytes())?;
         let msg = format!("[Hyde]: {message}");
-        // Self::git_add(&repo, ".")?;
         Self::git_add(&repo, ".")?;
-        // Self::git_add(&repo, &path_to_doc)?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, &self.repo_url)?;
+        Self::git_push(&repo, &self.repo_url, Some(branch), token)?;
         info!(
             "Document {:?} edited, committed to branch '{branch}' and pushed to GitHub with message: {message:?}",
             path.as_ref()
@@ -241,7 +194,7 @@ impl Interface {
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, &self.repo_url)?;
+        Self::git_push(&repo, &self.repo_url, None, token)?;
         info!(
             "Asset {:?} edited and pushed to GitHub with message: {message:?}",
             path.as_ref()
@@ -277,7 +230,7 @@ impl Interface {
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, &self.repo_url)?;
+        Self::git_push(&repo, &self.repo_url, None, token)?;
         drop(repo);
         info!(
             "Document {:?} removed and changes synced to Github with message: {message:?}",
@@ -315,7 +268,7 @@ impl Interface {
         Self::git_add(&repo, ".")?;
         let commit_id = Self::git_commit(&repo, msg, None)?;
         debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, token, &self.repo_url)?;
+        Self::git_push(&repo, &self.repo_url, None, token)?;
         drop(repo);
         info!(
             "Asset {:?} removed and changes synced to Github with message: {message:?}",
@@ -508,8 +461,12 @@ impl Interface {
                 remote.push(&[&format!("refs/heads/{}:refs/heads/{}", branch, branch)], None)?;
             },
             None => {
-                // Push all branches
-                remote.push(&["+refs/heads/*:refs/heads/*"], None)?;
+                // Get the current branch name
+                let head = repo.head()?; // Bind to a variable to avoid temporary value being dropped
+                let current_branch = head.shorthand().unwrap_or_default();
+
+                // Push only the current branch
+                remote.push(&[&format!("refs/heads/{}:refs/heads/{}", current_branch, current_branch)], None)?;
             }
         }
 
@@ -737,6 +694,10 @@ impl Interface {
         if analysis.0.is_fast_forward() {
             debug!("Performing fast forward merge from branch '{}'", remote_branch);
             let refname = format!("refs/heads/{}", remote_branch);
+            // This code will return early with an error if pulling into an empty repository.
+            // That *should* never happen, so that handling was omitted, but if it's needed,
+            // an example can be found at:
+            // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs#L160
             let mut reference = repo.find_reference(&refname)?;
             Self::fast_forward(repo, &mut reference, &fetch_commit)?;
         } 

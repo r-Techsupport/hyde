@@ -2,7 +2,7 @@
 	import { me } from '$lib/main';
 	import { onMount } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
-	import BranchButton from './BranchButton.svelte';
+	import BranchButton from '../BranchButton.svelte';
 
 	let username: string = '';
 	let profilePictureUrl = '';

@@ -59,6 +59,7 @@ pub struct PutDocRequestBody {
     contents: String,
     path: String,
     commit_message: String,
+    branch_name: String,
 }
 
 #[debug_handler]
@@ -93,9 +94,12 @@ pub async fn put_doc_handler(
     let default_commit_message = format!("{} updated {}", author.username, body.path);
     let final_commit_message = format!("{}\n\n{}", default_commit_message, body.commit_message);
 
+    // Use the branch name from the request body
+    let branch_name = &body.branch_name;
+
     match state
         .git
-        .put_doc(&body.path, &body.contents, &final_commit_message, &gh_token)
+        .put_doc(&body.path, &body.contents, &final_commit_message, &gh_token, branch_name)
     {
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
