@@ -1,4 +1,8 @@
-import { apiAddress } from './net';
+/**
+ * @file
+ * An LRU cache
+ */
+import { apiAddress } from './main';
 import { editorText } from '$lib/main';
 
 /**
@@ -6,7 +10,7 @@ import { editorText } from '$lib/main';
  */
 type CacheEntry = string;
 
-class AssetCache {
+class DocumentCache {
 	// This will probably need to be updated to add support for non-text
 	// stuff
 	private values: Map<string, CacheEntry> = new Map<string, CacheEntry>();
@@ -17,6 +21,10 @@ class AssetCache {
 	 * @param path The path of the asset to fetch
 	 */
 	public async get(path: string): Promise<CacheEntry | null> {
+		// Stupid hack fix because I don't want to do a real fix
+		if (path.startsWith('docs')) {
+			path = path.replace('docs', '');
+		}
 		const hasKey = this.values.has(path);
 		let entry: CacheEntry;
 		// Re-insert to mark it as most recently accessed
@@ -50,7 +58,8 @@ class AssetCache {
 		// evict the least recently used item if necessary
 		if (this.values.size >= this.maxEntries) {
 			const keyToDelete = this.values.keys().next().value;
-			this.values.delete(keyToDelete);
+			// non-null assertion: We know there's at least one key left because of the above size check
+			this.values.delete(keyToDelete!);
 		}
 
 		this.values.set(path, value);
@@ -75,4 +84,7 @@ class AssetCache {
 	}
 }
 
-export const cache: AssetCache = new AssetCache();
+/**
+ * A transparent caching layer that stores the last few documents accessed locally.
+ */
+export const cache: DocumentCache = new DocumentCache();

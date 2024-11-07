@@ -4,7 +4,7 @@
 	import { addToast, ToastType } from '$lib/toast';
 	import { get } from 'svelte/store';
 	import { cache } from '$lib/cache';
-
+	import { renderMarkdown } from '$lib/render';
 	export let editorText: string;
 	export let previewWindow: HTMLElement;
 
@@ -16,6 +16,30 @@
 
 	let previousFile: string | null = null;
 
+	/**
+	 * The time in milliseconds that must pass after a keypress
+	 * before markdown is rendered
+	 */
+	const DEBOUNCE_TIME: number = 500;
+	let lastKeyPressedTime = Date.now();
+	/**
+	 * This function is called whenever a key is pressed.
+	 *
+	 * @see https://svelte.dev/repl/162005fa12cc4feb9f668e09260595a7?version=3.24.1
+	 */
+	async function onKeyDown() {
+		lastKeyPressedTime = Date.now();
+		setTimeout(() => {
+			if (lastKeyPressedTime + DEBOUNCE_TIME >= Date.now()) {
+				renderMarkdown(editorText, previewWindow);
+			}
+		}, DEBOUNCE_TIME);
+	}
+
+	/**
+	 * Check and see if any changes were made to
+	 * the currently selected document
+	 */
 	async function hasChanges(): Promise<boolean> {
 		const storedText = await cache.get(get(currentFile));
 		return editorText !== (storedText ?? '');
@@ -189,6 +213,8 @@
 		</div>
 	</div>
 {/if}
+
+<svelte:window on:keydown={onKeyDown} />
 
 <style>
 	.editor-controls {

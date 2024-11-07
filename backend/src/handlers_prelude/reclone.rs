@@ -1,5 +1,5 @@
-use axum::{extract::State, http::HeaderMap, Router};
 use axum::routing::post;
+use axum::{extract::State, http::HeaderMap, Router};
 use reqwest::StatusCode;
 
 use crate::{perms::Permission, AppState};
@@ -11,11 +11,10 @@ pub async fn post_reclone_handler(
     headers: HeaderMap,
 ) -> Result<(), (StatusCode, String)> {
     require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
-    state.git.reclone(&state.config.files.repo_url).map_err(eyre_to_axum_err)?;
+    state.git.reclone().map_err(eyre_to_axum_err)?;
     Ok(())
 }
 
 pub async fn create_reclone_route() -> Router<AppState> {
-    Router::new()
-        .route("/reclone", post(post_reclone_handler))
+    Router::new().route("/reclone", post(post_reclone_handler))
 }

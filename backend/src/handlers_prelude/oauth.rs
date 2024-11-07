@@ -154,10 +154,8 @@ async fn get_oath_processor(
         let their_groups = state.db.get_user_groups(admin_user.id).await?;
         // If they don't have the admin group, add it
         if !their_groups.iter().any(|g| g.name == "Admin") {
-            let admin_group = state
-                .db
-                .get_all_groups()
-                .await?
+            let all_groups = state.db.get_all_groups().await?;
+            let admin_group = all_groups
                 .into_iter()
                 .find(|g| g.name == "Admin")
                 .expect("No admin group in database");

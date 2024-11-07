@@ -1,23 +1,34 @@
 <script lang="ts">
-	import SideBar from '$lib/components/SideBar.svelte';
-	import FileNavigation from '$lib/components/FileNavigation.svelte';
-	import TopBar from '$lib/components/TopBar.svelte';
-	import ChangeDialogue from './ChangeDialogue.svelte';
+	import SideBar from '$lib/components/sidebar/SideBar.svelte';
+	import FileNavigation from '$lib/components/sidebar/FileNavigation.svelte';
+	import TopBar from '$lib/components/topbar/TopBar.svelte';
+	import ChangeDialogue from '../lib/components/elements/ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
-	import { apiAddress } from '$lib/net';
-	import LoadingIcon from './LoadingIcon.svelte';
+	import { apiAddress, assetTree, documentTree } from '$lib/main';
+	import LoadingIcon from '../lib/components/elements/LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
-	import Toasts from './Toasts.svelte';
+	import Toasts from '../lib/components/elements/Toasts.svelte';
 	import { currentFile, me, branchName, documentTreeStore, editorText } from '$lib/main';
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { dev } from '$app/environment';
-	import SettingsMenu from '$lib/components/SettingsMenu.svelte';
+	import SettingsMenu from '$lib/components/topbar/SettingsMenu.svelte';
 	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
 	import Editor from '$lib/components/Editor.svelte';
 	import { Permission, type INode } from '$lib/types.d';
 
+	import DocumentEditor from '$lib/components/editors/DocumentEditor.svelte';
+	import { Permission } from '$lib/types';
+	import AssetSelector from '$lib/components/sidebar/AssetSelector.svelte';
+	import MockDirectory from '$lib/components/sidebar/MockDirectory.svelte';
+	import { SelectedMode } from '$lib/main';
+	import AssetEditor from '$lib/components/editors/AssetEditor.svelte';
+
+	let mode = SelectedMode.Documents;
+	// TODO: figure out how to move this out of +page.svelte and into the document editor
+	/** The text currently displayed in the document editing window */
+	let editorText = '';
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement;
 	/** The width of the sidebar */
@@ -64,8 +75,10 @@
 	let showSettingsMenu: boolean;
 	let adminDashboardDialog: HTMLDialogElement;
 	let showEditor: boolean = false;
+	/** The path to the currently selected assets folder */
+	let assetFolderPath = '';
 
-	async function fileSelectionHandler(e: CustomEvent) {
+	async function documentSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if (get(currentFile) === '' || (await cache.get(get(currentFile))) === get(editorText)) {
 			showEditor = true;
@@ -110,30 +123,43 @@
 				branch_name: currentBranchName
 			})
 		});
-
-		if (!response.ok) {
-			const errorMessage = `Failed to sync changes (Code ${response.status}: "${response.statusText}")`;
-			addToast({
-				message: `Error: ${errorMessage}`,
-				type: ToastType.Error,
-				dismissible: true
-			});
-			showLoadingIcon = false; // Ensure loading icon is hidden
-			return; // Exit early on error
-		}
-
-		// If the response is okay, show success toast
-		addToast({
-			message: 'Changes synced successfully.',
-			type: ToastType.Success,
-			dismissible: true,
-			timeout: 3000
-		});
-
-		// Always flush the cache after the operation
+		showLoadingIcon = false;
 		cache.flush();
-		showLoadingIcon = false; // Ensure loading icon is hidden
+		switch (response.status) {
+			case 201:
+				addToast({
+					message: 'Changes synced successfully.',
+					type: ToastType.Success,
+					dismissible: true,
+					timeout: 3000
+				});
+				break;
+			default:
+				addToast({
+					message: `An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
+					type: ToastType.Error,
+					dismissible: true
+				});
+		}
 	};
+	/** The width of the sidebar */
+	export let sidebarWidth = '14rem';
+
+	onMount(async () => {
+		// Fetch the document tree
+		const docResponse = await fetch(`${apiAddress}/api/tree/doc`);
+		documentTree.set(await docResponse.json());
+
+		// Fetch the asset tree
+		const assetResponse = await fetch(`${apiAddress}/api/tree/asset`);
+		assetTree.set(await assetResponse.json());
+	});
+
+	let showChangeDialogue: boolean;
+	let showLoadingIcon: boolean;
+	let showSettingsMenu: boolean;
+	let adminDashboardDialog: HTMLDialogElement;
+	let showEditor: boolean = false;
 
 	onMount(async () => {
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
@@ -238,7 +264,28 @@
 	<Toasts />
 	<SideBar bind:sidebarWidth>
 		<div class="directory-nav">
-			<FileNavigation on:fileselect={fileSelectionHandler} {...rootNode} />
+			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->
+			{#if mode === SelectedMode.Documents}
+				<FileNavigation on:fileselect={documentSelectionHandler} {...$documentTree} />
+			{:else}
+				<!-- Display a button that switches the mode to docs -->
+				<MockDirectory
+					on:click={() => {
+						mode = SelectedMode.Documents;
+					}}
+					label="docs"
+				/>
+			{/if}
+			{#if mode === SelectedMode.Assets}
+				<AssetSelector bind:mode bind:assetFolderPath />
+			{:else}
+				<MockDirectory
+					on:click={() => {
+						mode = SelectedMode.Assets;
+					}}
+					label="assets"
+				/>
+			{/if}
 		</div>
 	</SideBar>
 	<div style="display: flex; flex-direction: column; height: 100vh; width: 100%;">
@@ -253,28 +300,25 @@
 				adminDashboardDialog.showModal();
 			}}
 		/>
-		{#if showEditor && $currentFile !== ''}
-			<Editor
-				bind:saveChangesHandler
-				bind:editorText={$editorText}
-				bind:previewWindow
-				bind:createPullRequestHandler
-			/>
-		{:else}
-			<span class="nofile-placeholder">
-				<p>
-					No file selected, please select a file to start editing. If you're unable to select a
-					file, you might be missing the required permissions.
-				</p>
-			</span>
+		{#if mode === SelectedMode.Documents}
+			{#if showEditor && $currentFile !== ''}
+				<DocumentEditor bind:saveChangesHandler bind:editorText bind:previewWindow />
+			{:else}
+				<span class="nofile-placeholder">
+					<p>
+						No file selected, please select a file to start editing. If you're unable to select a
+						file, you might be missing the required permissions.
+					</p>
+				</span>
+			{/if}
+		{:else if mode === SelectedMode.Assets}
+			<AssetEditor bind:assetFolderPath />
 		{/if}
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
 	<AdminDashboard bind:dialog={adminDashboardDialog} />
 </div>
-
-<svelte:window on:keydown={onKeyDown} />
 
 <style>
 	.container {

@@ -121,3 +121,4 @@ pub async fn create_doc_route() -> Router<AppState> {
         .put(put_doc_handler)
         .delete(delete_doc_handler))
 }
+

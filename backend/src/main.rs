@@ -2,13 +2,13 @@
 // While it would be ideal if this wasn't an issue, we don't have the dev team to do this
 #![allow(clippy::multiple_crate_versions)]
 // A lot of database methods have been preemptively implemented
+mod app_conf;
 #[allow(dead_code)]
 mod db;
 mod gh;
 pub mod git;
 mod handlers_prelude;
 pub mod perms;
-mod app_conf;
 
 use axum::{
     extract::MatchedPath,
@@ -25,9 +25,6 @@ use color_eyre::Result;
 use db::Database;
 use gh::GithubAccessToken;
 use handlers_prelude::*;
-//#[cfg(target_family = "unix")]
-use tracing::{ debug, info, info_span, warn, error };
-// use tracing_subscriber::filter::LevelFilter;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
@@ -36,16 +33,14 @@ use reqwest::{
 use std::env::current_exe;
 use std::sync::Arc;
 use std::time::Duration;
-#[cfg(target_family = "unix")]
-use tokio::signal::unix::{signal, SignalKind};
+use tracing::{debug, info, info_span, warn};
 use tracing::{Level, Span};
-use tracing_subscriber::fmt::format::FmtSpan;
 
+use crate::app_conf::AppConf;
 use tokio::task;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
-use crate::app_conf::AppConf;
 
 /// Global app state passed to handlers by axum
 #[derive(Clone)]
@@ -88,19 +83,26 @@ async fn main() -> Result<()> {
     // Initialize logging
     tracing_subscriber::fmt()
         .with_max_level(cli_args.logging_level)
-        .with_span_events(FmtSpan::CLOSE)
+        .without_time()
         .init();
     debug!("Initialized logging");
 
     if cfg!(debug_assertions) {
-        info!("Server running in development mode, version v{}", env!("CARGO_PKG_VERSION"));
+        info!(
+            "Server running in development mode, version v{}",
+            env!("CARGO_PKG_VERSION")
+        );
     } else {
-        info!("Server running in release mode, version v{}", env!("CARGO_PKG_VERSION"));
+        info!(
+            "Server running in release mode, version v{}",
+            env!("CARGO_PKG_VERSION")
+        );
     }
 
     // Initialize app and config
-    let state: AppState = init_state(&cli_args).await.wrap_err("Failed to initialize app state")?;
-
+    let state: AppState = init_state(&cli_args)
+        .await
+        .wrap_err("Failed to initialize app state")?;
 
     debug!("Initialized app state");
     // https://github.com/r-Techsupport/hyde/issues/27
@@ -108,6 +110,8 @@ async fn main() -> Result<()> {
     // we need to implement our own SIGINT/TERM handlers
     #[cfg(target_family = "unix")]
     {
+        use tokio::signal::unix::{signal, SignalKind};
+        use tracing::error;
         debug!("Unix environment detected, starting custom interrupt handler");
         for sig in [SignalKind::interrupt(), SignalKind::terminate()] {
             task::spawn(async move {
@@ -120,7 +124,6 @@ async fn main() -> Result<()> {
         }
     }
 
-
     start_server(state, cli_args).await?;
     Ok(())
 }
@@ -129,14 +132,17 @@ async fn main() -> Result<()> {
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
     let config: Arc<AppConf> = AppConf::load(&cli_args.cfg);
-    
+
     let repo_url = config.files.repo_url.clone();
     let repo_path = config.files.repo_path.clone();
     let docs_path = config.files.docs_path.clone();
-    
-    let git = task::spawn(async { git::Interface::new(repo_url, repo_path, docs_path)}).await??;
+    let asset_path = config.files.asset_path.clone();
+
+    let git =
+        task::spawn(async { git::Interface::new(repo_url, repo_path, docs_path, asset_path) })
+            .await??;
     let reqwest_client = Client::new();
-    
+
     let oauth = BasicClient::new(
         ClientId::new(config.oauth.discord.client_id.clone()),
         Some(ClientSecret::new(config.oauth.discord.secret.clone())),
@@ -152,7 +158,6 @@ async fn init_state(cli_args: &Args) -> Result<AppState> {
         gh_credentials: GithubAccessToken::new(),
         db: Database::new().await?,
     })
-
 }
 
 async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
@@ -173,7 +178,6 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
         .merge(create_logout_route().await)
         .merge(create_reclone_route().await)
         .merge(create_github_route().await)
-        .merge(create_doc_route().await)
         .merge(create_tree_route().await)
         .merge(github_routes().await);
 
@@ -237,8 +241,6 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
                 }),
         );
 
-    // `localhost` works on macos, but 0.0.0.0 breaks it, but 0.0.0.0 works everywhere but macos and in production
-    // TODO: figure it out
     let address = if cfg!(debug_assertions) {
         format!("localhost:{}", cli_args.port)
     } else {

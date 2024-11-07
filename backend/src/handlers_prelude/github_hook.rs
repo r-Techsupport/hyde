@@ -1,7 +1,7 @@
 //! Github Webhook events are sent here
 
-use axum::{extract::State, http::HeaderMap, Router};
 use axum::routing::post;
+use axum::{extract::State, http::HeaderMap, Router};
 use tracing::{debug, error, info};
 
 use crate::AppState;
