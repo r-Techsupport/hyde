@@ -12,7 +12,7 @@ use std::io::Read;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
-use tracing::{ info, error };
+use tracing::{ info, error, debug };
 
 const GITHUB_API_URL: &str = "https://api.github.com";
 
@@ -247,7 +247,7 @@ pub async fn create_pull_request(
         "body": pr_description,
     });
 
-    info!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
+    debug!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
 
     // Send the pull request creation request to the GitHub API
     let response = reqwest_client
@@ -260,7 +260,10 @@ pub async fn create_pull_request(
 
     // Handle the response based on the status code
     if response.status().is_success() {
-        info!("Pull request created successfully for branch {}", head_branch);
+        info!(
+            "Pull request created to merge {} into {}",
+            head_branch, base_branch
+        );
         
         // Extract the response JSON to get the pull request URL
         let response_json: Value = response.json().await?;

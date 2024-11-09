@@ -371,6 +371,8 @@ impl Interface {
     /// - The current HEAD reference cannot be retrieved.
     /// - The branch cannot be found or created.
     /// - The HEAD cannot be set to the specified branch.
+    #[allow(clippy::significant_drop_tightening)]
+    #[allow(clippy::cognitive_complexity)]
     pub fn checkout_or_create_branch(&self, branch_name: &str) -> Result<()> {
         debug!("Attempting to checkout or create branch: {}", branch_name);
     
@@ -518,6 +520,7 @@ impl Interface {
     /// - The specified branch does not exist.
     /// - There are issues with resetting the repository or finding references.
     /// - Fetching changes from the remote repository fails.
+    #[allow(clippy::significant_drop_tightening)]
     #[tracing::instrument(skip(self))]
     pub fn git_pull_branch(&self, branch: &str) -> Result<()> {
         // Lock and check the repository
@@ -869,6 +872,7 @@ impl Interface {
     ///
     /// # Errors
     /// - If the repository is unavailable or the `head()` operation fails, an error is returned with a description of the failure.
+    #[allow(clippy::significant_drop_tightening)]
     pub async fn get_current_branch(&self) -> Result<String, String> {
         let repo = self.repo.lock().unwrap();
         let head = repo.head().map_err(|e| e.to_string())?;

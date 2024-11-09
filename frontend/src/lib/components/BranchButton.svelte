@@ -12,10 +12,12 @@
 	import { ToastType, addToast } from '$lib/toast';
 	import { cache } from '$lib/cache';
 	import type { Branch } from '$lib/types';
+	import LoadingIcon from './elements/LoadingIcon.svelte';
 
 	let showMenu = false;
 	let newBranchName: string = '';
 	let showInput = false;
+	let showLoadingIcon: boolean;
 
 	/**
 	 * Fetches the list of branches from the GitHub API, categorizing them as protected or non-protected.
@@ -69,7 +71,7 @@
 			data.data?.branches?.map((branch: string) => ({
 				name: branch.split(' (')[0],
 				isProtected: branch.includes('(protected)')
-			})) || []
+			})) ?? []
 		);
 	}
 
@@ -145,6 +147,8 @@
 			return;
 		}
 
+		showLoadingIcon = true;
+
 		// Set branch name and reset state
 		branchName.set(input);
 		newBranchName = '';
@@ -157,6 +161,7 @@
 				dismissible: true,
 				timeout: 1800
 			});
+			showLoadingIcon = false;
 			return;
 		}
 
@@ -172,6 +177,7 @@
 				type: ToastType.Error,
 				dismissible: true
 			});
+			showLoadingIcon = false;
 			return;
 		}
 
@@ -194,6 +200,7 @@
 				type: ToastType.Error,
 				dismissible: true
 			});
+			showLoadingIcon = false;
 			return;
 		}
 		// Fetch the updated document tree after pulling changes
@@ -239,6 +246,7 @@
 				treeResponse.statusText
 			);
 		}
+		showLoadingIcon = false;
 	}
 
 	function toggleMenu() {
@@ -337,6 +345,7 @@
 			</ul>
 		</div>
 	{/if}
+	<LoadingIcon bind:visible={showLoadingIcon} />
 </div>
 
 <style>
