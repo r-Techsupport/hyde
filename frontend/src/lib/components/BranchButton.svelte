@@ -345,8 +345,8 @@
 			</ul>
 		</div>
 	{/if}
-	<LoadingIcon bind:visible={showLoadingIcon} />
 </div>
+<LoadingIcon bind:visible={showLoadingIcon} />
 
 <style>
 	.branch-dropdown {
