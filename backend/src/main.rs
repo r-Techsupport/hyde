@@ -178,7 +178,8 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
         .merge(create_logout_route().await)
         .merge(create_reclone_route().await)
         .merge(create_github_route().await)
-        .merge(create_tree_route().await);
+        .merge(create_tree_route().await)
+        .merge(github_routes().await);
 
     let app = Router::new()
         .nest("/api", api_routes)

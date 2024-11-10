@@ -2,6 +2,7 @@
 	import { me } from '$lib/main';
 	import { onMount } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
+	import BranchButton from '../BranchButton.svelte';
 
 	let username: string = '';
 	let profilePictureUrl = '';
@@ -29,6 +30,7 @@
 </script>
 
 <div class="top-bar">
+	<BranchButton />
 	<div
 		on:click={settingsClickHandler}
 		on:keydown={settingsClickHandler}
@@ -52,7 +54,7 @@
 		display: flex;
 		background-color: var(--background-2);
 		height: 4rem;
-		justify-content: right;
+		justify-content: space-between;
 		align-items: center;
 		width: 100%;
 	}

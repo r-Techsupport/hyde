@@ -1,15 +1,7 @@
 import { writable, type Writable } from 'svelte/store';
-import type { User } from './types';
+import type { User, INode, Branch } from './types';
 export const currentFile = writable('');
 import { dev } from '$app/environment';
-
-/**
- * A file or directory
- */
-export interface INode {
-	name: string;
-	children: INode[];
-}
 
 /** The type of media currently being edited */
 export enum SelectedMode {
@@ -28,6 +20,10 @@ export const me: Writable<User> = writable({
 	groups: [],
 	permissions: []
 });
+
+export const branchName: Writable<string> = writable('Set Branch'); // Default branch name
+export const allBranches = writable<Branch[]>([]);
+export const editorText = writable<string>('');
 
 /**
  * The filesystem tree for the document folder

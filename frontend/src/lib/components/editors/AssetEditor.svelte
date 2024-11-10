@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { INode } from '$lib/main';
+	import type { INode } from '$lib/types';
 	import { apiAddress, assetTree } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
 	import { tick } from 'svelte';

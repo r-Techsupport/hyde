@@ -3,6 +3,7 @@
  * An LRU cache
  */
 import { apiAddress } from './main';
+import { editorText } from '$lib/main';
 
 /**
  * The the type of the value stored in the cache
@@ -40,6 +41,7 @@ class DocumentCache {
 		if (response.status === 200) {
 			const value = (await response.json()).contents;
 			this.set(path, value);
+			editorText.set(value);
 			return value;
 		}
 

@@ -5,18 +5,25 @@
 	import ChangeDialogue from '../lib/components/elements/ChangeDialogue.svelte';
 	import { renderMarkdown } from '$lib/render';
 	import { cache } from '$lib/cache';
-	import { apiAddress, assetTree, documentTree } from '$lib/main';
 	import LoadingIcon from '../lib/components/elements/LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from '../lib/components/elements/Toasts.svelte';
-	import { currentFile, me } from '$lib/main';
-	import { get } from 'svelte/store';
+	import {
+		currentFile,
+		me,
+		branchName,
+		documentTree,
+		editorText,
+		apiAddress,
+		assetTree,
+		allBranches
+	} from '$lib/main';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
 	import SettingsMenu from '$lib/components/topbar/SettingsMenu.svelte';
 	import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
-	import DocumentEditor from '$lib/components/editors/DocumentEditor.svelte';
 	import { Permission } from '$lib/types';
+	import DocumentEditor from '$lib/components/editors/DocumentEditor.svelte';
 	import AssetSelector from '$lib/components/sidebar/AssetSelector.svelte';
 	import MockDirectory from '$lib/components/sidebar/MockDirectory.svelte';
 	import { SelectedMode } from '$lib/main';
@@ -24,23 +31,34 @@
 
 	let mode = SelectedMode.Documents;
 	// TODO: figure out how to move this out of +page.svelte and into the document editor
-	/** The text currently displayed in the document editing window */
-	let editorText = '';
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement;
+
+	onMount(async () => {
+		const response = await fetch(`${apiAddress}/api/tree/doc`);
+		const fetchedRootNode = await response.json();
+		documentTree.set(fetchedRootNode); // Update the store with the fetched data
+	});
+
+	let showChangeDialogue: boolean;
+	let showLoadingIcon: boolean;
+	let showSettingsMenu: boolean;
+	let adminDashboardDialog: HTMLDialogElement;
+	let showEditor: boolean = false;
 	/** The path to the currently selected assets folder */
 	let assetFolderPath = '';
 
 	async function documentSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
-		if (get(currentFile) === '' || (await cache.get(get(currentFile))) === editorText) {
+		if ($currentFile === '' || (await cache.get($currentFile)) === $editorText) {
 			showEditor = true;
 			currentFile.set(e.detail.path);
-			editorText =
+			editorText.set(
 				(await cache.get(e.detail.path)) ??
-				'Something went wrong, the file tree reported by the backend references a nonexistent file.';
-			renderMarkdown(editorText, previewWindow);
-		} else if (e.detail.path === get(currentFile)) {
+					'Something went wrong, the file tree reported by the backend references a nonexistent file.'
+			);
+			renderMarkdown($editorText, previewWindow);
+		} else if (e.detail.path === $currentFile) {
 			// Do nothing
 		} else {
 			// Unsaved changes
@@ -50,16 +68,30 @@
 
 	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
-		let response = await fetch(`${apiAddress}/api/doc`, {
+
+		const branch = $allBranches.find((b) => b.name === $branchName);
+
+		if (branch && branch.isProtected) {
+			addToast({
+				message: `The branch '${$branchName}' is protected and cannot be modified.`,
+				type: ToastType.Warning,
+				dismissible: true
+			});
+			showLoadingIcon = false; // Ensure loading icon is hidden
+			return;
+		}
+
+		const response = await fetch(`${apiAddress}/api/doc`, {
 			method: 'PUT',
 			credentials: 'include',
 			headers: {
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				contents: editorText,
-				path: get(currentFile),
-				commit_message: commitMessage
+				contents: $editorText,
+				path: $currentFile,
+				commit_message: commitMessage,
+				branch_name: $branchName
 			})
 		});
 		showLoadingIcon = false;
@@ -93,12 +125,6 @@
 		const assetResponse = await fetch(`${apiAddress}/api/tree/asset`);
 		assetTree.set(await assetResponse.json());
 	});
-
-	let showChangeDialogue: boolean;
-	let showLoadingIcon: boolean;
-	let showSettingsMenu: boolean;
-	let adminDashboardDialog: HTMLDialogElement;
-	let showEditor: boolean = false;
 
 	onMount(async () => {
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
@@ -146,6 +172,57 @@
 			}
 		});
 	});
+
+	let createPullRequestHandler = async (): Promise<void> => {
+		const title = `Pull request for ${$currentFile}`;
+		const description = `This pull request contains changes made by ${$me.username}.`;
+		const headBranch = $branchName;
+
+		const response = await fetch(`${apiAddress}/api/pulls`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				head_branch: headBranch,
+				base_branch: 'master',
+				title: title,
+				description: description
+			})
+		});
+
+		// Handle the response
+		if (!response.ok) {
+			const errorMessage = `Failed to create pull request (Code ${response.status}: "${response.statusText}")`;
+			addToast({
+				message: `Error: ${errorMessage}`,
+				type: ToastType.Error,
+				dismissible: true
+			});
+			return; // Exit the function early on error
+		}
+
+		// Parse the JSON response to get the pull request URL
+		const jsonResponse = await response.json();
+		const pullRequestUrl = jsonResponse.data?.pull_request_url; // Adjusted based on API response
+
+		if (pullRequestUrl) {
+			// If successful, show success toast with the URL
+			addToast({
+				message: `Pull request created successfully. View it [here](${pullRequestUrl}).`,
+				type: ToastType.Success,
+				dismissible: true
+			});
+		} else {
+			// Handle the case where the URL is not present (if needed)
+			addToast({
+				message: 'Pull request created successfully, but the URL is not available.',
+				type: ToastType.Warning,
+				dismissible: true
+			});
+		}
+	};
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
@@ -190,7 +267,7 @@
 		/>
 		{#if mode === SelectedMode.Documents}
 			{#if showEditor && $currentFile !== ''}
-				<DocumentEditor bind:saveChangesHandler bind:editorText bind:previewWindow />
+				<DocumentEditor bind:saveChangesHandler bind:previewWindow bind:createPullRequestHandler />
 			{:else}
 				<span class="nofile-placeholder">
 					<p>

@@ -10,6 +10,7 @@ Follow the [Github Documentation](https://docs.github.com/en/apps/creating-githu
 ### Repository Permissions Required
  - Metadata: Read only
  - Contents: Read and write
+ - Pull requests: Read and write
 
 ### Webhook URL
 Under the Webhook header,
