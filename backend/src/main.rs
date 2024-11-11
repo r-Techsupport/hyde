@@ -70,7 +70,7 @@ struct Args {
         short = 'c',
         long = "config",
         help = "Pass your own .toml config file to Hyde.",
-        default_value_t = String::from("hyde-data/default.toml"),
+        default_value_t = String::from("hyde-data/"),
     )]
     cfg: String,
 }
@@ -131,7 +131,7 @@ async fn main() -> Result<()> {
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
-    let config: Arc<AppConf> = AppConf::load(&cli_args.cfg);
+    let config: Arc<AppConf> = AppConf::load(&cli_args.cfg)?;
 
     let repo_url = config.files.repo_url.clone();
     let repo_path = config.files.repo_path.clone();
