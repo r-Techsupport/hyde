@@ -127,7 +127,7 @@ impl AppConf {
 fn locate_config_file<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<Option<PathBuf>> {
     info!("Searching directory {path:?} for a config file");
     // Search the directory for a toml file
-    let dir = fs::read_dir(path).expect("Failed to read path");
+    let dir = fs::read_dir(path)?;
     for entry in dir {
         let entry = entry?;
         if entry.path().extension() == Some(OsStr::new("toml")) {
