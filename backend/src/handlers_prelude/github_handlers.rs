@@ -4,9 +4,9 @@ use axum::{
     Json, Router,
 };
 use axum::routing::{get, post, put};
-use tracing::{error,info};
+use tracing::{error, info};
 use serde::{Serialize, Deserialize};
-use crate::gh::{get_all_branch_details, create_pull_request};
+use crate::gh::GitHubClient;
 use crate::handlers_prelude::eyre_to_axum_err;
 use crate::AppState;
 use color_eyre::Result;
@@ -47,23 +47,6 @@ pub struct CreatePRRequest {
 }
 
 /// Retrieves the GitHub access token from the application state.
-///
-/// This asynchronous function accesses the application state to fetch
-/// the GitHub access token using the provided HTTP client. If the token
-/// retrieval fails, it returns an error with a corresponding HTTP status code
-/// and a descriptive error message.
-///
-/// # Parameters
-/// - `state`: A reference to the `AppState`, which contains the necessary
-///   credentials and the HTTP client for making the request.
-///
-/// # Returns
-/// - On success, returns a `Result` containing the GitHub access token as a `String`.
-/// - On failure, returns a tuple containing the appropriate `StatusCode` and an error message.
-///
-/// # Errors
-/// This function can fail if there are issues with the credentials store
-/// or if the token cannot be retrieved for any reason.
 async fn get_github_token(state: &AppState) -> Result<String, (StatusCode, String)> {
     state.gh_credentials.get(&state.reqwest_client, &state.config.oauth.github.client_id).await.map_err(|err| {
         eyre_to_axum_err(err)
@@ -71,42 +54,38 @@ async fn get_github_token(state: &AppState) -> Result<String, (StatusCode, Strin
 }
 
 /// Fetches the list of branches from a GitHub repository.
-/// 
-/// This function interacts with the GitHub API to retrieve all branches
-/// for a specific repository. It requires an access token for authentication.
-/// 
-/// # Parameters
-/// - `State(state)`: The application state containing configuration and HTTP client information.
-/// 
-/// # Returns
-/// - On success, returns a `Result` containing a tuple of `(StatusCode, Json<ApiResponse<BranchesData>>)`.
-/// - On failure, returns an error that may vary in type, indicating what went wrong during the API request.
-/// 
-/// # Errors
-/// This function can fail due to network issues, invalid tokens, or other API-related errors.
 pub async fn list_branches_handler(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<ApiResponse<BranchesData>>), (StatusCode, String)> {
     info!("Received request to fetch branches");
 
     // Get the GitHub access token
-    let token = get_github_token(&state).await?;
-
-    // Fetch the branch details from GitHub
-    let branch_details = get_all_branch_details(
-        &state.config.files.repo_url,
-        &state.reqwest_client,
-        &token,
-    ).await.map_err(|err| {
-        eyre_to_axum_err(err)
+    let token = get_github_token(&state).await.map_err(|err| {
+        // Format the error message as a string
+        let error_message = format!("Error: {:?}", err);  // Use {:?} to format the tuple
+        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
     })?;
 
-    // Extract branch names and protection status
+    // Retrieve the repository URL from state (assuming it is stored in state.config.files.repo_url)
+    let repo_url = state.config.files.repo_url.clone();
+
+    // Create an instance of GitHubClient with the repository URL, reqwest client, and token
+    let github_client = GitHubClient::new(repo_url, state.reqwest_client.clone(), token);
+
+    // Fetch the branch details from GitHub using the GitHubClient instance
+    let branch_details = github_client
+        .get_all_branch_details() // Call the method on the GitHubClient instance
+        .await
+        .map_err(|err| {
+            // Handle errors in fetching branch details (e.g., connection issues)
+            eyre_to_axum_err(err)
+        })?;
+
+    // Extract branch names and handle protection status if needed
     let branches: Vec<String> = branch_details
         .into_iter()
         .map(|branch| {
-            let name = branch.name; // Adjust as necessary based on your structure
-            // You can also check for protection status if needed
+            let name = branch.name.clone();
             if branch.protected {
                 format!("{} (protected)", name)
             } else {
@@ -128,22 +107,6 @@ pub async fn list_branches_handler(
 }
 
 /// Handler to create a pull request from a specified head branch to a base branch.
-///
-/// # Arguments
-/// - `state` - Application state containing configuration and necessary clients (e.g., GitHub credentials and HTTP client).
-/// - `payload` - A `CreatePRRequest` containing the following fields:
-///   - `head_branch` - The name of the branch containing the changes to be merged.
-///   - `base_branch` - The name of the branch into which the changes should be merged.
-///   - `title` - The title of the pull request.
-///   - `description` - A description of the changes in the pull request.
-///
-/// # Returns
-/// On success, returns `StatusCode::CREATED` and a JSON message indicating success.
-/// On failure, returns an appropriate `StatusCode` and a JSON error message.
-///
-/// # Errors
-/// - Returns `StatusCode::INTERNAL_SERVER_ERROR` if there is an issue obtaining the GitHub token or creating the pull request.
-/// - Logs errors if encountered during the process and returns a corresponding error message in the response.
 pub async fn create_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<CreatePRRequest>,
@@ -151,52 +114,51 @@ pub async fn create_pull_request_handler(
     info!("Received create pull request request: {:?}", payload);
 
     // Get the GitHub access token
-    let token = get_github_token(&state).await?;
-
-    // Create the pull request on GitHub
-    let pull_request_url = create_pull_request(
-        &state.config.files.repo_url,
-        &state.reqwest_client,
-        &token,
-        &payload.head_branch,
-        &payload.base_branch,
-        &payload.title,
-        &payload.description,
-    ).await.map_err(|err| {
-        eyre_to_axum_err(err)
+    let token = get_github_token(&state).await.map_err(|err| {
+        // Handle token retrieval error
+        let error_message = format!("Failed to get GitHub token: {:?}", err);
+        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
     })?;
 
-    // Return success response
-    info!("Pull request created successfully from {} to {}", payload.head_branch, payload.base_branch);
-    Ok((
-        StatusCode::CREATED,
-        Json(ApiResponse {
-            status: "success".to_string(),
-            message: "Pull request created successfully".to_string(),
-            data: Some(CreatePRData { pull_request_url }),
-        }),
-    ))
+    // Create an instance of the GitHubClient
+    let github_client = GitHubClient::new(
+        state.config.files.repo_url.clone(),
+        state.reqwest_client.clone(),
+        token,
+    );
+
+    // Create the pull request using the new method from GitHubClient
+    match github_client
+        .create_pull_request(
+            &payload.head_branch,
+            &payload.base_branch,
+            &payload.title,
+            &payload.description,
+        )
+        .await
+    {
+        Ok(pull_request_url) => {
+            // If the pull request creation is successful, respond with the pull request URL
+            info!("Pull request created successfully from {} to {}", payload.head_branch, payload.base_branch);
+            Ok((
+                StatusCode::CREATED,
+                Json(ApiResponse {
+                    status: "success".to_string(),
+                    message: "Pull request created successfully".to_string(),
+                    data: Some(CreatePRData { pull_request_url }),
+                }),
+            ))
+        }
+        Err(err) => {
+            // Handle error case in creating the pull request
+            let error_message = format!("Failed to create pull request: {:?}", err);
+            error!("{}", error_message);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
+        }
+    }
 }
 
-/// Handles the HTTP request to check out or create a Git branch.
-///
-/// This handler retrieves the branch name from the request path and attempts to
-/// check out the specified branch. If the branch does not exist, it will create
-/// it based on the current commit. The handler returns a success message if the
-/// operation is successful, or an error message if it fails.
-///
-/// # Arguments
-/// - `State(state)` - The application state containing the Git interface and other dependencies.
-/// - `Path(branch_name)` - The name of the branch to check out or create.
-///
-/// # Returns
-/// A result containing:
-/// - On success: A tuple of `(StatusCode, String)` with a 200 OK status and a success message.
-/// - On failure: A tuple of `(StatusCode, String)` with a 500 Internal Server Error status and an error message.
-///
-/// # Errors
-/// This function will return an error response if there is an issue checking out or creating the branch,
-/// including cases where the repository is locked or the branch operation fails.
+/// Handler to check out or create a Git branch.
 pub async fn checkout_or_create_branch_handler(
     State(state): State<AppState>,
     Path(branch_name): Path<String>,
@@ -247,19 +209,6 @@ pub async fn pull_handler(
 }
 
 /// Handler for fetching the current branch of the repository.
-///
-/// This handler interacts with the `git::Interface` from the AppState to fetch the
-/// current branch name of the Git repository. It uses the `get_current_branch` method
-/// to retrieve the branch and returns a response with the branch name.
-///
-/// # Returns
-/// - A `StatusCode::OK` with a JSON response containing the branch name if the request
-///   succeeds.
-/// - A `StatusCode::INTERNAL_SERVER_ERROR` with an error message if the request fails.
-///
-/// # Errors
-/// If there's an issue fetching the current branch (e.g., if the repository is
-/// uninitialized or the git command fails), an internal server error will be returned.
 pub async fn get_current_branch_handler(State(state): State<AppState>) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
     info!("Received request to fetch current branch");
 
