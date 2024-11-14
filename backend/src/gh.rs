@@ -299,21 +299,27 @@ impl GitHubClient {
         }
     }
 
-    /// Fetches a list of branches from the specified GitHub repository.
+    /// Fetches a complete list of branches from the specified GitHub repository.
     ///
-    /// This function retrieves the list of branches for a repository by sending a GET request to the GitHub API.
-    /// It uses the repository name (extracted internally) to make the request and fetch the branches, then 
-    /// deserializes the response into a vector of `Branch` structs. The request is authenticated using a GitHub token.
+    /// This function retrieves all branches for a repository by sending paginated GET requests to the GitHub API.
+    /// It uses the repository name (extracted internally) to make authenticated requests using a GitHub token.
+    /// The function iterates over pages of results, each containing up to 100 branches, until it has fetched all branches.
+    /// The responses are deserialized into a vector of `Branch` structs.
     ///
     /// # Returns:
     /// A `Result<Vec<Branch>>`:
-    /// - `Ok(branches)`: A vector of `Branch` structs representing the branches in the repository.
+    /// - `Ok(branches)`: A vector of `Branch` structs representing all branches in the repository.
     /// - `Err(e)`: An error if the request fails or if the response cannot be deserialized into `Branch` structs.
     ///
     /// # Errors:
     /// This function may return an error if:
-    /// - The request to fetch branches fails (e.g., network issues or authentication errors).
+    /// - The request to fetch branches fails (e.g., due to network issues, authentication errors, or API rate limits).
     /// - The response from the GitHub API cannot be deserialized into a vector of `Branch` structs.
+    ///
+    /// # Pagination:
+    /// GitHub API paginates branch lists with a default limit of 30 branches per page. This function specifies a
+    /// `per_page` limit of 100 branches to reduce the number of requests. It continues to fetch pages until no
+    /// branches are left, ensuring that all branches are retrieved.
     pub async fn list_branches(&self) -> Result<Vec<Branch>> {
         let repo_name = self.get_repo_name()?;
         let mut branches = Vec::new();
