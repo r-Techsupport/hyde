@@ -329,7 +329,7 @@ impl GitHubClient {
                 ))
                 .bearer_auth(&self.token)
                 .header("User-Agent", "Hyde")
-                .query(&[("per_page", "100"), ("page", &page.to_string())]) // Adjust the per_page value as needed
+                .query(&[("per_page", "100"), ("page", &page.to_string())])
                 .send()
                 .await?;
     
