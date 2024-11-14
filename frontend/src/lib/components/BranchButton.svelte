@@ -98,7 +98,6 @@
 		fetchCurrentBranch();
 		const branches = await fetchExistingBranches();
 		allBranches.set(branches);
-		console.log(branches);
 	});
 
 	async function setBranchName(input: string) {
