@@ -1,8 +1,12 @@
+use color_eyre::eyre::ContextCompat;
 use serde::Deserialize;
-use std::fs;
-use std::process::exit;
+use std::ffi::OsStr;
+use std::path::PathBuf;
+use std::{fs, path::Path};
+use std::fmt::Debug;
 use std::sync::Arc;
-use tracing::{error, info, trace};
+use tracing::{info, trace};
+use color_eyre::Result;
 
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct AppConf {
@@ -98,21 +102,38 @@ impl ValidateFields for AppConf {
     }
 }
 impl AppConf {
-    pub fn load(file: &str) -> Arc<Self> {
-        info!("Loading configuration file: {:?}", file);
-
-        if fs::metadata(file).is_err() {
-            error!("Configuration file {:?} does not exist", file);
-            exit(1)
-        }
-
-        let config: Self =
-            toml::from_str(&fs::read_to_string(file).unwrap()).expect("Unable to parse config");
-
+    /// Deserializes the config located at `path`.
+    /// 
+    /// If a file is passed, it will load that file. If a directory is passed,
+    /// then it'll search that directory for any `.toml` file.
+    pub fn load<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<Arc<Self>> {
+        let file_metadata = fs::metadata(path)?;
+        let config_path: PathBuf = if file_metadata.is_file() {
+            path.as_ref().to_path_buf()
+        } else {
+            locate_config_file(path)?.wrap_err_with(|| format!("No config was found in the {path:?} directory"))?
+        };
+        let serialized_config = fs::read_to_string(config_path)?;
+        let config: Self = toml::from_str(&serialized_config)?;
         trace!("Loaded config: {:#?}", config);
 
         config.validate("config").expect("Invalid config");
 
-        Arc::new(config)
+        Ok(Arc::new(config))
     }
+}
+
+/// Returns the first toml config file in the provided directory, relative to the executable.
+fn locate_config_file<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<Option<PathBuf>> {
+    info!("Searching directory {path:?} for a config file");
+    // Search the directory for a toml file
+    let dir = fs::read_dir(path)?;
+    for entry in dir {
+        let entry = entry?;
+        if entry.path().extension() == Some(OsStr::new("toml")) {
+            info!("Using config at {:?}", entry.path());
+            return Ok(Some(entry.path()));
+        }
+    }
+    Ok(None)
 }
