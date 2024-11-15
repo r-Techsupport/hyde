@@ -299,60 +299,75 @@ impl GitHubClient {
         }
     }
 
-    /// Fetches a list of branches from the specified GitHub repository.
+    /// Fetches a complete list of branches from the specified GitHub repository.
     ///
-    /// This function retrieves the list of branches for a repository by sending a GET request to the GitHub API.
-    /// It uses the repository name (extracted internally) to make the request and fetch the branches, then 
-    /// deserializes the response into a vector of `Branch` structs. The request is authenticated using a GitHub token.
+    /// This function retrieves all branches for a repository by sending paginated GET requests to the GitHub API.
+    /// It uses the repository name (extracted internally) to make authenticated requests using a GitHub token.
+    /// The function iterates over pages of results, each containing up to 100 branches, until it has fetched all branches.
+    /// The responses are deserialized into a vector of `Branch` structs.
     ///
     /// # Returns:
     /// A `Result<Vec<Branch>>`:
-    /// - `Ok(branches)`: A vector of `Branch` structs representing the branches in the repository.
+    /// - `Ok(branches)`: A vector of `Branch` structs representing all branches in the repository.
     /// - `Err(e)`: An error if the request fails or if the response cannot be deserialized into `Branch` structs.
     ///
     /// # Errors:
     /// This function may return an error if:
-    /// - The request to fetch branches fails (e.g., network issues or authentication errors).
+    /// - The request to fetch branches fails (e.g., due to network issues, authentication errors, or API rate limits).
     /// - The response from the GitHub API cannot be deserialized into a vector of `Branch` structs.
+    ///
+    /// # Pagination:
+    /// GitHub API paginates branch lists with a default limit of 30 branches per page. This function specifies a
+    /// `per_page` limit of 100 branches to reduce the number of requests. It continues to fetch pages until no
+    /// branches are left, ensuring that all branches are retrieved.
     pub async fn list_branches(&self) -> Result<Vec<Branch>> {
-        // Extract repository name from `repo_url`
         let repo_name = self.get_repo_name()?;
-
-        // Make a GET request to fetch branches for the repository
-        let response = self
-            .client
-            .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
-            .bearer_auth(&self.token)
-            .header("User-Agent", "Hyde")
-            .send()
-            .await?;
-
-        // Check response status and handle it accordingly
-        if response.status().is_success() {
-            info!("Branches fetched successfully for repository: {}", repo_name);
-
-            let response_text = response.text().await?;
-
-            // Deserialize the response text to a vector of Branch structs
-            let branches: Vec<Branch> = match serde_json::from_str(&response_text) {
-                Ok(branches) => branches,
-                Err(err) => {
-                    error!("Failed to deserialize branches: {}", err);
-                    return Err(err.into());
+        let mut branches = Vec::new();
+        let mut page = 1;
+    
+        loop {
+            // Make a GET request to fetch a page of branches
+            let response = self
+                .client
+                .get(format!(
+                    "{}/repos/{}/branches",
+                    GITHUB_API_URL, repo_name
+                ))
+                .bearer_auth(&self.token)
+                .header("User-Agent", "Hyde")
+                .query(&[("per_page", "100"), ("page", &page.to_string())])
+                .send()
+                .await?;
+    
+            // Check response status and handle it accordingly
+            if response.status().is_success() {
+                let response_text = response.text().await?;
+                let page_branches: Vec<Branch> = match serde_json::from_str(&response_text) {
+                    Ok(branches) => branches,
+                    Err(err) => {
+                        error!("Failed to deserialize branches: {}", err);
+                        return Err(err.into());
+                    }
+                };
+    
+                if page_branches.is_empty() {
+                    break;
                 }
-            };
-
-            Ok(branches)
-        } else {
-            // Handle failure case and return a detailed error message
-            let status = response.status();
-            let response_text = response.text().await?;
-            bail!(
-                "Failed to fetch branches: {}, Response: {}",
-                status,
-                response_text
-            );
+    
+                branches.extend(page_branches);
+                page += 1;
+            } else {
+                let status = response.status();
+                let response_text = response.text().await?;
+                bail!(
+                    "Failed to fetch branches: {}, Response: {}",
+                    status,
+                    response_text
+                );
+            }
         }
+    
+        Ok(branches)
     }
 
     /// Fetches detailed information about a specific branch from a GitHub repository.
