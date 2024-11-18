@@ -11,7 +11,7 @@ categories = ["web-programming"]
 rust-version = "1.75.0"
 
 [dependencies]
-axum = { version = "0.7.7", features = ["http2", "macros"] }
+axum = { version = "0.7.9", features = ["http2", "macros"] }
 chrono = "0.4.38"
 clap = { version = "4.5.21", features = ["derive"] }
 color-eyre = "0.6.3"
