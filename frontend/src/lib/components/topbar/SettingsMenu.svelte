@@ -4,8 +4,12 @@
 	import { apiAddress } from '$lib/main';
 	import { Permission, type User } from '$lib/types';
 
-	export let visible = false;
-	let showAdminDashboard = false;
+	interface Props {
+		visible?: boolean;
+	}
+
+	let { visible = $bindable(false) }: Props = $props();
+	let showAdminDashboard = $state(false);
 	onMount(async () => {
 		// This could probably be generalized into a single call that loads
 		// into a svelte store or something, rather than this call being made multiple times
@@ -22,10 +26,10 @@
 {#if visible}
 	<!-- The "Click anywhere else to hide the dialogue" functionality is implemented by having a div that sits behind the settings menu, listening for clicks -->
 	<div
-		on:click={() => {
+		onclick={() => {
 			visible = false;
 		}}
-		on:keydown={() => {
+		onkeydown={() => {
 			visible = false;
 		}}
 		role="none"
@@ -40,7 +44,7 @@
 		{#if showAdminDashboard}
 			<div>
 				<button
-					on:click={() => {
+					onclick={() => {
 						dispatch('showadmindashboard');
 					}}
 				>
@@ -61,7 +65,7 @@
 		<!-- Logout -->
 		<div>
 			<button
-				on:click={async () => {
+				onclick={async () => {
 					document.cookie =
 						'username=; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
 					await fetch(`${apiAddress}/api/logout`);

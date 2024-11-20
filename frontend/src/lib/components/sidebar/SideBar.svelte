@@ -1,6 +1,12 @@
 <script lang="ts">
-	/** Binding to the css variable determining sidebar width */
-	export let sidebarWidth: string;
+	
+	interface Props {
+		/** Binding to the css variable determining sidebar width */
+		sidebarWidth: string;
+		children?: import('svelte').Snippet;
+	}
+
+	let { sidebarWidth = $bindable(), children }: Props = $props();
 	// const MOCK_DIRECTORY = {
 	//     name: "Root",
 	//     children: [
@@ -33,19 +39,19 @@
 	//         }
 	//     ],
 	// }
-	let draggingWindow = false;
+	let draggingWindow = $state(false);
 </script>
 
 <div class="side-bar">
 	<img src="hyde-assets/logo-dark.svg" alt="Logo" />
-	<slot></slot>
+	{@render children?.()}
 </div>
 
 <div
-	on:mousedown={() => {
+	onmousedown={() => {
 		draggingWindow = true;
 	}}
-	on:mouseup={() => {
+	onmouseup={() => {
 		draggingWindow = false;
 	}}
 	role="none"
@@ -53,7 +59,7 @@
 ></div>
 
 <svelte:body
-	on:mousemove={(e) => {
+	onmousemove={(e) => {
 		if (draggingWindow && e.clientX > 90 && e.clientX < 500) {
 			sidebarWidth = `${e.clientX}px`;
 		}

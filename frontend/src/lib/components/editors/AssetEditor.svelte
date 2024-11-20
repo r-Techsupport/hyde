@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import type { INode } from '$lib/types';
 	import { apiAddress, assetTree } from '$lib/main';
 	import { addToast, ToastType } from '$lib/toast';
@@ -7,16 +9,13 @@
 	import ConfirmationDialogue from '../elements/ConfirmationDialogue.svelte';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
 
-	export let assetFolderPath = '';
-	let uploadedFiles: FileList;
-
-	// Whenever the list of uploaded files changes, call the handler
-	$: {
-		// This shouldn't be an issue when we switch to svelte 5, so ignoring it for now
-		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-		uploadedFiles;
-		fileUploadHandler();
+	interface Props {
+		assetFolderPath?: string;
 	}
+
+	let { assetFolderPath = '' }: Props = $props();
+	let uploadedFiles: FileList = $state();
+
 
 	async function fileUploadHandler() {
 		if (uploadedFiles && uploadedFiles.length > 0) {
@@ -52,11 +51,11 @@
 	 * When an image is being displayed in "full screen mode", this is the path of that
 	 * image. Otherwise, it's an empty string.
 	 */
-	let fullScreenImagePath = '';
-	let fullScreenImage: HTMLImageElement;
-	let width = 0;
-	let height = 0;
-	let fullScreenHttpInfo: Response | undefined;
+	let fullScreenImagePath = $state('');
+	let fullScreenImage: HTMLImageElement = $state();
+	let width = $state(0);
+	let height = $state(0);
+	let fullScreenHttpInfo: Response | undefined = $state();
 	// So basically, Svelte doesn't understand updates the browser makes to an image object,
 	// so it doesn't react to changes. This is fixed by manually starting a polling cycle
 	// that updates the image resolution when the image has finished loading
@@ -68,21 +67,11 @@
 			setTimeout(cb, 50);
 		}
 	}
-	$: {
-		if (fullScreenImagePath !== '') {
-			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
-				fullScreenHttpInfo = r;
-				const objectUrl = URL.createObjectURL(await r.blob());
-				fullScreenImage.src = objectUrl;
-			});
-		}
-		cb();
-	}
 
-	let tree: INode = {
+	let tree: INode = $state({
 		name: 'loading',
 		children: []
-	};
+	});
 
 	assetTree.subscribe(async (t) => {
 		fullScreenImagePath = '';
@@ -96,8 +85,25 @@
 		tree = t;
 	});
 
-	let deletionConfirmationVisible = false;
-	let loadingIconVisible = false;
+	let deletionConfirmationVisible = $state(false);
+	let loadingIconVisible = $state(false);
+	// Whenever the list of uploaded files changes, call the handler
+	run(() => {
+		// This shouldn't be an issue when we switch to svelte 5, so ignoring it for now
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		uploadedFiles;
+		fileUploadHandler();
+	});
+	run(() => {
+		if (fullScreenImagePath !== '') {
+			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
+				fullScreenHttpInfo = r;
+				const objectUrl = URL.createObjectURL(await r.blob());
+				fullScreenImage.src = objectUrl;
+			});
+		}
+		cb();
+	});
 </script>
 
 {#if loadingIconVisible}
@@ -108,10 +114,10 @@
 	<div
 		class="fullscreen-backdrop"
 		transition:blur={{ duration: 100 }}
-		on:click={() => {
+		onclick={() => {
 			fullScreenImagePath = '';
 		}}
-		on:keydown={() => {
+		onkeydown={() => {
 			fullScreenImagePath = '';
 		}}
 		role="none"
@@ -148,7 +154,7 @@
 					</p>
 				{/if}
 				<button
-					on:click={() => {
+					onclick={() => {
 						deletionConfirmationVisible = true;
 					}}
 					class="delete-button"
@@ -209,7 +215,7 @@
 	<div class="asset-catalogue">
 		{#each tree.children.find((n) => n.name === assetFolderPath)?.children ?? [] as asset}
 			<button
-				on:click={() => {
+				onclick={() => {
 					fullScreenImagePath = `${assetFolderPath}/${asset.name}`;
 				}}
 				class="asset"

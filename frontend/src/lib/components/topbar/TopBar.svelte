@@ -4,8 +4,8 @@
 	import { createEventDispatcher } from 'svelte';
 	import BranchButton from '../BranchButton.svelte';
 
-	let username: string = '';
-	let profilePictureUrl = '';
+	let username: string = $state('');
+	let profilePictureUrl = $state('');
 	me.subscribe((me) => {
 		profilePictureUrl = me.avatar_url;
 	});
@@ -32,8 +32,8 @@
 <div class="top-bar">
 	<BranchButton />
 	<div
-		on:click={settingsClickHandler}
-		on:keydown={settingsClickHandler}
+		onclick={settingsClickHandler}
+		onkeydown={settingsClickHandler}
 		role="button"
 		tabindex="0"
 		class="settings"

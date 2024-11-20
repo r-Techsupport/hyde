@@ -29,10 +29,10 @@
 	import { SelectedMode } from '$lib/main';
 	import AssetEditor from '$lib/components/editors/AssetEditor.svelte';
 
-	let mode = SelectedMode.Documents;
+	let mode = $state(SelectedMode.Documents);
 	// TODO: figure out how to move this out of +page.svelte and into the document editor
 	/** A reference to the div where markdown is rendered to */
-	let previewWindow: HTMLElement;
+	let previewWindow: HTMLElement = $state();
 
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree/doc`);
@@ -40,13 +40,13 @@
 		documentTree.set(fetchedRootNode); // Update the store with the fetched data
 	});
 
-	let showChangeDialogue: boolean;
-	let showLoadingIcon: boolean;
-	let showSettingsMenu: boolean;
-	let adminDashboardDialog: HTMLDialogElement;
-	let showEditor: boolean = false;
+	let showChangeDialogue: boolean = $state();
+	let showLoadingIcon: boolean = $state();
+	let showSettingsMenu: boolean = $state();
+	let adminDashboardDialog: HTMLDialogElement = $state();
+	let showEditor: boolean = $state(false);
 	/** The path to the currently selected assets folder */
-	let assetFolderPath = '';
+	let assetFolderPath = $state('');
 
 	async function documentSelectionHandler(e: CustomEvent) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
@@ -66,7 +66,7 @@
 		}
 	}
 
-	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
+	let saveChangesHandler = $state(async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
 
 		const branch = $allBranches.find((b) => b.name === $branchName);
@@ -112,9 +112,14 @@
 					dismissible: true
 				});
 		}
-	};
-	/** The width of the sidebar */
-	export let sidebarWidth = '14rem';
+	});
+	
+	interface Props {
+		/** The width of the sidebar */
+		sidebarWidth?: string;
+	}
+
+	let { sidebarWidth = $bindable('14rem') }: Props = $props();
 
 	onMount(async () => {
 		// Fetch the document tree
@@ -173,7 +178,7 @@
 		});
 	});
 
-	let createPullRequestHandler = async (): Promise<void> => {
+	let createPullRequestHandler = $state(async (): Promise<void> => {
 		const title = `Pull request for ${$currentFile}`;
 		const description = `This pull request contains changes made by ${$me.username}.`;
 		const headBranch = $branchName;
@@ -222,7 +227,7 @@
 				dismissible: true
 			});
 		}
-	};
+	});
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
