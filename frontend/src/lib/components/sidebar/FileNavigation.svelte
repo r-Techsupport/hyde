@@ -39,12 +39,12 @@
 		// If it's a directory, hide and show children
 		if (children.length > 0) {
 			open = !open;
-			// console.log(`Clicked directory with path: "${path}"`);
+			console.log(`Clicked directory with path: "${path}"`);
 		} else {
 			dispatch('fileselect', {
 				path: path
 			});
-			// console.log(`Clicked file with path: "${path}"`);
+			console.log(`Clicked file with path: "${path}"`);
 		}
 	}
 
@@ -134,6 +134,7 @@
 			optionsMenu.focus();
 		}}
 		class="entry-option-menu"
+		aria-label="show file options"
 	>
 		<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px"
 			><path
