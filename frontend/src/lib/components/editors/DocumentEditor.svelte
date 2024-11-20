@@ -66,7 +66,7 @@
 		createPullRequestHandler: () => Promise<void>;
 	}
 
-	let { previewWindow = $bindable(), saveChangesHandler, createPullRequestHandler }: Props = $props();
+	let { previewWindow = $bindable(), saveChangesHandler = $bindable(), createPullRequestHandler = $bindable()}: Props = $props();
 
 	async function cancelChangesHandler() {
 		if ($editorText !== get(currentFile)) {

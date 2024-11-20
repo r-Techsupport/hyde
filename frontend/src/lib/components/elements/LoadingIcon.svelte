@@ -1,9 +1,9 @@
 <script lang="ts">
 	interface Props {
-		visible?: boolean;
+		visible: boolean;
 	}
 
-	let { visible = false }: Props = $props();
+	let { visible = $bindable() }: Props = $props();
 </script>
 
 {#if visible}

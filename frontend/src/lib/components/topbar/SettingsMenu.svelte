@@ -5,10 +5,10 @@
 	import { Permission, type User } from '$lib/types';
 
 	interface Props {
-		visible?: boolean;
+		visible: boolean;
 	}
 
-	let { visible = $bindable(false) }: Props = $props();
+	let { visible = $bindable() }: Props = $props();
 	let showAdminDashboard = $state(false);
 	onMount(async () => {
 		// This could probably be generalized into a single call that loads

@@ -13,7 +13,7 @@
 		assetFolderPath?: string;
 	}
 
-	let { assetFolderPath = '' }: Props = $props();
+	let { assetFolderPath = $bindable('') }: Props = $props();
 	let uploadedFiles: FileList = $state();
 
 
