@@ -12,7 +12,7 @@
 	<!-- Admin Dashboard -->
 	<div>
 		<button
-			on:click={async () => {
+			onclick={async () => {
 				const tid = addToast({
 					message: `Cloning fresh repository, this may take a while...`,
 					type: ToastType.Info,
