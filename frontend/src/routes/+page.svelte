@@ -113,7 +113,7 @@
 				});
 		}
 	});
-	
+
 	interface Props {
 		/** The width of the sidebar */
 		sidebarWidth?: string;

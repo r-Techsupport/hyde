@@ -89,7 +89,7 @@
 	</div>
 
 	{#if dismissible}
-		<button class="close" onclick={() => dispatch('dismiss')}>
+		<button class="close" aria-label="Close" onclick={() => dispatch('dismiss')}>
 			<svg
 				width="1rem"
 				style="text-align: center; display: inline-block;"

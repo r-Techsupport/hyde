@@ -16,7 +16,6 @@
 	let { assetFolderPath = $bindable('') }: Props = $props();
 	let uploadedFiles: FileList = $state();
 
-
 	async function fileUploadHandler() {
 		if (uploadedFiles && uploadedFiles.length > 0) {
 			loadingIconVisible = true;

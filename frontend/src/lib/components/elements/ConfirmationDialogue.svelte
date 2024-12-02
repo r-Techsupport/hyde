@@ -1,17 +1,15 @@
 <!-- A generic confirmation confirm/cancel dialogue box -->
 <script lang="ts">
-	
-	
 	interface Props {
 		/**
-	 * If defined, the code that runs when a user hits "Confirm".
-	 */
-		confirmHandler?: any;
+		 * If defined, the code that runs when a user hits "Confirm".
+		 */
+		confirmHandler?: () => undefined;
 		/**
-	 * If defined, the code that runs when the user hits "Deny" or
-	 * clicks out of the widget.
-	 */
-		cancelHandler?: any;
+		 * If defined, the code that runs when the user hits "Deny" or
+		 * clicks out of the widget.
+		 */
+		cancelHandler?: () => undefined;
 		confirmText?: string;
 		cancelText?: string;
 		visible: boolean;

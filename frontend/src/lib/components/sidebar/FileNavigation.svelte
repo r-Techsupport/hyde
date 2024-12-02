@@ -13,7 +13,7 @@
 		name?: string;
 		children: INode[];
 		indent?: number;
-		path?: any;
+		path?: string;
 		siblings?: INode[] | undefined;
 	}
 

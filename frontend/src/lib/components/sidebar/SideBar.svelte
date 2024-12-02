@@ -1,5 +1,4 @@
 <script lang="ts">
-	
 	interface Props {
 		/** Binding to the css variable determining sidebar width */
 		sidebarWidth: string;
