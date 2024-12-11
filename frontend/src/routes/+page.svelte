@@ -16,7 +16,8 @@
 		editorText,
 		apiAddress,
 		assetTree,
-		allBranches
+		allBranches,
+		openIssues
 	} from '$lib/main';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
@@ -38,6 +39,10 @@
 		const response = await fetch(`${apiAddress}/api/tree/doc`);
 		const fetchedRootNode = await response.json();
 		documentTree.set(fetchedRootNode); // Update the store with the fetched data
+	});
+
+	onMount(() => {
+		getOpenIssues();
 	});
 
 	let showChangeDialogue: boolean;
@@ -172,6 +177,62 @@
 			}
 		});
 	});
+
+	async function getOpenIssues() {
+		const state = "open";
+		const labels = "";
+		const url = `${apiAddress}/api/issues/${state}${labels ? `?labels=${labels}` : ''}`;
+		console.log(url)
+
+		try {
+			// Fetch the data from the API
+			const response = await fetch(url, {
+				method: 'GET',
+				credentials: 'include',
+			});
+
+			// Check if the response is successful (status code 2xx)
+			if (!response.ok) {
+				const errorMessage = `Failed to fetch open issues. (Code ${response.status}: "${response.statusText}")`;
+				addToast({
+					message: errorMessage,
+					type: ToastType.Error,
+					dismissible: true,
+				});
+				return;
+			}
+
+			// Parse the response as JSON
+			const responseData = await response.json();
+
+			// Validate the response structure
+			if (responseData.status === "success" && Array.isArray(responseData.data?.issues)) {
+				// Update the store with the issues data
+				openIssues.set(responseData.data.issues);
+				console.log(responseData.data.issues);  // Optional: for debugging purposes
+			} else {
+				// Handle unexpected response structure
+				const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
+				addToast({
+					message: errorMessage,
+					type: ToastType.Error,
+					dismissible: true,
+				});
+			}
+		} catch (error: unknown) {
+			// Handle fetch or network errors
+			let errorMessage = 'An unknown error occurred.';
+			if (error instanceof Error) {
+				errorMessage = `An error occurred while processing the response: ${error.message}`;
+			}
+
+			addToast({
+				message: errorMessage,
+				type: ToastType.Error,
+				dismissible: true,
+			});
+		}
+	}
 
 	let createPullRequestHandler = async (): Promise<void> => {
 		const title = `Pull request for ${$currentFile}`;

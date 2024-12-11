@@ -445,4 +445,70 @@ impl GitHubClient {
 
         Ok(branch_details)
     }
+
+    /// Fetches issues from the GitHub repository.
+    ///
+    /// This function retrieves issues from the specified repository using the GitHub API.
+    /// You can filter issues based on their state and associated labels.
+    ///
+    /// # Parameters:
+    /// - `state`: A string slice representing the state of the issues to fetch (e.g., "open", "closed", "all").
+    ///            Defaults to "open".
+    /// - `labels`: A comma-separated string slice representing labels to filter issues by. Defaults to `None`.
+    ///
+    /// # Returns:
+    /// A `Result<Vec<Value>>`:
+    /// - `Ok(issues)`: A vector of JSON values representing the issues fetched from the repository.
+    /// - `Err(e)`: An error message if the request fails or the response cannot be parsed.
+    ///
+    /// # Errors:
+    /// This function may return an error if:
+    /// - The `repo_url` is not in the expected format and cannot be parsed to derive the repository name.
+    /// - The request to fetch issues fails due to authentication issues, invalid input, or network problems.
+    /// - The GitHub API response cannot be parsed as a JSON array.
+    pub async fn get_issues(&self, state: Option<&str>, labels: Option<&str>) -> Result<Vec<Value>> {
+        let repo_name = self.get_repo_name().map_err(|e| {
+            error!("Failed to get repository name: {:?}", e);
+            e
+        })?;
+    
+        let state = state.unwrap_or("open"); // Default state
+        let mut query_params = vec![format!("state={}", state)];
+        if let Some(labels) = labels {
+            query_params.push(format!("labels={}", labels));
+        }
+        let query_string = format!("?{}", query_params.join("&"));
+    
+        let url = format!("{}/repos/{}/issues{}", GITHUB_API_URL, repo_name, query_string);
+        debug!("Request URL: {}", url);
+    
+        let response = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.token)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "Hyde")
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await?;
+    
+        if let Some(rate_limit_remaining) = response.headers().get("X-RateLimit-Remaining") {
+            debug!("GitHub API rate limit remaining: {}", rate_limit_remaining.to_str().unwrap_or("Unknown"));
+        }
+    
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            error!("GitHub API request failed with status {}: {}", status, error_text);
+            bail!("GitHub API request failed ({}): {}", status, error_text);
+        }
+    
+        let issues: Vec<Value> = response.json().await.map_err(|e| {
+            error!("Failed to parse GitHub response JSON: {:?}", e);
+            e
+        })?;
+    
+        Ok(issues)
+    }                
+
 }

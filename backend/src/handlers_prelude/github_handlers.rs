@@ -6,6 +6,7 @@ use axum::{
 use axum::routing::{get, post, put};
 use tracing::{error, info};
 use serde::{Serialize, Deserialize};
+use serde_json::Value;
 use crate::gh::GitHubClient;
 use crate::handlers_prelude::eyre_to_axum_err;
 use crate::AppState;
@@ -44,6 +45,19 @@ pub struct CreatePRRequest {
     pub base_branch: String,
     pub title: String,
     pub description: String,
+}
+
+#[derive(Serialize, Debug)]
+pub struct IssuesData {
+    pub issues: Vec<Value>,
+}
+
+#[derive(Serialize)]
+pub struct Issue {
+    pub id: u64,
+    pub title: String,
+    pub state: String,
+    pub labels: Vec<String>,
 }
 
 /// Retrieves the GitHub access token from the application state.
@@ -237,6 +251,52 @@ pub async fn get_current_branch_handler(State(state): State<AppState>) -> Result
     }
 }
 
+/// Handler to fetch issues from a GitHub repository.
+pub async fn get_issues_handler(
+    State(state): State<AppState>,
+    Path(state_param): Path<Option<String>>,  // Only take the state parameter
+) -> Result<(StatusCode, Json<ApiResponse<IssuesData>>), (StatusCode, String)> {
+    info!("Received request to fetch issues");
+
+    // Logging state for debugging
+    info!("State param: {:?}", state_param);
+
+    let state_param = state_param.as_deref().unwrap_or("open");
+
+    // Get the GitHubClient instance
+    let github_client = GitHubClient::new(
+        state.config.files.repo_url.clone(),
+        state.reqwest_client.clone(),
+        get_github_token(&state).await.map_err(|err| {
+            let error_message = format!("Failed to get GitHub token: {:?}", err);
+            error!("{}", error_message);  // Log the error here
+            (StatusCode::INTERNAL_SERVER_ERROR, error_message)
+        })?,
+    );
+
+    // Fetch issues using the GitHub client
+    match github_client
+        .get_issues(Some(state_param), None)
+        .await
+    {
+        Ok(issues) => {
+            info!("Issues fetched successfully.");
+            let response = ApiResponse {
+                status: "success".to_string(),
+                message: "Issues fetched successfully.".to_string(),
+                data: Some(IssuesData { issues }),
+            };
+            Ok((StatusCode::OK, Json(response)))
+        }
+        Err(err) => {
+            // Log and return an error
+            let error_message = format!("Failed to fetch issues: {:?}", err);
+            error!("{}", error_message);  // Log the error here
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
+        }
+    }
+}
+
 /// Route definitions for GitHub operations
 pub async fn github_routes() -> Router<AppState> {
     Router::new()
@@ -245,4 +305,5 @@ pub async fn github_routes() -> Router<AppState> {
         .route("/checkout/branches/:branch_name", put(checkout_or_create_branch_handler))
         .route("/pull/:branch", post(pull_handler))
         .route("/current-branch", get(get_current_branch_handler))
+        .route("/issues/:state", get(get_issues_handler))
 }
