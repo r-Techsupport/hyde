@@ -254,14 +254,14 @@ pub async fn get_current_branch_handler(State(state): State<AppState>) -> Result
 /// Handler to fetch issues from a GitHub repository.
 pub async fn get_issues_handler(
     State(state): State<AppState>,
-    Path(state_param): Path<Option<String>>,  // Only take the state parameter
+    Path(state_param): Path<String>,
 ) -> Result<(StatusCode, Json<ApiResponse<IssuesData>>), (StatusCode, String)> {
     info!("Received request to fetch issues");
 
     // Logging state for debugging
     info!("State param: {:?}", state_param);
 
-    let state_param = state_param.as_deref().unwrap_or("open");
+    let state_param = state_param.as_str();
 
     // Get the GitHubClient instance
     let github_client = GitHubClient::new(
