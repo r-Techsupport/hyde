@@ -1,7 +1,7 @@
-<!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd097536db02?version=4.2.17 -->
+<!-- https://svelte.dev/repl/347b37e18b5d4a65bbacfd09b02?version=4.2.17 -->
 <script lang="ts">
 	import FileNavigation from './FileNavigation.svelte';
-	import { createEventDispatcher, tick } from 'svelte';
+	import { tick } from 'svelte';
 	import { currentFile } from '$lib/main';
 	import { cache } from '$lib/cache';
 	import { get } from 'svelte/store';
@@ -15,6 +15,7 @@
 		indent?: number;
 		path?: string;
 		siblings?: INode[] | undefined;
+		fileSelectHandler: ((path: string) => Promise<void>) | undefined;
 	}
 
 	let {
@@ -22,18 +23,17 @@
 		children = $bindable(),
 		indent = 1,
 		path = name,
-		siblings = undefined
+		siblings = undefined,
+		fileSelectHandler = undefined
 	}: Props = $props();
 	let self: HTMLElement;
 	let selected = $state(false);
 	let open = $state(false);
 	let showOptionsMenu = $state(false);
-	let optionsMenu: HTMLDivElement = $state();
+	let optionsMenu: HTMLDivElement | undefined = $state();
 	let showNewFileInput = $state(false);
-	let newFileInput: HTMLInputElement = $state();
+	let newFileInput: HTMLInputElement | undefined = $state();
 	let showDeleteFileDialogue = $state(false);
-
-	const dispatch = createEventDispatcher();
 
 	function fileClickHandler() {
 		// If it's a directory, hide and show children
@@ -41,9 +41,7 @@
 			open = !open;
 			console.log(`Clicked directory with path: "${path}"`);
 		} else {
-			dispatch('fileselect', {
-				path: path
-			});
+			fileSelectHandler!(path);
 			console.log(`Clicked file with path: "${path}"`);
 		}
 	}
@@ -60,9 +58,10 @@
 		showOptionsMenu = false;
 		showNewFileInput = true;
 		await tick();
-		newFileInput.value = '.md';
-		newFileInput.setSelectionRange(0, 0);
-		newFileInput.focus();
+		// non-null assertion: The above code shows the new file input
+		newFileInput!.value = '.md';
+		newFileInput!.setSelectionRange(0, 0);
+		newFileInput!.focus();
 	}
 
 	async function deleteDocumentHandler() {
@@ -131,7 +130,8 @@
 		onclick={async () => {
 			showOptionsMenu = true;
 			await tick();
-			optionsMenu.focus();
+			// non-null assertion: The above code ensures the options menu is displayed
+			optionsMenu!.focus();
 		}}
 		class="entry-option-menu"
 		aria-label="show file options"
@@ -149,11 +149,11 @@
 			onkeydown={(e) => {
 				if (e.key === 'Enter') {
 					open = true;
-					children = [...children, { name: newFileInput.value, children: [] }];
+					children = [...children, { name: newFileInput!.value, children: [] }];
 					showNewFileInput = false;
 					const now = new Date(Date.now());
 					cache.set(
-						path + newFileInput.value,
+						path + newFileInput!.value,
 						`---
 layout: default
 title: Your Document Title Here
@@ -164,7 +164,7 @@ search_exclude: false
 last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 ---\n\n`
 					);
-					currentFile.set(path + newFileInput.value);
+					currentFile.set(path + newFileInput!.value);
 				}
 				if (e.key === 'Escape') {
 					showNewFileInput = false;
@@ -242,22 +242,22 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 		{#if child.children.length === 0}
 			<!-- Treat path like file -->
 			<FileNavigation
-				on:fileselect
 				name={child.name}
 				children={child.children}
 				siblings={children}
 				indent={indent + 1.5}
 				path={path + child.name}
+				{fileSelectHandler}
 			/>
 		{:else}
 			<!-- Treat path like directory -->
 			<FileNavigation
-				on:fileselect
 				name={child.name}
 				children={child.children}
 				siblings={children}
 				indent={indent + 1}
 				path={path + child.name + '/'}
+				fileSelectHandler={undefined}
 			/>
 		{/if}
 	{/each}

@@ -32,7 +32,7 @@
 	let mode = $state(SelectedMode.Documents);
 	// TODO: figure out how to move this out of +page.svelte and into the document editor
 	/** A reference to the div where markdown is rendered to */
-	let previewWindow: HTMLElement = $state();
+	let previewWindow: HTMLElement | undefined = $state();
 
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree/doc`);
@@ -40,25 +40,26 @@
 		documentTree.set(fetchedRootNode); // Update the store with the fetched data
 	});
 
-	let showChangeDialogue: boolean = $state();
-	let showLoadingIcon: boolean = $state();
-	let showSettingsMenu: boolean = $state();
-	let adminDashboardDialog: HTMLDialogElement = $state();
+	let showChangeDialogue: boolean = $state(false);
+	let showLoadingIcon: boolean = $state(false);
+	let showSettingsMenu: boolean = $state(false);
+	let adminDashboardDialog: HTMLDialogElement | undefined = $state();
 	let showEditor: boolean = $state(false);
 	/** The path to the currently selected assets folder */
 	let assetFolderPath = $state('');
 
-	async function documentSelectionHandler(e: CustomEvent) {
+	async function documentSelectionHandler(path: string) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if ($currentFile === '' || (await cache.get($currentFile)) === $editorText) {
 			showEditor = true;
-			currentFile.set(e.detail.path);
+			currentFile.set(path);
 			editorText.set(
-				(await cache.get(e.detail.path)) ??
+				(await cache.get(path)) ??
 					'Something went wrong, the file tree reported by the backend references a nonexistent file.'
 			);
-			renderMarkdown($editorText, previewWindow);
-		} else if (e.detail.path === $currentFile) {
+			// non-null assertion: The above code shows the preview window
+			renderMarkdown($editorText, previewWindow!);
+		} else if (path === $currentFile) {
 			// Do nothing
 		} else {
 			// Unsaved changes
@@ -236,11 +237,11 @@
 		<div class="directory-nav">
 			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->
 			{#if mode === SelectedMode.Documents}
-				<FileNavigation on:fileselect={documentSelectionHandler} {...$documentTree} />
+				<FileNavigation fileSelectHandler={documentSelectionHandler} {...$documentTree} />
 			{:else}
 				<!-- Display a button that switches the mode to docs -->
 				<MockDirectory
-					on:click={() => {
+					onclick={() => {
 						mode = SelectedMode.Documents;
 					}}
 					label="docs"
@@ -250,7 +251,7 @@
 				<AssetSelector bind:mode bind:assetFolderPath />
 			{:else}
 				<MockDirectory
-					on:click={() => {
+					onclick={() => {
 						mode = SelectedMode.Assets;
 					}}
 					label="assets"
@@ -267,12 +268,16 @@
 		<SettingsMenu
 			bind:visible={showSettingsMenu}
 			on:showadmindashboard={() => {
-				adminDashboardDialog.showModal();
+				adminDashboardDialog!.showModal();
 			}}
 		/>
 		{#if mode === SelectedMode.Documents}
 			{#if showEditor && $currentFile !== ''}
-				<DocumentEditor bind:saveChangesHandler bind:previewWindow bind:createPullRequestHandler />
+				<DocumentEditor
+					bind:saveChangesHandler
+					bind:previewWindow={previewWindow!}
+					bind:createPullRequestHandler
+				/>
 			{:else}
 				<span class="nofile-placeholder">
 					<p>
@@ -287,7 +292,7 @@
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
-	<AdminDashboard bind:dialog={adminDashboardDialog} />
+	<AdminDashboard bind:dialog={adminDashboardDialog!} />
 </div>
 
 <style>

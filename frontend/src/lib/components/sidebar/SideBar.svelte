@@ -42,7 +42,7 @@
 </script>
 
 <div class="side-bar">
-	<img src="hyde-assets/logo-dark.svg" alt="Logo" />
+	<img src="hyde-assets/logo-dark.svg" class="logo" alt="Logo" />
 	{@render children?.()}
 </div>
 
@@ -66,7 +66,6 @@
 />
 
 <style>
-	/* TODO: Resizeable sidebar, make file nav rendering more elegant */
 	.side-bar {
 		flex-shrink: 0;
 		background-color: var(--background-1);
@@ -75,6 +74,10 @@
 		color: var(--foreground-0);
 		font-family: var(--font-family);
 		overflow-y: scroll;
+	}
+
+	.logo {
+		max-height: 6rem;
 	}
 
 	.resizeable-hitbox {
