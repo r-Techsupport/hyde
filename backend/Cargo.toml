@@ -12,8 +12,8 @@ rust-version = "1.75.0"
 
 [dependencies]
 axum = { version = "0.7.9", features = ["http2", "macros"] }
-chrono = "0.4.38"
-clap = { version = "4.5.21", features = ["derive"] }
+chrono = "0.4.39"
+clap = { version = "4.5.23", features = ["derive"] }
 color-eyre = "0.6.3"
 dotenvy = "0.15.7"
 fs-err = { version = "3.0.0", features = ["tokio"] }
@@ -24,8 +24,8 @@ reqwest = { version = "0.12.9", features = ["stream", "json"] }
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
 sqlx = { version = "0.8.1", features = ["sqlite", "runtime-tokio"] }
-tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread", "signal", "tracing"] }
-tower-http = { version = "0.6.1", features = ["normalize-path", "fs", "cors", "tracing", "trace"] }
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+tokio = { version = "1.42.0", features = ["macros", "rt-multi-thread", "signal", "tracing"] }
+tower-http = { version = "0.6.2", features = ["normalize-path", "fs", "cors", "tracing", "trace"] }
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
 toml = "0.8.19"
