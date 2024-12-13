@@ -257,7 +257,7 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 				siblings={children}
 				indent={indent + 1}
 				path={path + child.name + '/'}
-				fileSelectHandler={fileSelectHandler}
+				{fileSelectHandler}
 			/>
 		{/if}
 	{/each}
