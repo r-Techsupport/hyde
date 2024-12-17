@@ -45,6 +45,7 @@ pub struct CreatePRRequest {
     pub base_branch: String,
     pub title: String,
     pub description: String,
+    pub issue_numbers: Option<Vec<u64>>,
 }
 
 #[derive(Serialize, Debug)]
@@ -148,6 +149,7 @@ pub async fn create_pull_request_handler(
             &payload.base_branch,
             &payload.title,
             &payload.description,
+            payload.issue_numbers
         )
         .await
     {

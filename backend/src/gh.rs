@@ -250,16 +250,25 @@ impl GitHubClient {
         base_branch: &str,
         pr_title: &str,
         pr_description: &str,
+        issue_numbers: Option<Vec<u64>>,
     ) -> Result<String> {
         // Parse the repository name from self.repo_url
         let repo_name = self.get_repo_name()?;
 
-        // Prepare the JSON body for the pull request
-        let pr_body = json!({
+        let mut pr_body = pr_description.to_string();
+
+        // If issue numbers are provided, add them to the body
+        if let Some(issues) = issue_numbers {
+            for issue in issues {
+                pr_body.push_str(&format!("\n\nCloses #{}", issue)); // Add "Closes #<issue_number>" for each issue
+            }
+        }
+
+        let pr_body_json = json!({
             "title": pr_title,
             "head": head_branch,
             "base": base_branch,
-            "body": pr_description,
+            "body": pr_body,
         });
 
         debug!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
@@ -270,7 +279,7 @@ impl GitHubClient {
             .post(format!("{}/repos/{}/pulls", GITHUB_API_URL, repo_name))
             .bearer_auth(&self.token)
             .header("User-Agent", "Hyde")
-            .json(&pr_body)
+            .json(&pr_body_json)
             .send()
             .await?;
 

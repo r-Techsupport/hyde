@@ -42,3 +42,12 @@ export interface Branch {
 	name: string;
 	isProtected: boolean;
 }
+
+export interface Issue {
+    id: number;
+	number: number;
+    title: string;
+    state: string;
+    labels: string[];
+	pull_request?: {url: string;};
+}

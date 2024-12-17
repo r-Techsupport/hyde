@@ -1,5 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
-import type { User, INode, Branch } from './types';
+import type { User, INode, Branch, Issue } from './types';
 export const currentFile = writable('');
 import { dev } from '$app/environment';
 
@@ -25,6 +25,8 @@ export const branchName: Writable<string> = writable('Set Branch'); // Default b
 export const allBranches = writable<Branch[]>([]);
 export const editorText = writable<string>('');
 export const openIssues = writable<any[]>([]);
+export const selectedIssues = writable<Issue[]>([]);
+
 
 /**
  * The filesystem tree for the document folder
