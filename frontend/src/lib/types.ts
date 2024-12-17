@@ -51,4 +51,5 @@ export interface Issue {
     labels: string[];
 	body: string;
 	pull_request?: {url: string;};
+	html_url: string;
 }

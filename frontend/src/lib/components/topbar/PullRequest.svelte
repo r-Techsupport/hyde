@@ -1,6 +1,6 @@
 <!-- PullRequest.svelte -->
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
     import { ToastType, addToast } from '$lib/toast';
     import { apiAddress, branchName, currentFile, me, openIssues, selectedIssues } from '$lib/main';
     import type { Issue } from '$lib/types';
@@ -8,39 +8,46 @@
 
     let showModal = false;
     let selectedIssueDetails: Issue | null = null;
-    let description = '';
+    let prCommit = '';
+    let isExpanded: { [key: number]: boolean } = {};
 
     function openModal() {
         showModal = true;
 
         document.addEventListener('keydown', handleEscape);
-    }
+    };
 
     function closeModal() {
         selectedIssues.set([]);
-        console.log(description)
-        description = '';
+        prCommit = '';
         showModal = false;
         selectedIssueDetails = null;
 
         document.removeEventListener('keydown', handleEscape);
-    }
+    };
+
+    function toggleExpand(issueId: number) {
+        isExpanded[issueId] = !isExpanded[issueId];
+    };
 
     function handleEscape(event: KeyboardEvent) {
         if (event.key === 'Escape') {
             closeModal();
         }
-    }
+    };
 
     function toggleSelection(issue: Issue) {
-    selectedIssues.update((issues: Issue[]) => {
-        if (issues.includes(issue)) {
-            return issues.filter(i => i !== issue);
-        } else {
-            return [...issues, issue];
-        }
-    });
-}
+        selectedIssues.update((issues: Issue[]) => {
+            const idx = issues.findIndex(i => i.id === issue.id);
+            if (idx !== -1) {
+                issues.splice(idx, 1);
+            } else {
+                issues.push(issue);
+            }
+            return [...issues];
+        });
+    };
+
     onMount(() => {
         getOpenIssues();
     });
@@ -75,7 +82,6 @@
             if (responseData.status === "success" && Array.isArray(responseData.data?.issues)) {
                 const issuesOnly = responseData.data.issues.filter((issue: Issue) => !issue.pull_request);
                 openIssues.set(issuesOnly);
-                console.log($openIssues);  // Optional: for debugging purposes
             } else {
                 // Handle unexpected response structure
                 const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
@@ -102,12 +108,11 @@
 
     let createPullRequestHandler = async (): Promise<void> => {
 		const title = `Pull request for ${$currentFile}`;
-		const pr_description = `This pull request contains changes made by ${$me.username}.\n ${description}`;
+		const pr_description = `This pull request contains changes made by ${$me.username}.\n ${prCommit}`;
 		const headBranch = $branchName;
 
         // Get selected issues from the store
         const selectedIssueNumbers = get(selectedIssues).map((issue: Issue) => issue.number);
-        console.log(selectedIssueNumbers)
 
 		const response = await fetch(`${apiAddress}/api/pulls`, {
 			method: 'POST',
@@ -132,12 +137,12 @@
 				type: ToastType.Error,
 				dismissible: true
 			});
-			return; // Exit the function early on error
+			return;
 		}
 
 		// Parse the JSON response to get the pull request URL
 		const jsonResponse = await response.json();
-		const pullRequestUrl = jsonResponse.data?.pull_request_url; // Adjusted based on API response
+		const pullRequestUrl = jsonResponse.data?.pull_request_url;
 
 		if (pullRequestUrl) {
 			// If successful, show success toast with the URL
@@ -180,53 +185,70 @@
 
     <!-- Modal Implementation -->
     {#if showModal}
-        <div class="modal-backdrop">
-            <div class="modal-content">
-                <h2>Open Issues</h2>
-                <button class="close-btn" on:click={closeModal} type="button" aria-label="Close modal">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        height="1.5rem"
-                        viewBox="0 -960 960 960"
-                        width="1.5rem"
-                        role="none"
-                    >
-                        <title>Exit</title>
-                        <path
-                            d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"
-                        />
-                    </svg>
+    <div class="modal-backdrop">
+        <div class="modal-content">
+            <h2>Open Issues</h2>
+            <button class="close-btn" on:click={() => showModal = false} type="button" aria-label="Close modal">
+                <svg xmlns="http://www.w3.org/2000/svg" height="1.5rem" viewBox="0 -960 960 960" width="1.5rem" role="none">
+                    <title>Exit</title>
+                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                </svg>
+            </button>
+            <div>
+                <!-- Checkbox Group -->
+                <ul>
+                    {#each $openIssues as issue}
+                        <li>
+                            <div class="issues">
+                                <!-- Checkbox -->
+                                <input type="checkbox" id={`issue-${issue.id}`} checked={$selectedIssues.includes(issue)} on:change={() => toggleSelection(issue)} />
+                                <!-- Label and Issue Title -->
+                                <div class="issue-container">
+                                    <label for={`issue-${issue.id}`}>
+                                        <span class="issue-title">
+                                            {issue.title}
+                                            <!-- SVG Icon for the Issue URL -->
+                                            <a href={issue.html_url} target="_blank" rel="noopener noreferrer" class="issue_svg">
+                                                <svg viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+                                                    <path fill-rule="evenodd" d="M5,2 L7,2 C7.55228475,2 8,2.44771525 8,3 C8,3.51283584 7.61395981,3.93550716 7.11662113,3.99327227 L7,4 L5,4 C4.48716416,4 4.06449284,4.38604019 4.00672773,4.88337887 L4,5 L4,19 C4,19.5128358 4.38604019,19.9355072 4.88337887,19.9932723 L5,20 L19,20 C19.5128358,20 19.9355072,19.6139598 19.9932723,19.1166211 L20,19 L20,17 C20,16.4477153 20.4477153,16 21,16 C21.5128358,16 21.9355072,16.3860402 21.9932723,16.8833789 L22,17 L22,19 C22,20.5976809 20.75108,21.9036609 19.1762728,21.9949073 L19,22 L5,22 C3.40231912,22 2.09633912,20.75108 2.00509269,19.1762728 L2,19 L2,5 C2,3.40231912 3.24891996,2.09633912 4.82372721,2.00509269 L5,2 L7,2 L5,2 Z M21,2 L21.081,2.003 L21.2007258,2.02024007 L21.2007258,2.02024007 L21.3121425,2.04973809 L21.3121425,2.04973809 L21.4232215,2.09367336 L21.5207088,2.14599545 L21.5207088,2.14599545 L21.6167501,2.21278596 L21.7071068,2.29289322 L21.7071068,2.29289322 L21.8036654,2.40469339 L21.8036654,2.40469339 L21.8753288,2.5159379 L21.9063462,2.57690085 L21.9063462,2.57690085 L21.9401141,2.65834962 L21.9401141,2.65834962 L21.9641549,2.73400703 L21.9641549,2.73400703 L21.9930928,2.8819045 L21.9930928,2.8819045 L22,3 L22,3 L22,9 C22,9.55228475 21.5522847,10 21,10 C20.4477153,10 20,9.55228475 20,9 L20,5.414 L13.7071068,11.7071068 C13.3466228,12.0675907 12.7793918,12.0953203 12.3871006,11.7902954 L12.2928932,11.7071068 C11.9324093,11.3466228 11.9046797,10.7793918 12.2097046,10.3871006 L12.2928932,10.2928932 L18.584,4 L15,4 C14.4477153,4 14,3.55228475 14,3 C14,2.44771525 14.4477153,2 15,2 L21,2 Z"></path>
+                                                </svg>
+                                            </a>
+                                        </span>
+                                    </label>
+                                    <!-- Display Issue Body with Show More/Show Less -->
+                                    <div class="issue-body">
+                                        {#if issue.body.length > 200}
+                                            <p>
+                                                {#if !isExpanded[issue.id]}
+                                                    {issue.body.slice(0, 200)}...
+                                                {:else}
+                                                    {issue.body}
+                                                {/if}
+                                            </p>
+                                            <button on:click={() => toggleExpand(issue.id)} class="show-more-button">
+                                                {#if !isExpanded[issue.id]}
+                                                    Show More
+                                                {:else}
+                                                    Show Less
+                                                {/if}
+                                            </button>
+                                        {:else}
+                                            <p>{issue.body}</p>
+                                        {/if}
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                    {/each}
+                </ul>                    
+                <textarea bind:value={prCommit} placeholder="Enter pull request description" rows="5" class="description-textarea"></textarea>
+                <!-- Submit Pull Request Button -->
+                <button on:click={createPullRequestHandler} class="submit-pr-btn">
+                    Submit Pull Request
                 </button>
-                <div>
-                    <ul>
-                        {#each $openIssues as issue}
-                            <li>
-                                <button on:click={() => selectedIssueDetails = issue} class="issue-title">
-                                    {issue.title}
-                                </button>
-                                {#if selectedIssueDetails === issue}
-                                    <p>{issue.body}</p>
-                                {/if}
-                                <button on:click={() => toggleSelection(issue)}>
-                                    {#if $selectedIssues.includes(issue)}
-                                        Deselect
-                                    {:else}
-                                        Select
-                                    {/if}
-                                </button>
-                            </li>
-                        {/each}
-                    </ul>
-                    <p>Selected Issues: {$selectedIssues.length}</p>
-                    <textarea bind:value={description} placeholder="Enter pull request description" rows="5" class="description-textarea"></textarea>
-
-                    <!-- Submit Pull Request Button -->
-                    <button on:click={createPullRequestHandler} class="submit-pr-btn">
-                        Submit Pull Request
-                    </button>
-                </div>
             </div>
         </div>
+    </div>
     {/if}
 </div>
 
@@ -262,7 +284,6 @@
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(0, 0, 0, 0.5);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -270,40 +291,112 @@
     }
 
     .modal-content {
-        background: white;
+        background: var(--background-3);
         padding: 1.5rem;
         border-radius: 8px;
         position: relative;
+        width: 60%;
+        margin-left: 1rem;
     }
 
     .close-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
         background: none;
         border: none;
         font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--foreground-3);
+        transition: color 0.2s ease-in-out;
+    }
+
+    .issues {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-left: -2.75rem;
+    }
+
+    .issue-container {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .issues input[type="checkbox"] {
+        width: 1.25rem;
+        height: 1.25rem;
+        cursor: pointer;
+        accent-color: var(--background-1);
+    }
+
+    .issues label {
+        display: flex;
+        align-items: center;
         cursor: pointer;
     }
 
     .issue-title {
         background: none;
         border: none;
-        text-decoration: underline;
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--foreground-1);
         cursor: pointer;
+        transition: color 0.2s ease-in-out;
     }
 
-    ul {
-        list-style-type: none;
-        padding: 0;
+    .issue-title a {
+        display: inline-flex;
+        align-items: center;
+        color: var(--foreground-1);
+        text-decoration: none;
+        margin-left: 0.5rem;
     }
 
-    li {
-        margin-bottom: 10px;
+    .issue_svg {
+        width: 0.9rem;
+        height: 0.9rem;
+        align-items: center;
+        fill: var(--foreground-1);
+        transition: fill 0.2s ease-in-out;
+        position: relative;
+    }
+
+    .issue_svg:hover {
+        background-color: var(--background-1);
+    }
+
+    .issue-body {
+        font-size: 0.75rem;
+        color: var(--foreground-2);
+        line-height: 1.5;
+    }
+
+    .show-more-button {
+        font-size: 0.875rem;
+        padding: 0.25rem 0.5rem;
+        margin-top: 0.5rem;
+        background-color: transparent;
+        border: 1px solid var(--foreground-1);
+        border-radius: 0.375rem;
+        color: var(--foreground-1);
+        cursor: pointer;
+        transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    }
+
+    .show-more-button:hover {
+        background-color: var(--background-2);
+        color: var(--primary);
     }
 
     .submit-pr-btn {
         margin-top: 1rem;
         padding: 0.5rem 1rem;
-        background-color: var(--foreground-3);
-        color: white;
+        background-color: var(--background-4);
+        color: var(--foreground-1);
         border: none;
         border-radius: 4px;
         cursor: pointer;
@@ -320,6 +413,16 @@
         margin-top: 1rem;
         padding: 0.5rem;
         resize: vertical;
+        background-color: var(--foreground-0);
+        color: var(--background-2);
+    }
+
+    ul {
+        list-style: none;
+    }
+
+    li {
+        margin-bottom: 0.5rem;
     }
 
 </style>
