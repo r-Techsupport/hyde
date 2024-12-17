@@ -296,7 +296,9 @@
         border-radius: 8px;
         position: relative;
         width: 60%;
+        height: 60%;
         margin-left: 1rem;
+        overflow-y: scroll;
     }
 
     .close-btn {
@@ -413,8 +415,9 @@
         margin-top: 1rem;
         padding: 0.5rem;
         resize: vertical;
-        background-color: var(--foreground-0);
-        color: var(--background-2);
+        border: 0.5rem;
+        background: var(--background-3);
+        color: var(--background-0);
     }
 
     ul {
