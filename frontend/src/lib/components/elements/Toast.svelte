@@ -1,6 +1,6 @@
 <!-- A single toast notification -->
 <!-- Adapted from https://svelte.dev/repl/0091c8b604b74ed88bb7b6d174504f50?version=3.35.0 -->
-<script>
+<script lang="ts">
 	import { ToastType } from '$lib/toast';
 	import { createEventDispatcher } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -12,8 +12,13 @@
 
 	const dispatch = createEventDispatcher();
 
-	export let type = 'error';
-	export let dismissible = true;
+	interface Props {
+		type?: string;
+		dismissible?: boolean;
+		children?: import('svelte').Snippet;
+	}
+
+	let { type = 'error', dismissible = true, children }: Props = $props();
 </script>
 
 <article class={type} role="alert" transition:fade={{ duration: 150, easing: quartOut }}>
@@ -80,11 +85,11 @@
 	{/if}
 
 	<div class="text">
-		<slot />
+		{@render children?.()}
 	</div>
 
 	{#if dismissible}
-		<button class="close" on:click={() => dispatch('dismiss')}>
+		<button class="close" aria-label="Close" onclick={() => dispatch('dismiss')}>
 			<svg
 				width="1rem"
 				style="text-align: center; display: inline-block;"

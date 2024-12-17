@@ -1,27 +1,39 @@
 <!-- A generic confirmation confirm/cancel dialogue box -->
 <script lang="ts">
-	/**
-	 * If defined, the code that runs when a user hits "Confirm".
-	 */
-	export let confirmHandler = () => {};
-	/**
-	 * If defined, the code that runs when the user hits "Deny" or
-	 * clicks out of the widget.
-	 */
-	export let cancelHandler = () => {};
-	export let confirmText = 'Confirm';
-	export let cancelText = 'Cancel';
-	export let visible: boolean;
+	interface Props {
+		/**
+		 * If defined, the code that runs when a user hits "Confirm".
+		 */
+		confirmHandler?: () => undefined;
+		/**
+		 * If defined, the code that runs when the user hits "Deny" or
+		 * clicks out of the widget.
+		 */
+		cancelHandler?: () => undefined;
+		confirmText?: string;
+		cancelText?: string;
+		visible: boolean;
+		children?: import('svelte').Snippet;
+	}
+
+	let {
+		confirmHandler = () => {},
+		cancelHandler = () => {},
+		confirmText = 'Confirm',
+		cancelText = 'Cancel',
+		visible = $bindable(),
+		children
+	}: Props = $props();
 </script>
 
 <div class="backdrop"></div>
 <div class="container">
 	<div class="inserted-content">
-		<slot></slot>
+		{@render children?.()}
 	</div>
 	<div class="control-buttons">
 		<button
-			on:click={() => {
+			onclick={() => {
 				visible = false;
 				cancelHandler();
 			}}
@@ -29,7 +41,7 @@
 			{cancelText}
 		</button>
 		<button
-			on:click={() => {
+			onclick={() => {
 				visible = false;
 				confirmHandler();
 			}}

@@ -2,11 +2,18 @@
  This component is used as a substitute for the directory dropdown
   -->
 <script lang="ts">
-	export let label = '';
+	import type { MouseEventHandler } from 'svelte/elements';
+
+	interface Props {
+		label?: string;
+		onclick: MouseEventHandler<HTMLButtonElement>;
+	}
+
+	let { label = '', onclick }: Props = $props();
 </script>
 
 <span class={'container'}>
-	<button on:click class="entry-button">
+	<button {onclick} class="entry-button">
 		<!-- Rendering if the navigation item is a directory -->
 		<!-- The chevron -->
 		<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"

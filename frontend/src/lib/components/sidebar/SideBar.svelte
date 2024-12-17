@@ -1,6 +1,11 @@
 <script lang="ts">
-	/** Binding to the css variable determining sidebar width */
-	export let sidebarWidth: string;
+	interface Props {
+		/** Binding to the css variable determining sidebar width */
+		sidebarWidth: string;
+		children?: import('svelte').Snippet;
+	}
+
+	let { sidebarWidth = $bindable(), children }: Props = $props();
 	// const MOCK_DIRECTORY = {
 	//     name: "Root",
 	//     children: [
@@ -33,19 +38,19 @@
 	//         }
 	//     ],
 	// }
-	let draggingWindow = false;
+	let draggingWindow = $state(false);
 </script>
 
 <div class="side-bar">
-	<img src="hyde-assets/logo-dark.svg" alt="Logo" />
-	<slot></slot>
+	<img src="hyde-assets/logo-dark.svg" class="logo" alt="Logo" />
+	{@render children?.()}
 </div>
 
 <div
-	on:mousedown={() => {
+	onmousedown={() => {
 		draggingWindow = true;
 	}}
-	on:mouseup={() => {
+	onmouseup={() => {
 		draggingWindow = false;
 	}}
 	role="none"
@@ -53,7 +58,7 @@
 ></div>
 
 <svelte:body
-	on:mousemove={(e) => {
+	onmousemove={(e) => {
 		if (draggingWindow && e.clientX > 90 && e.clientX < 500) {
 			sidebarWidth = `${e.clientX}px`;
 		}
@@ -61,7 +66,6 @@
 />
 
 <style>
-	/* TODO: Resizeable sidebar, make file nav rendering more elegant */
 	.side-bar {
 		flex-shrink: 0;
 		background-color: var(--background-1);
@@ -70,6 +74,10 @@
 		color: var(--foreground-0);
 		font-family: var(--font-family);
 		overflow-y: scroll;
+	}
+
+	.logo {
+		max-height: 6rem;
 	}
 
 	.resizeable-hitbox {
