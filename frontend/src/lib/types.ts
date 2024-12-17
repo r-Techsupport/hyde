@@ -49,5 +49,6 @@ export interface Issue {
     title: string;
     state: string;
     labels: string[];
+	body: string;
 	pull_request?: {url: string;};
 }

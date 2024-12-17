@@ -8,6 +8,7 @@
 
     let showModal = false;
     let selectedIssueDetails: Issue | null = null;
+    let description = '';
 
     function openModal() {
         showModal = true;
@@ -17,6 +18,8 @@
 
     function closeModal() {
         selectedIssues.set([]);
+        console.log(description)
+        description = '';
         showModal = false;
         selectedIssueDetails = null;
 
@@ -99,7 +102,7 @@
 
     let createPullRequestHandler = async (): Promise<void> => {
 		const title = `Pull request for ${$currentFile}`;
-		const description = `This pull request contains changes made by ${$me.username}.`;
+		const pr_description = `This pull request contains changes made by ${$me.username}.\n ${description}`;
 		const headBranch = $branchName;
 
         // Get selected issues from the store
@@ -116,7 +119,7 @@
 				head_branch: headBranch,
 				base_branch: 'master',
 				title: title,
-				description: description,
+				description: pr_description,
                 issue_numbers: selectedIssueNumbers
 			})
 		});
@@ -215,6 +218,7 @@
                         {/each}
                     </ul>
                     <p>Selected Issues: {$selectedIssues.length}</p>
+                    <textarea bind:value={description} placeholder="Enter pull request description" rows="5" class="description-textarea"></textarea>
 
                     <!-- Submit Pull Request Button -->
                     <button on:click={createPullRequestHandler} class="submit-pr-btn">
@@ -310,4 +314,12 @@
     .submit-pr-btn:hover {
         background-color: var(--foreground-5);
     }
+
+    .description-textarea {
+        width: 100%;
+        margin-top: 1rem;
+        padding: 0.5rem;
+        resize: vertical;
+    }
+
 </style>
