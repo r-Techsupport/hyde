@@ -250,16 +250,25 @@ impl GitHubClient {
         base_branch: &str,
         pr_title: &str,
         pr_description: &str,
+        issue_numbers: Option<Vec<u64>>,
     ) -> Result<String> {
         // Parse the repository name from self.repo_url
         let repo_name = self.get_repo_name()?;
 
-        // Prepare the JSON body for the pull request
-        let pr_body = json!({
+        let mut pr_body = pr_description.to_string();
+
+        // If issue numbers are provided, add them to the body
+        if let Some(issues) = issue_numbers {
+            for issue in issues {
+                pr_body.push_str(&format!("\n\nCloses #{}", issue)); // Add "Closes #<issue_number>" for each issue
+            }
+        }
+
+        let pr_body_json = json!({
             "title": pr_title,
             "head": head_branch,
             "base": base_branch,
-            "body": pr_description,
+            "body": pr_body,
         });
 
         debug!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
@@ -270,7 +279,7 @@ impl GitHubClient {
             .post(format!("{}/repos/{}/pulls", GITHUB_API_URL, repo_name))
             .bearer_auth(&self.token)
             .header("User-Agent", "Hyde")
-            .json(&pr_body)
+            .json(&pr_body_json)
             .send()
             .await?;
 
@@ -293,6 +302,79 @@ impl GitHubClient {
             let response_text = response.text().await?;
             bail!(
                 "Failed to create pull request: {}, Response: {}",
+                status,
+                response_text
+            );
+        }
+    }
+
+    pub async fn update_pull_request(
+        &self,
+        pr_number: u64,
+        pr_title: Option<&str>,
+        pr_description: Option<&str>,
+        base_branch: Option<&str>,
+        issue_numbers: Option<Vec<u64>>, // Add this parameter to pass the issues
+    ) -> Result<String> {
+        info!("Made it to the start of the update PR");
+        let repo_name = self.get_repo_name()?;
+    
+        let mut pr_body_json = serde_json::Map::new();
+    
+        if let Some(title) = pr_title {
+            pr_body_json.insert("title".to_string(), json!(title));
+        }
+    
+        let mut pr_body = String::new();
+    
+        // If description is provided, include it in the body
+        if let Some(description) = pr_description {
+            pr_body.push_str(description);
+        }
+    
+        // If issue numbers are provided, add them to the body
+        if let Some(issues) = issue_numbers {
+            for issue in issues {
+                pr_body.push_str(&format!("\n\nCloses #{}", issue)); // Add "Closes #<issue_number>" for each issue
+            }
+        }
+    
+        // Add the constructed body to the JSON body
+        pr_body_json.insert("body".to_string(), json!(pr_body));
+    
+        if let Some(base) = base_branch {
+            pr_body_json.insert("base".to_string(), json!(base));
+        }
+    
+        debug!("Updating pull request {} in {}/repos/{}/pulls", pr_number, GITHUB_API_URL, repo_name);
+    
+        // Send the request to the GitHub API to update the pull request
+        let response = self
+            .client
+            .patch(format!("{}/repos/{}/pulls/{}", GITHUB_API_URL, repo_name, pr_number))
+            .bearer_auth(&self.token)
+            .header("User-Agent", "Hyde")
+            .json(&pr_body_json)
+            .send()
+            .await?;
+    
+        // Handle the response based on the status code
+        if response.status().is_success() {
+            info!("Pull request #{} updated successfully", pr_number);
+    
+            // Extract the response JSON to get the updated pull request URL
+            let response_json: Value = response.json().await?;
+            if let Some(url) = response_json.get("html_url").and_then(Value::as_str) {
+                Ok(url.to_string()) // Return the updated URL
+            } else {
+                bail!("Expected URL field not found in the response.");
+            }
+        } else {
+            let status = response.status();
+            let response_text = response.text().await?;
+            bail!(
+                "Failed to update pull request #{}: {}, Response: {}",
+                pr_number,
                 status,
                 response_text
             );
@@ -445,4 +527,70 @@ impl GitHubClient {
 
         Ok(branch_details)
     }
+
+    /// Fetches issues from the GitHub repository.
+    ///
+    /// This function retrieves issues from the specified repository using the GitHub API.
+    /// You can filter issues based on their state and associated labels.
+    ///
+    /// # Parameters:
+    /// - `state`: A string slice representing the state of the issues to fetch (e.g., "open", "closed", "all").
+    ///            Defaults to "open".
+    /// - `labels`: A comma-separated string slice representing labels to filter issues by. Defaults to `None`.
+    ///
+    /// # Returns:
+    /// A `Result<Vec<Value>>`:
+    /// - `Ok(issues)`: A vector of JSON values representing the issues fetched from the repository.
+    /// - `Err(e)`: An error message if the request fails or the response cannot be parsed.
+    ///
+    /// # Errors:
+    /// This function may return an error if:
+    /// - The `repo_url` is not in the expected format and cannot be parsed to derive the repository name.
+    /// - The request to fetch issues fails due to authentication issues, invalid input, or network problems.
+    /// - The GitHub API response cannot be parsed as a JSON array.
+    pub async fn get_issues(&self, state: Option<&str>, labels: Option<&str>) -> Result<Vec<Value>> {
+        let repo_name = self.get_repo_name().map_err(|e| {
+            error!("Failed to get repository name: {:?}", e);
+            e
+        })?;
+    
+        let state = state.unwrap_or("open"); // Default state
+        let mut query_params = vec![format!("state={}", state)];
+        if let Some(labels) = labels {
+            query_params.push(format!("labels={}", labels));
+        }
+        let query_string = format!("?{}", query_params.join("&"));
+    
+        let url = format!("{}/repos/{}/issues{}", GITHUB_API_URL, repo_name, query_string);
+        debug!("Request URL: {}", url);
+    
+        let response = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.token)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "Hyde")
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await?;
+    
+        if let Some(rate_limit_remaining) = response.headers().get("X-RateLimit-Remaining") {
+            debug!("GitHub API rate limit remaining: {}", rate_limit_remaining.to_str().unwrap_or("Unknown"));
+        }
+    
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            error!("GitHub API request failed with status {}: {}", status, error_text);
+            bail!("GitHub API request failed ({}): {}", status, error_text);
+        }
+    
+        let issues: Vec<Value> = response.json().await.map_err(|e| {
+            error!("Failed to parse GitHub response JSON: {:?}", e);
+            e
+        })?;
+    
+        Ok(issues)
+    }                
+
 }

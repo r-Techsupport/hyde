@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum Permission {
     ManageContent, // TODO
     ManageUsers,
+    ManageBranches,
     // TODO: Submit for review
 }
 
@@ -14,6 +15,7 @@ impl From<Permission> for String {
         match value {
             Permission::ManageContent => "ManageContent",
             Permission::ManageUsers => "ManageUsers",
+            Permission::ManageBranches => "ManageBranches"
         }
         .to_string()
     }
@@ -25,6 +27,7 @@ impl TryInto<Permission> for &str {
         match self {
             "ManageContent" => Ok(Permission::ManageContent),
             "ManageUsers" => Ok(Permission::ManageUsers),
+            "ManageBranches" => Ok(Permission::ManageBranches),
             _ => Err("Not a valid permission level"),
         }
     }

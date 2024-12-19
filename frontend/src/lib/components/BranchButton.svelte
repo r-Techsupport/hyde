@@ -358,7 +358,7 @@
 		align-items: center;
 		justify-content: center;
 		background-color: transparent;
-		color: var(--background-5);
+		color: var(--foreground-3);
 		border-radius: 0.3rem;
 		padding: 0.5rem 1rem;
 		cursor: pointer;
