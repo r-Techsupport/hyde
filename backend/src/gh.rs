@@ -308,6 +308,79 @@ impl GitHubClient {
         }
     }
 
+    pub async fn update_pull_request(
+        &self,
+        pr_number: u64,
+        pr_title: Option<&str>,
+        pr_description: Option<&str>,
+        base_branch: Option<&str>,
+        issue_numbers: Option<Vec<u64>>, // Add this parameter to pass the issues
+    ) -> Result<String> {
+        info!("Made it to the start of the update PR");
+        let repo_name = self.get_repo_name()?;
+    
+        let mut pr_body_json = serde_json::Map::new();
+    
+        if let Some(title) = pr_title {
+            pr_body_json.insert("title".to_string(), json!(title));
+        }
+    
+        let mut pr_body = String::new();
+    
+        // If description is provided, include it in the body
+        if let Some(description) = pr_description {
+            pr_body.push_str(description);
+        }
+    
+        // If issue numbers are provided, add them to the body
+        if let Some(issues) = issue_numbers {
+            for issue in issues {
+                pr_body.push_str(&format!("\n\nCloses #{}", issue)); // Add "Closes #<issue_number>" for each issue
+            }
+        }
+    
+        // Add the constructed body to the JSON body
+        pr_body_json.insert("body".to_string(), json!(pr_body));
+    
+        if let Some(base) = base_branch {
+            pr_body_json.insert("base".to_string(), json!(base));
+        }
+    
+        debug!("Updating pull request {} in {}/repos/{}/pulls", pr_number, GITHUB_API_URL, repo_name);
+    
+        // Send the request to the GitHub API to update the pull request
+        let response = self
+            .client
+            .patch(format!("{}/repos/{}/pulls/{}", GITHUB_API_URL, repo_name, pr_number))
+            .bearer_auth(&self.token)
+            .header("User-Agent", "Hyde")
+            .json(&pr_body_json)
+            .send()
+            .await?;
+    
+        // Handle the response based on the status code
+        if response.status().is_success() {
+            info!("Pull request #{} updated successfully", pr_number);
+    
+            // Extract the response JSON to get the updated pull request URL
+            let response_json: Value = response.json().await?;
+            if let Some(url) = response_json.get("html_url").and_then(Value::as_str) {
+                Ok(url.to_string()) // Return the updated URL
+            } else {
+                bail!("Expected URL field not found in the response.");
+            }
+        } else {
+            let status = response.status();
+            let response_text = response.text().await?;
+            bail!(
+                "Failed to update pull request #{}: {}, Response: {}",
+                pr_number,
+                status,
+                response_text
+            );
+        }
+    }
+
     /// Fetches a complete list of branches from the specified GitHub repository.
     ///
     /// This function retrieves all branches for a repository by sending paginated GET requests to the GitHub API.

@@ -61,6 +61,15 @@ pub struct Issue {
     pub labels: Vec<String>,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct UpdatePRRequest {
+    pub pr_number: u64,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub base_branch: Option<String>,
+    pub issue_numbers: Option<Vec<u64>>,
+}
+
 /// Retrieves the GitHub access token from the application state.
 async fn get_github_token(state: &AppState) -> Result<String, (StatusCode, String)> {
     state.gh_credentials.get(&state.reqwest_client, &state.config.oauth.github.client_id).await.map_err(|err| {
@@ -168,6 +177,55 @@ pub async fn create_pull_request_handler(
         Err(err) => {
             // Handle error case in creating the pull request
             let error_message = format!("Failed to create pull request: {:?}", err);
+            error!("{}", error_message);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
+        }
+    }
+}
+
+pub async fn update_pull_request_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<UpdatePRRequest>,
+) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+    info!("Received request to update pull request: {:?}", payload);
+
+    // Get the GitHub access token
+    let token = get_github_token(&state).await.map_err(|err| {
+        let error_message = format!("Failed to get GitHub token: {:?}", err);
+        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
+    })?;
+
+    // Create an instance of the GitHubClient
+    let github_client = GitHubClient::new(
+        state.config.files.repo_url.clone(),
+        state.reqwest_client.clone(),
+        token,
+    );
+
+    // Update the pull request
+    match github_client
+        .update_pull_request(
+            payload.pr_number,
+            payload.title.as_deref(),
+            payload.description.as_deref(),
+            payload.base_branch.as_deref(),
+            payload.issue_numbers,
+        )
+        .await
+    {
+        Ok(updated_pr_url) => {
+            info!("Pull request #{} updated successfully", payload.pr_number);
+            Ok((
+                StatusCode::OK,
+                Json(ApiResponse {
+                    status: "success".to_string(),
+                    message: "Pull request updated successfully.".to_string(),
+                    data: Some(updated_pr_url),
+                }),
+            ))
+        }
+        Err(err) => {
+            let error_message = format!("Failed to update pull request: {:?}", err);
             error!("{}", error_message);
             Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
         }
@@ -305,6 +363,7 @@ pub async fn github_routes() -> Router<AppState> {
         .route("/branches", get(list_branches_handler))
         .route("/pulls", post(create_pull_request_handler))
         .route("/checkout/branches/:branch_name", put(checkout_or_create_branch_handler))
+        .route("/pulls/update", put(update_pull_request_handler)) 
         .route("/pull/:branch", post(pull_handler))
         .route("/current-branch", get(get_current_branch_handler))
         .route("/issues/:state", get(get_issues_handler))

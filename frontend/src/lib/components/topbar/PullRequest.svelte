@@ -5,11 +5,14 @@
     import { apiAddress, branchName, currentFile, me, openIssues, selectedIssues, openPullRequests } from '$lib/main';
     import type { Issue } from '$lib/types';
     import { get } from 'svelte/store';
+    import LoadingIcon from '../elements/LoadingIcon.svelte';
 
     let showModal = false;
     let selectedIssueDetails: Issue | null = null;
     let prCommit = '';
     let isExpanded: { [key: number]: boolean } = {};
+    let showLoadingIcon: boolean;
+    let selectedPullRequest: number | null = null;
 
     function openModal() {
         showModal = true;
@@ -22,6 +25,7 @@
         prCommit = '';
         showModal = false;
         selectedIssueDetails = null;
+        selectedPullRequest = null;
 
         document.removeEventListener('keydown', handleEscape);
     };
@@ -84,7 +88,6 @@
                 const pullRequestsOnly = responseData.data.issues.filter((issue: Issue) => issue.pull_request);
                 openIssues.set(issuesOnly);
                 openPullRequests.set(pullRequestsOnly);
-                console.log("Current open pull requests:", $openPullRequests)
             } else {
                 // Handle unexpected response structure
                 const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
@@ -109,13 +112,14 @@
         }
     }
 
-    let createPullRequestHandler = async (): Promise<void> => {
+    let createPullRequest = async (): Promise<void> => {
 		const title = `Pull request for ${$currentFile}`;
 		const pr_description = `This pull request contains changes made by ${$me.username}.\n ${prCommit}`;
 		const headBranch = $branchName;
 
         // Get selected issues from the store
         const selectedIssueNumbers = get(selectedIssues).map((issue: Issue) => issue.number);
+        showLoadingIcon = true;
 
 		const response = await fetch(`${apiAddress}/api/pulls`, {
 			method: 'POST',
@@ -152,7 +156,8 @@
 			addToast({
 				message: `Pull request created successfully. View it [here](${pullRequestUrl}).`,
 				type: ToastType.Success,
-				dismissible: true
+				dismissible: true,
+                timeout: 3600,
 			});
 		} else {
 			// Handle the case where the URL is not present (if needed)
@@ -162,9 +167,69 @@
 				dismissible: true
 			});
 		}
+        showLoadingIcon = false;
 	};
 
+    let updatePullRequest = async (): Promise<void> => {
+        const title = `Updated pull request for ${$currentFile}`;
+        const pr_description = `This updated pull request contains additional changes made by ${$me.username}.\n ${prCommit}`;
+        const headBranch = $branchName;
+
+        // Get selected issues from the store
+        const selectedIssueNumbers = $selectedIssues.map((issue: Issue) => issue.number);
+        showLoadingIcon = true;
+
+        const response = await fetch(`${apiAddress}/api/pulls/update`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                pr_number: selectedPullRequest,
+                title: title,
+                description: pr_description,
+                base_branch: 'master',
+                issue_numbers: selectedIssueNumbers
+            })
+        });
+
+        // Handle the response
+        if (!response.ok) {
+            const errorMessage = `Failed to update pull request (Code ${response.status}: "${response.statusText}")`;
+            addToast({
+                message: `Error: ${errorMessage}`,
+                type: ToastType.Error,
+                dismissible: true
+            });
+            return;
+        }
+
+        // Parse the JSON response to get the updated pull request URL or other details
+        const jsonResponse = await response.json();
+        const pullRequestUrl = jsonResponse.data?.pull_request_url;
+
+        if (pullRequestUrl) {
+            // If successful, show success toast with the URL
+            addToast({
+                message: `Pull request updated successfully. View it [here](${pullRequestUrl}).`,
+                type: ToastType.Success,
+                dismissible: true,
+                timeout: 3600
+            });
+        } else {
+            // Handle the case where the URL is not present (if needed)
+            addToast({
+                message: 'Pull request updated successfully, but the URL is not available.',
+                type: ToastType.Warning,
+                dismissible: true
+            });
+        }
+        showLoadingIcon = false;
+    };
+
     async function checkOpenPullRequests() {
+        showLoadingIcon = true;
         // Loop through each open pull request
         for (const pr of $openPullRequests) {
             if (!pr.pull_request) continue;
@@ -203,8 +268,11 @@
                         });
                     }
                 });
+                selectedPullRequest = pr.number;
+                break;
             }
         }
+        showLoadingIcon = false;
     }
 
 </script>
@@ -288,15 +356,22 @@
                     {/each}
                 </ul>                    
                 <textarea bind:value={prCommit} placeholder="Enter pull request description" rows="5" class="description-textarea"></textarea>
-                <!-- Submit Pull Request Button -->
-                <button on:click={createPullRequestHandler} class="submit-pr-btn">
-                    Submit Pull Request
-                </button>
+                <!-- Pull Request Button -->
+                {#if selectedPullRequest === null}
+                    <button on:click={createPullRequest} class="submit-pr-btn">
+                        Submit Pull Request
+                    </button>
+                {:else}
+                    <button on:click={updatePullRequest} class="submit-pr-btn">
+                        Update Pull Request
+                    </button>
+                {/if}
             </div>
         </div>
     </div>
     {/if}
 </div>
+<LoadingIcon bind:visible={showLoadingIcon} />
 
 <style>
     .pull-request {
