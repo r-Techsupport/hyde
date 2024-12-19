@@ -2,7 +2,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { ToastType, addToast } from '$lib/toast';
-    import { apiAddress, branchName, currentFile, me, openIssues, selectedIssues } from '$lib/main';
+    import { apiAddress, branchName, currentFile, me, openIssues, selectedIssues, openPullRequests } from '$lib/main';
     import type { Issue } from '$lib/types';
     import { get } from 'svelte/store';
 
@@ -13,7 +13,7 @@
 
     function openModal() {
         showModal = true;
-
+        checkOpenPullRequests();
         document.addEventListener('keydown', handleEscape);
     };
 
@@ -81,7 +81,10 @@
             // Validate the response structure
             if (responseData.status === "success" && Array.isArray(responseData.data?.issues)) {
                 const issuesOnly = responseData.data.issues.filter((issue: Issue) => !issue.pull_request);
+                const pullRequestsOnly = responseData.data.issues.filter((issue: Issue) => issue.pull_request);
                 openIssues.set(issuesOnly);
+                openPullRequests.set(pullRequestsOnly);
+                console.log("Current open pull requests:", $openPullRequests)
             } else {
                 // Handle unexpected response structure
                 const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
@@ -161,6 +164,49 @@
 		}
 	};
 
+    async function checkOpenPullRequests() {
+        // Loop through each open pull request
+        for (const pr of $openPullRequests) {
+            if (!pr.pull_request) continue;
+
+            // Fetch the details of the pull request using the prNumber
+            const response = await fetch(pr.pull_request.url);
+            if (!response.ok) {
+                continue;
+            }
+
+            const prData = await response.json();
+            const sourceBranch = prData.head.ref;
+
+            // Compare the source branch with the current branch
+            if (sourceBranch === $branchName) {
+                prCommit = pr.body;
+
+                // Extract issue numbers from the PR body (e.g., #25, #28)
+                const issueRegex = /#(\d+)/g;
+                const linkedIssues: number[] = [];
+                let match;
+                while ((match = issueRegex.exec(pr.body)) !== null) {
+                    linkedIssues.push(parseInt(match[1], 10));
+                }
+
+                linkedIssues.forEach((issueNumber) => {
+                    const matchingIssue = $openIssues.find((issue) => issue.number === issueNumber);
+                    if (matchingIssue) {
+                        // Add to selectedIssues if the issue matches
+                        selectedIssues.update((currentIssues) => {
+                            // Only add the issue if it's not already selected
+                            if (!currentIssues.some((selected) => selected.id === matchingIssue.id)) {
+                                currentIssues.push(matchingIssue);
+                            }
+                            return currentIssues;
+                        });
+                    }
+                });
+            }
+        }
+    }
+
 </script>
 
 <div class="pull-request">
@@ -188,7 +234,7 @@
     <div class="modal-backdrop">
         <div class="modal-content">
             <h2>Open Issues</h2>
-            <button class="close-btn" on:click={() => showModal = false} type="button" aria-label="Close modal">
+            <button class="close-btn" on:click={() => closeModal()} type="button" aria-label="Close modal">
                 <svg xmlns="http://www.w3.org/2000/svg" height="1.5rem" viewBox="0 -960 960 960" width="1.5rem" role="none">
                     <title>Exit</title>
                     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>

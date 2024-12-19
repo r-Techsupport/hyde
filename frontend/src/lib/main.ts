@@ -24,8 +24,9 @@ export const me: Writable<User> = writable({
 export const branchName: Writable<string> = writable('Set Branch'); // Default branch name
 export const allBranches = writable<Branch[]>([]);
 export const editorText = writable<string>('');
-export const openIssues = writable<any[]>([]);
+export const openIssues = writable<Issue[]>([]);
 export const selectedIssues = writable<Issue[]>([]);
+export const openPullRequests = writable<Issue[]>([]);
 
 
 /**

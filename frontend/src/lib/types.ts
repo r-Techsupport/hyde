@@ -52,4 +52,5 @@ export interface Issue {
 	body: string;
 	pull_request?: {url: string;};
 	html_url: string;
+	url: string;
 }
