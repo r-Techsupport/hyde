@@ -89,6 +89,7 @@
                 const pullRequestsOnly = responseData.data.issues.filter((issue: Issue) => issue.pull_request);
                 openIssues.set(issuesOnly);
                 openPullRequests.set(pullRequestsOnly);
+                console.log($openPullRequests)
             } else {
                 // Handle unexpected response structure
                 const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
