@@ -207,7 +207,7 @@
 
         // Parse the JSON response to get the updated pull request URL or other details
         const jsonResponse = await response.json();
-        const pullRequestUrl = jsonResponse.data?.pull_request_url;
+        const pullRequestUrl = jsonResponse.data;
 
         if (pullRequestUrl) {
             // If successful, show success toast with the URL
@@ -245,8 +245,6 @@
 
             // Compare the source branch with the current branch
             if (sourceBranch === $branchName) {
-                prCommit = pr.body;
-
                 // Extract issue numbers from the PR body (e.g., #25, #28)
                 const issueRegex = /#(\d+)/g;
                 const linkedIssues: number[] = [];
@@ -254,20 +252,15 @@
                 while ((match = issueRegex.exec(pr.body)) !== null) {
                     linkedIssues.push(parseInt(match[1], 10));
                 }
-
                 linkedIssues.forEach((issueNumber) => {
                     const matchingIssue = $openIssues.find((issue) => issue.number === issueNumber);
                     if (matchingIssue) {
-                        // Add to selectedIssues if the issue matches
-                        selectedIssues.update((currentIssues) => {
-                            // Only add the issue if it's not already selected
-                            if (!currentIssues.some((selected) => selected.id === matchingIssue.id)) {
-                                currentIssues.push(matchingIssue);
-                            }
-                            return currentIssues;
-                        });
+                        toggleSelection(matchingIssue);
+                        console.log('Issue Number', issueNumber)
                     }
                 });
+                pr.body = pr.body.replace(/Closes\s+#?\d+/g, "");
+                prCommit = pr.body.trim();
                 selectedPullRequest = pr.number;
                 break;
             }
@@ -409,6 +402,7 @@
         justify-content: center;
         align-items: center;
         outline: none;
+        z-index: 1050;
     }
 
     .modal-content {
