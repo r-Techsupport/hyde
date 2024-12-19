@@ -111,7 +111,7 @@
                 dismissible: true,
             });
         }
-    }
+    };
 
     let createPullRequest = async (): Promise<void> => {
 		const title = `Pull request for ${$currentFile}`;
@@ -266,13 +266,13 @@
             }
         }
         showLoadingIcon = false;
-    }
+    };
 
 </script>
 
 <div class="pull-request">
     <!-- Pull Request -->
-	<button on:click={openModal} class="pull-request" title="Pull Request" type="button">
+	<button on:click={() => openModal()} class="pull-request" title="Pull Request" type="button">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			width="25px"
@@ -402,7 +402,6 @@
         justify-content: center;
         align-items: center;
         outline: none;
-        z-index: 1050;
     }
 
     .modal-content {
