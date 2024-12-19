@@ -26,6 +26,7 @@
         showModal = false;
         selectedIssueDetails = null;
         selectedPullRequest = null;
+        showLoadingIcon = false;
 
         document.removeEventListener('keydown', handleEscape);
     };
@@ -202,6 +203,7 @@
                 type: ToastType.Error,
                 dismissible: true
             });
+            showLoadingIcon = false;
             return;
         }
 
@@ -256,11 +258,9 @@
                     const matchingIssue = $openIssues.find((issue) => issue.number === issueNumber);
                     if (matchingIssue) {
                         toggleSelection(matchingIssue);
-                        console.log('Issue Number', issueNumber)
                     }
                 });
-                pr.body = pr.body.replace(/Closes\s+#?\d+/g, "");
-                prCommit = pr.body.trim();
+                prCommit = pr.body.replace(/Closes\s+#?\d+/g, "").trim();
                 selectedPullRequest = pr.number;
                 break;
             }
