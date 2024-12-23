@@ -269,6 +269,7 @@ impl GitHubClient {
             "head": head_branch,
             "base": base_branch,
             "body": pr_body,
+            "labels": ["discord-user:krol430"]
         });
 
         debug!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
@@ -292,6 +293,7 @@ impl GitHubClient {
             
             // Extract the response JSON to get the pull request URL
             let response_json: Value = response.json().await?;
+            info!("Github API response: {}", response_json);
             if let Some(url) = response_json.get("html_url").and_then(Value::as_str) {
                 Ok(url.to_string()) // Directly return the URL as String
             } else {
@@ -381,6 +383,43 @@ impl GitHubClient {
         }
     }
 
+    pub async fn close_pull_request(&self, pr_number: u64) -> Result<()> {
+        // Get the repository name from the repository URL
+        let repo_name = self.get_repo_name()?;
+    
+        info!("Closing pull request #{} in repository {}", pr_number, repo_name);
+    
+        // Construct the JSON body to close the pull request
+        let pr_body_json = json!({
+            "state": "closed"
+        });
+    
+        // Send the request to GitHub API to close the pull request
+        let response = self
+            .client
+            .patch(format!("{}/repos/{}/pulls/{}", GITHUB_API_URL, repo_name, pr_number))
+            .bearer_auth(&self.token)
+            .header("User-Agent", "Hyde")
+            .json(&pr_body_json)
+            .send()
+            .await?;
+    
+        // Handle the response
+        if response.status().is_success() {
+            info!("Pull request #{} closed successfully", pr_number);
+            Ok(())
+        } else {
+            let status = response.status();
+            let response_text = response.text().await?;
+            bail!(
+                "Failed to close pull request #{}: {}, Response: {}",
+                pr_number,
+                status,
+                response_text
+            );
+        }
+    }
+    
     /// Fetches a complete list of branches from the specified GitHub repository.
     ///
     /// This function retrieves all branches for a repository by sending paginated GET requests to the GitHub API.

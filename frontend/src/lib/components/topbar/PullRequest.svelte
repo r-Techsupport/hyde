@@ -13,6 +13,7 @@
     let isExpanded: { [key: number]: boolean } = {};
     let showLoadingIcon: boolean;
     let selectedPullRequest: number | null = null;
+    let prAuthor = '';
 
     function openModal() {
         showModal = true;
@@ -115,8 +116,8 @@
     };
 
     let createPullRequest = async (): Promise<void> => {
-		const title = `Pull request for ${$currentFile}`;
-		const pr_description = `This pull request contains changes made by ${$me.username}.\n ${prCommit}`;
+		const title = `Pull request form: ${$me.username}`;
+		const pr_description = `Changes made from ${$currentFile}.\n ${prCommit}`;
 		const headBranch = $branchName;
 
         // Get selected issues from the store
@@ -134,7 +135,7 @@
 				base_branch: 'master',
 				title: title,
 				description: pr_description,
-                issue_numbers: selectedIssueNumbers
+                issue_numbers: selectedIssueNumbers,
 			})
 		});
 
@@ -173,8 +174,17 @@
 	};
 
     let updatePullRequest = async (): Promise<void> => {
-        const title = `Updated pull request for ${$currentFile}`;
-        const pr_description = `This updated pull request contains additional changes made by ${$me.username}.\n ${prCommit}`;
+        // Ensure the current user is the PR author
+        if (prAuthor !== $me.username || $me.groups?.some(group => group.name === 'Admin')) {
+            addToast({
+                message: 'Error: You are not authorized to update this pull request.',
+                type: ToastType.Error,
+                dismissible: true
+            });
+            return;
+        }
+        const title = `Updated pull request form: ${$me.username}`;
+        const pr_description = `Updated changes made from ${$currentFile}.\n ${prCommit}`;
         const headBranch = $branchName;
 
         // Get selected issues from the store
@@ -231,6 +241,56 @@
         showLoadingIcon = false;
     };
 
+    let closePullRequest = async (): Promise<void> => {
+        // Check if the current user is the PR author
+        if ($me.groups?.some(group => group.name === 'Admin') || prAuthor.trim() === $me.username.trim()) {
+            showLoadingIcon = true;
+
+            const response = await fetch(`${apiAddress}/api/pull-requests/${selectedPullRequest}/close`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+
+            if (!response.ok) {
+                const errorMessage = `Failed to delete close request (Code ${response.status}: "${response.statusText}")`;
+                addToast({
+                    message: `Error: ${errorMessage}`,
+                    type: ToastType.Error,
+                    dismissible: true
+                });
+                showLoadingIcon = false;
+                return;
+            }
+
+            const jsonResponse = await response.json();
+
+            addToast({
+                message: jsonResponse.status === 'success' 
+                    ? 'Pull request closed successfully.' 
+                    : 'Failed to close the pull request.',
+                type: jsonResponse.status === 'success' 
+                    ? ToastType.Success 
+                    : ToastType.Error,
+                dismissible: true,
+                timeout: jsonResponse.status === 'success' ? 3600 : undefined,
+            });
+
+            if (jsonResponse.status === 'success') {
+                closeModal();
+            }
+        } else {
+            // If the user is not an admin and not the PR author, deny deletion
+            addToast({
+                message: 'Error: You are not authorized to close this pull request.',
+                type: ToastType.Error,
+                dismissible: true,
+            });
+            return;
+        }
+
+        showLoadingIcon = false;
+    };
+
     async function checkOpenPullRequests() {
         showLoadingIcon = true;
         // Loop through each open pull request
@@ -244,6 +304,7 @@
             }
 
             const prData = await response.json();
+            prAuthor = pr.title.split(":")[1]?.trim();
             const sourceBranch = prData.head.ref;
 
             // Compare the source branch with the current branch
@@ -358,6 +419,9 @@
                 {:else}
                     <button on:click={updatePullRequest} class="submit-pr-btn">
                         Update Pull Request
+                    </button>
+                    <button on:click={closePullRequest} class="submit-pr-btn">
+                        Delete Pull Request
                     </button>
                 {/if}
             </div>
