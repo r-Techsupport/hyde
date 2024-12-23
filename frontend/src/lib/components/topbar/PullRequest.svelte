@@ -175,68 +175,69 @@
 
     let updatePullRequest = async (): Promise<void> => {
         // Ensure the current user is the PR author
-        if (prAuthor !== $me.username || $me.groups?.some(group => group.name === 'Admin')) {
-            addToast({
-                message: 'Error: You are not authorized to update this pull request.',
-                type: ToastType.Error,
-                dismissible: true
+        if ($me.groups?.some(group => group.name === 'Admin') || prAuthor === $me.username) {
+            const title = `Updated pull request form: ${$me.username}`;
+            const pr_description = `Updated changes made from ${$currentFile}.\n ${prCommit}`;
+
+            // Get selected issues from the store
+            const selectedIssueNumbers = $selectedIssues.map((issue: Issue) => issue.number);
+            showLoadingIcon = true;
+
+            const response = await fetch(`${apiAddress}/api/pulls/update`, {
+                method: 'PUT',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    pr_number: selectedPullRequest,
+                    title: title,
+                    description: pr_description,
+                    base_branch: $baseBranch,
+                    issue_numbers: selectedIssueNumbers
+                })
             });
-            return;
-        }
-        const title = `Updated pull request form: ${$me.username}`;
-        const pr_description = `Updated changes made from ${$currentFile}.\n ${prCommit}`;
-        const headBranch = $branchName;
 
-        // Get selected issues from the store
-        const selectedIssueNumbers = $selectedIssues.map((issue: Issue) => issue.number);
-        showLoadingIcon = true;
+            // Handle the response
+            if (!response.ok) {
+                const errorMessage = `Failed to update pull request (Code ${response.status}: "${response.statusText}")`;
+                addToast({
+                    message: `Error: ${errorMessage}`,
+                    type: ToastType.Error,
+                    dismissible: true
+                });
+                showLoadingIcon = false;
+                return;
+            }
 
-        const response = await fetch(`${apiAddress}/api/pulls/update`, {
-            method: 'PUT',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                pr_number: selectedPullRequest,
-                title: title,
-                description: pr_description,
-                base_branch: $baseBranch,
-                issue_numbers: selectedIssueNumbers
-            })
-        });
+            // Parse the JSON response to get the updated pull request URL or other details
+            const jsonResponse = await response.json();
+            const pullRequestUrl = jsonResponse.data;
 
-        // Handle the response
-        if (!response.ok) {
-            const errorMessage = `Failed to update pull request (Code ${response.status}: "${response.statusText}")`;
-            addToast({
-                message: `Error: ${errorMessage}`,
-                type: ToastType.Error,
-                dismissible: true
-            });
-            showLoadingIcon = false;
-            return;
-        }
-
-        // Parse the JSON response to get the updated pull request URL or other details
-        const jsonResponse = await response.json();
-        const pullRequestUrl = jsonResponse.data;
-
-        if (pullRequestUrl) {
-            // If successful, show success toast with the URL
-            addToast({
-                message: `Pull request updated successfully. View it [here](${pullRequestUrl}).`,
-                type: ToastType.Success,
-                dismissible: true,
-                timeout: 3600
-            });
+            if (pullRequestUrl) {
+                // If successful, show success toast with the URL
+                addToast({
+                    message: `Pull request updated successfully. View it [here](${pullRequestUrl}).`,
+                    type: ToastType.Success,
+                    dismissible: true,
+                    timeout: 3600
+                });
+            } else {
+                // Handle the case where the URL is not present (if needed)
+                addToast({
+                    message: 'Pull request updated successfully, but the URL is not available.',
+                    type: ToastType.Warning,
+                    dismissible: true
+                });
+            }
         } else {
-            // Handle the case where the URL is not present (if needed)
+            // If the user is not an admin and not the PR author, deny deletion
             addToast({
-                message: 'Pull request updated successfully, but the URL is not available.',
-                type: ToastType.Warning,
-                dismissible: true
+                message: 'Error: You are not authorized to delete this pull request.',
+                type: ToastType.Error,
+                dismissible: true,
             });
+            return;
         }
         showLoadingIcon = false;
         closeModal();
