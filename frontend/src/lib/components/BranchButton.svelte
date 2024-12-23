@@ -6,7 +6,8 @@
 		currentFile,
 		editorText,
 		apiAddress,
-		allBranches
+		allBranches,
+		baseBranch
 	} from '$lib/main';
 	import { onMount } from 'svelte';
 	import { ToastType, addToast } from '$lib/toast';
@@ -75,6 +76,25 @@
 		);
 	}
 
+	// Fetches the default branch name from the backend and sets it to baseBranch store
+	async function fetchDefaultBranch() {
+		try {
+			const response = await fetch(`${apiAddress}/api/repos/default-branch`);
+
+			if (response.ok) {
+				const data = await response.json();
+				const defaultBranch = data.data;
+
+				// Set the default branch to the baseBranch store
+				baseBranch.set(defaultBranch);
+			} else {
+				console.error('Failed to fetch default branch:', response.statusText);
+			}
+		} catch (error) {
+			console.error('Error fetching default branch:', error);
+		}
+	}
+
 	/**
 	 * Fetches the current branch name from the backend and updates the branchName store.
 	 */
@@ -95,6 +115,7 @@
 	}
 
 	onMount(async () => {
+		fetchDefaultBranch();
 		fetchCurrentBranch();
 		const branches = await fetchExistingBranches();
 		allBranches.set(branches);

@@ -2,7 +2,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { ToastType, addToast } from '$lib/toast';
-    import { apiAddress, branchName, currentFile, me, openIssues, selectedIssues, openPullRequests } from '$lib/main';
+    import { apiAddress, branchName, currentFile, me, openIssues, selectedIssues, openPullRequests, baseBranch } from '$lib/main';
     import type { Issue } from '$lib/types';
     import { get } from 'svelte/store';
     import LoadingIcon from '../elements/LoadingIcon.svelte';
@@ -90,7 +90,6 @@
                 const pullRequestsOnly = responseData.data.issues.filter((issue: Issue) => issue.pull_request);
                 openIssues.set(issuesOnly);
                 openPullRequests.set(pullRequestsOnly);
-                console.log($openPullRequests)
             } else {
                 // Handle unexpected response structure
                 const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
@@ -132,7 +131,7 @@
 			},
 			body: JSON.stringify({
 				head_branch: headBranch,
-				base_branch: 'master',
+				base_branch: $baseBranch,
 				title: title,
 				description: pr_description,
                 issue_numbers: selectedIssueNumbers,
@@ -171,6 +170,7 @@
 			});
 		}
         showLoadingIcon = false;
+        closeModal();
 	};
 
     let updatePullRequest = async (): Promise<void> => {
@@ -201,7 +201,7 @@
                 pr_number: selectedPullRequest,
                 title: title,
                 description: pr_description,
-                base_branch: 'master',
+                base_branch: $baseBranch,
                 issue_numbers: selectedIssueNumbers
             })
         });
@@ -239,6 +239,7 @@
             });
         }
         showLoadingIcon = false;
+        closeModal();
     };
 
     let closePullRequest = async (): Promise<void> => {

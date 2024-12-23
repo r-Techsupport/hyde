@@ -351,15 +351,55 @@ pub async fn get_current_branch_handler(State(state): State<AppState>) -> Result
     }
 }
 
+/// Handler for fetching the default branch of the repository.
+pub async fn get_default_branch_handler(State(state): State<AppState>) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+    info!("Received request to fetch default branch");
+
+    // Get the GitHub access token
+    let token = get_github_token(&state).await.map_err(|err| {
+        let error_message = format!("Failed to get GitHub token: {:?}", err);
+        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
+    })?;
+
+    // Create an instance of the GitHubClient
+    let github_client = GitHubClient::new(
+        state.config.files.repo_url.clone(),
+        state.reqwest_client.clone(),
+        token,
+    );
+    
+
+    // Use the `get_default_branch` method from the `Gh` struct in AppState
+    match github_client.get_default_branch().await {
+        Ok(default_branch) => {
+            info!("Default branch is: {}", default_branch);
+            
+            // Return the default branch name in the response
+            Ok((
+                StatusCode::OK,
+                Json(ApiResponse {
+                    status: "success".to_string(),
+                    message: "Default branch fetched successfully.".to_string(),
+                    data: Some(default_branch),
+                }),
+            ))
+        }
+        Err(err) => {
+            error!("Failed to get default branch: {}", err);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get default branch: {}", err),
+            ))
+        }
+    }
+}
+
 /// Handler to fetch issues from a GitHub repository.
 pub async fn get_issues_handler(
     State(state): State<AppState>,
     Path(state_param): Path<String>,
 ) -> Result<(StatusCode, Json<ApiResponse<IssuesData>>), (StatusCode, String)> {
     info!("Received request to fetch issues");
-
-    // Logging state for debugging
-    info!("State param: {:?}", state_param);
 
     let state_param = state_param.as_str();
 
@@ -408,4 +448,5 @@ pub async fn github_routes() -> Router<AppState> {
         .route("/pull/:branch", post(pull_handler))
         .route("/current-branch", get(get_current_branch_handler))
         .route("/issues/:state", get(get_issues_handler))
+        .route("/repos/default-branch", get(get_default_branch_handler))
 }

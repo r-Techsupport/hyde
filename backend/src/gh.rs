@@ -567,6 +567,41 @@ impl GitHubClient {
         Ok(branch_details)
     }
 
+    pub async fn get_default_branch(&self) -> Result<String> {
+        // Extract repository name from `repo_url`
+        let repo_name = self.get_repo_name()?;
+    
+        // Make the GET request to fetch repository details
+        let response = self
+            .client
+            .get(format!("{}/repos/{}", GITHUB_API_URL, repo_name))
+            .bearer_auth(&self.token)
+            .header("User-Agent", "Hyde")
+            .send()
+            .await?;
+    
+        // Check response status
+        if !response.status().is_success() {
+            let status = response.status();
+            let response_text = response.text().await?;
+            bail!("Failed to fetch repository details: {}, Response: {}", status, response_text);
+        }
+    
+        // Deserialize the response to get the repository details
+        let repo_details: serde_json::Value = response.json().await?;
+    
+        // Retrieve the default branch from the response
+        let default_branch = match repo_details["default_branch"].as_str() {
+            Some(branch) => branch.to_string(),
+            None => {
+                error!("'default_branch' field missing in the response");
+                bail!("'default_branch' field missing in the response");
+            }
+        };
+    
+        Ok(default_branch)
+    }        
+
     /// Fetches issues from the GitHub repository.
     ///
     /// This function retrieves issues from the specified repository using the GitHub API.

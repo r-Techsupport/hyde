@@ -21,7 +21,8 @@ export const me: Writable<User> = writable({
 	permissions: []
 });
 
-export const branchName: Writable<string> = writable('Set Branch'); // Default branch name
+export const branchName: Writable<string> = writable('');
+export const baseBranch: Writable<string> = writable('');
 export const allBranches = writable<Branch[]>([]);
 export const editorText = writable<string>('');
 export const openIssues = writable<Issue[]>([]);
