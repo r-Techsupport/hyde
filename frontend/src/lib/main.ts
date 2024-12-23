@@ -29,7 +29,6 @@ export const openIssues = writable<Issue[]>([]);
 export const selectedIssues = writable<Issue[]>([]);
 export const openPullRequests = writable<Issue[]>([]);
 
-
 /**
  * The filesystem tree for the document folder
  */

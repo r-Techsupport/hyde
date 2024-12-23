@@ -172,7 +172,6 @@
 			}
 		});
 	});
-
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
@@ -217,7 +216,7 @@
 		/>
 		{#if mode === SelectedMode.Documents}
 			{#if showEditor && $currentFile !== ''}
-				<DocumentEditor bind:saveChangesHandler bind:previewWindow/>
+				<DocumentEditor bind:saveChangesHandler bind:previewWindow />
 			{:else}
 				<span class="nofile-placeholder">
 					<p>

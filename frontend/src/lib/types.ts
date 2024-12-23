@@ -44,13 +44,13 @@ export interface Branch {
 }
 
 export interface Issue {
-    id: number;
+	id: number;
 	number: number;
-    title: string;
-    state: string;
-    labels: string[];
+	title: string;
+	state: string;
+	labels: string[];
 	body: string;
-	pull_request?: {url: string;};
+	pull_request?: { url: string };
 	html_url: string;
 	url: string;
 }
