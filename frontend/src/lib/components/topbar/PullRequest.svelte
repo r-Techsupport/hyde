@@ -1,6 +1,6 @@
 <!-- PullRequest.svelte -->
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import {
 		apiAddress,
@@ -17,7 +17,6 @@
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
 
 	let showModal = false;
-	let selectedIssueDetails: Issue | null = null;
 	let prCommit = '';
 	let isExpanded: { [key: number]: boolean } = {};
 	let showLoadingIcon: boolean;
@@ -34,7 +33,6 @@
 		selectedIssues.set([]);
 		prCommit = '';
 		showModal = false;
-		selectedIssueDetails = null;
 		selectedPullRequest = null;
 		showLoadingIcon = false;
 

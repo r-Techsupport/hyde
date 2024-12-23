@@ -7,7 +7,7 @@
 
 	<!-- Dropdown to select a branch -->
 	<select bind:value={$baseBranch} class="branch-dropdown">
-		{#each $allBranches as { name, isProtected }}
+		{#each $allBranches as { name }}
 			<option value={name}>{name}</option>
 		{/each}
 	</select>
