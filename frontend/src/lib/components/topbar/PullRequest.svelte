@@ -525,6 +525,7 @@
 		margin-left: 1rem;
 		overflow-y: scroll;
 		z-index: 1000;
+
 		/* pointer-events:; */
 	}
 
@@ -592,7 +593,7 @@
 	.issue-svg {
 		max-width: 0.9rem;
 		max-height: 0.9rem;
-		margin-top: 0px;
+		margin-top: 0;
 		fill: var(--foreground-1);
 		transition: fill 0.2s ease-in-out;
 	}
