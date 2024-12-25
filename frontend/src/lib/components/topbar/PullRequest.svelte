@@ -472,27 +472,35 @@
 <style>
 	.pull-request {
 		display: flex;
+		box-sizing: content-box;
+		height: inherit;
 		align-items: center;
 		justify-content: flex-end;
 		background: transparent;
 		border: none;
-		padding: 0.125rem 0.25rem;
 		color: var(--foreground-3);
 		font-size: 1.25rem;
+		border-radius: 5px;
+		padding: 0.2rem;
 		margin-right: 1rem;
 	}
 
 	.pull-request:hover {
+		cursor: pointer;
 		background-color: var(--background-1);
 		transition: background-color 0.3s ease;
 	}
 
 	.pull-request span {
 		margin-left: 0.25rem;
+		text-overflow: clip;
+		white-space: nowrap;
 	}
 
-	.pull-request svg {
+	.pull-request > svg {
 		margin-top: 0.125rem;
+		min-height: 20px;
+		min-width: 20px;
 	}
 
 	.modal-backdrop {
@@ -508,14 +516,16 @@
 	}
 
 	.modal-content {
+		position: absolute;
 		background: var(--background-3);
 		padding: 1.5rem;
 		border-radius: 8px;
-		position: relative;
 		width: 60%;
 		height: 60%;
 		margin-left: 1rem;
 		overflow-y: scroll;
+		z-index: 1000;
+		/* pointer-events:; */
 	}
 
 	.close-btn {
@@ -526,7 +536,7 @@
 		border: none;
 		font-size: 1.5rem;
 		cursor: pointer;
-		color: var(--foreground-3);
+		fill: var(--foreground-3);
 		transition: color 0.2s ease-in-out;
 	}
 
@@ -545,8 +555,8 @@
 	}
 
 	.issues input[type='checkbox'] {
-		width: 1.25rem;
-		height: 1.25rem;
+		min-width: 1.25rem;
+		min-height: 1.25rem;
 		cursor: pointer;
 		accent-color: var(--background-1);
 	}
@@ -558,6 +568,10 @@
 	}
 
 	.issue-title {
+		display: flex;
+		width: 100%;
+		flex-direction: row;
+		align-content: bottom;
 		background: none;
 		border: none;
 		font-size: 1rem;
@@ -568,24 +582,19 @@
 	}
 
 	.issue-title a {
-		display: inline-flex;
-		align-items: center;
+		height: 1rem;
+		width: 1rem;
 		color: var(--foreground-1);
 		text-decoration: none;
-		margin-left: 0.5rem;
+		margin-left: 0.3rem;
 	}
 
 	.issue-svg {
-		width: 0.9rem;
-		height: 0.9rem;
-		align-items: center;
+		max-width: 0.9rem;
+		max-height: 0.9rem;
+		margin-top: 0px;
 		fill: var(--foreground-1);
 		transition: fill 0.2s ease-in-out;
-		position: relative;
-	}
-
-	.issue-svg:hover {
-		background-color: var(--background-1);
 	}
 
 	.issue-body {

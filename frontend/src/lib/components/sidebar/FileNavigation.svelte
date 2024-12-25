@@ -312,8 +312,6 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 		background: transparent;
 		border: none;
 		border-radius: 5px;
-		right: 0;
-		z-index: 1;
 	}
 
 	.entry-option-menu svg {
