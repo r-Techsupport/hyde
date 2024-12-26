@@ -76,28 +76,20 @@
 		);
 	}
 
-	// Fetches the default branch name from the backend and sets it to baseBranch store
 	async function fetchDefaultBranch() {
-		try {
-			const response = await fetch(`${apiAddress}/api/repos/default-branch`);
+		const response = await fetch(`${apiAddress}/api/repos/default-branch`);
 
-			if (response.ok) {
-				const data = await response.json();
-				const defaultBranch = data.data;
+		if (response.ok) {
+			const data = await response.json();
+			const defaultBranch = data.data;
 
-				// Set the default branch to the baseBranch store
-				baseBranch.set(defaultBranch);
-			} else {
-				console.error('Failed to fetch default branch:', response.statusText);
-			}
-		} catch (error) {
-			console.error('Error fetching default branch:', error);
+			// Set the default branch to the baseBranch store
+			baseBranch.set(defaultBranch);
+		} else {
+			console.error('Failed to fetch default branch:', response.statusText);
 		}
 	}
 
-	/**
-	 * Fetches the current branch name from the backend and updates the branchName store.
-	 */
 	async function fetchCurrentBranch() {
 		try {
 			const response = await fetch(`${apiAddress}/api/current-branch`);

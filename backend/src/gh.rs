@@ -1,7 +1,7 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
 use chrono::DateTime;
-use color_eyre::eyre::{bail, Context};
+use color_eyre::eyre::{bail, Context, ContextCompat};
 use color_eyre::Result;
 use fs_err as fs;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
@@ -293,7 +293,6 @@ impl GitHubClient {
             
             // Extract the response JSON to get the pull request URL
             let response_json: Value = response.json().await?;
-            info!("Github API response: {}", response_json);
             if let Some(url) = response_json.get("html_url").and_then(Value::as_str) {
                 Ok(url.to_string()) // Directly return the URL as String
             } else {
@@ -310,13 +309,31 @@ impl GitHubClient {
         }
     }
 
+    /// Updates an existing pull request on GitHub with the specified details.
+    /// 
+    /// # Arguments
+    /// - `pr_number` - The pull request number to update.
+    /// - `pr_title` - Optional new title for the pull request.
+    /// - `pr_description` - Optional updated description for the pull request.
+    /// - `base_branch` - Optional target base branch to update the pull request against.
+    /// - `issue_numbers` - Optional list of issue numbers to link to the pull request. Each issue
+    ///   will be referenced in the pull request description using the "Closes #<issue_number>" syntax.
+    /// 
+    /// # Returns
+    /// Returns the URL of the updated pull request if the operation is successful.
+    /// 
+    /// # Errors
+    /// Returns an error if:
+    /// - The repository name cannot be determined.
+    /// - The GitHub API request fails, including cases where the response does not contain the expected `html_url` field.
+    /// - Network or deserialization issues occur while processing the response.
     pub async fn update_pull_request(
         &self,
         pr_number: u64,
         pr_title: Option<&str>,
         pr_description: Option<&str>,
         base_branch: Option<&str>,
-        issue_numbers: Option<Vec<u64>>, // Add this parameter to pass the issues
+        issue_numbers: Option<Vec<u64>>,
     ) -> Result<String> {
         info!("Made it to the start of the update PR");
         let repo_name = self.get_repo_name()?;
@@ -567,6 +584,21 @@ impl GitHubClient {
         Ok(branch_details)
     }
 
+    /// Fetches the default branch of the repository associated with the authenticated user.
+    ///
+    /// This function retrieves the repository name using `get_repo_name`, 
+    /// sends a GET request to the GitHub API to fetch repository details, 
+    /// and extracts the default branch from the response.
+    ///
+    /// # Errors
+    /// Returns an error in the following cases:
+    /// - If the repository name cannot be retrieved.
+    /// - If the GET request to fetch repository details fails (e.g., network issues or API errors).
+    /// - If the response does not contain a valid `default_branch` field.
+    ///
+    /// # Returns
+    /// - `Ok(String)` containing the default branch name if successful.
+    /// - `Err(anyhow::Error)` if any step in the process fails.
     pub async fn get_default_branch(&self) -> Result<String> {
         // Extract repository name from `repo_url`
         let repo_name = self.get_repo_name()?;
@@ -591,13 +623,10 @@ impl GitHubClient {
         let repo_details: serde_json::Value = response.json().await?;
     
         // Retrieve the default branch from the response
-        let default_branch = match repo_details["default_branch"].as_str() {
-            Some(branch) => branch.to_string(),
-            None => {
-                error!("'default_branch' field missing in the response");
-                bail!("'default_branch' field missing in the response");
-            }
-        };
+        let default_branch = repo_details["default_branch"]
+            .as_str()
+            .map(ToString::to_string)
+            .context("'default_branch' field missing in the response")?;
     
         Ok(default_branch)
     }        
