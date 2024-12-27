@@ -27,6 +27,17 @@ pub struct GetDocResponse {
     pub contents: String,
 }
 
+async fn get_gh_token(state: &AppState) -> Result<String, (StatusCode, String)> {
+    state
+        .gh_client
+        .get_token()
+        .await
+        .map_err(|e| {
+            error!("Failed to retrieve GitHub token: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })
+}
+
 /// This handler accepts a `GET` request to `/api/doc?path=`.
 /// TODO: refactor to pass it in directly as a url path instead of doing the whole url arguments thing
 pub async fn get_doc_handler(
@@ -75,21 +86,6 @@ pub async fn put_doc_handler(
     )
     .await?;
 
-    let gh_token = match &state
-        .gh_credentials
-        .get(&state.reqwest_client, &state.config.oauth.github.client_id)
-        .await
-    {
-        Ok(t) => t.clone(),
-        Err(e) => {
-            error!("Failed to authenticate with github for a put_doc request with error: {e:?}");
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to authenticate with github to push changes".to_string(),
-            ));
-        }
-    };
-
     // Generate commit message combining author and default update message
     let default_commit_message = format!("{} updated {}", author.username, body.path);
     let final_commit_message = format!("{}\n\n{}", default_commit_message, body.commit_message);
@@ -99,7 +95,13 @@ pub async fn put_doc_handler(
 
     match state
         .git
-        .put_doc(&body.path, &body.contents, &final_commit_message, &gh_token, branch_name)
+        .put_doc(
+            &body.path,
+            &body.contents,
+            &final_commit_message,
+            &get_gh_token(&state).await?,
+            branch_name,
+        )
     {
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
@@ -125,17 +127,12 @@ pub async fn delete_doc_handler(
     )
     .await?;
 
-    let gh_token = state
-        .gh_credentials
-        .get(&state.reqwest_client, &state.config.oauth.github.client_id)
-        .await
-        .unwrap();
     state
         .git
         .delete_doc(
             &query.path,
             &format!("{} deleted {}", author.username, query.path),
-            &gh_token,
+            &get_gh_token(&state).await?,
         )
         .map_err(eyre_to_axum_err)?;
 
@@ -221,19 +218,20 @@ pub async fn put_asset_handler(
     .await?;
     // Generate commit message combining author and default update message
     let message = format!("{} updated {}", author.username, path);
+
+    // Call put_asset to update the asset, passing the required parameters
     state
         .git
         .put_asset(
             &path,
             &body,
             &message,
-            &state
-                .gh_credentials
-                .get(&state.reqwest_client, &state.config.oauth.github.client_id)
-                .await
-                .map_err(eyre_to_axum_err)?,
+            &get_gh_token(&state).await?,
         )
-        .map_err(eyre_to_axum_err)?;
+        .map_err(|e| {
+            error!("Failed to update asset: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })?;
 
     Ok(StatusCode::CREATED)
 }
@@ -254,11 +252,7 @@ pub async fn delete_asset_handler(
         .delete_asset(
             &path,
             &message,
-            &state
-                .gh_credentials
-                .get(&state.reqwest_client, &state.config.oauth.github.client_id)
-                .await
-                .map_err(eyre_to_axum_err)?,
+            &get_gh_token(&state).await?,
         )
         .map_err(eyre_to_axum_err)?;
 

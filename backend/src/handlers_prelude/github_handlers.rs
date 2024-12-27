@@ -7,7 +7,6 @@ use axum::routing::{get, post, put};
 use tracing::{error, info};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
-use crate::gh::GitHubClient;
 use crate::handlers_prelude::eyre_to_axum_err;
 use crate::AppState;
 use color_eyre::Result;
@@ -70,34 +69,14 @@ pub struct UpdatePRRequest {
     pub issue_numbers: Option<Vec<u64>>,
 }
 
-/// Retrieves the GitHub access token from the application state.
-async fn get_github_token(state: &AppState) -> Result<String, (StatusCode, String)> {
-    state.gh_credentials.get(&state.reqwest_client, &state.config.oauth.github.client_id).await.map_err(|err| {
-        eyre_to_axum_err(err)
-    })
-}
-
 /// Fetches the list of branches from a GitHub repository.
 pub async fn list_branches_handler(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<ApiResponse<BranchesData>>), (StatusCode, String)> {
     info!("Received request to fetch branches");
 
-    // Get the GitHub access token
-    let token = get_github_token(&state).await.map_err(|err| {
-        // Format the error message as a string
-        let error_message = format!("Error: {:?}", err);  // Use {:?} to format the tuple
-        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
-    })?;
-
-    // Retrieve the repository URL from state (assuming it is stored in state.config.files.repo_url)
-    let repo_url = state.config.files.repo_url.clone();
-
-    // Create an instance of GitHubClient with the repository URL, reqwest client, and token
-    let github_client = GitHubClient::new(repo_url, state.reqwest_client.clone(), token);
-
     // Fetch the branch details from GitHub using the GitHubClient instance
-    let branch_details = github_client
+    let branch_details = state.gh_client
         .get_all_branch_details() // Call the method on the GitHubClient instance
         .await
         .map_err(|err| {
@@ -137,22 +116,9 @@ pub async fn create_pull_request_handler(
 ) -> Result<(StatusCode, Json<ApiResponse<CreatePRData>>), (StatusCode, String)> {
     info!("Received create pull request request: {:?}", payload);
 
-    // Get the GitHub access token
-    let token = get_github_token(&state).await.map_err(|err| {
-        // Handle token retrieval error
-        let error_message = format!("Failed to get GitHub token: {:?}", err);
-        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
-    })?;
-
-    // Create an instance of the GitHubClient
-    let github_client = GitHubClient::new(
-        state.config.files.repo_url.clone(),
-        state.reqwest_client.clone(),
-        token,
-    );
-
     // Create the pull request using the new method from GitHubClient
-    match github_client
+    match state
+        .gh_client
         .create_pull_request(
             &payload.head_branch,
             &payload.base_branch,
@@ -189,21 +155,9 @@ pub async fn update_pull_request_handler(
 ) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
     info!("Received request to update pull request: {:?}", payload);
 
-    // Get the GitHub access token
-    let token = get_github_token(&state).await.map_err(|err| {
-        let error_message = format!("Failed to get GitHub token: {:?}", err);
-        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
-    })?;
-
-    // Create an instance of the GitHubClient
-    let github_client = GitHubClient::new(
-        state.config.files.repo_url.clone(),
-        state.reqwest_client.clone(),
-        token,
-    );
-
     // Update the pull request
-    match github_client
+    match state
+        .gh_client
         .update_pull_request(
             payload.pr_number,
             payload.title.as_deref(),
@@ -238,21 +192,10 @@ pub async fn close_pull_request_handler(
 ) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
     info!("Received request to close pull request #{}", pr_number);
 
-    // Get the GitHub access token
-    let token = get_github_token(&state).await.map_err(|err| {
-        let error_message = format!("Failed to get GitHub token: {:?}", err);
-        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
-    })?;
-
-    // Create an instance of the GitHubClient
-    let github_client = GitHubClient::new(
-        state.config.files.repo_url.clone(),
-        state.reqwest_client.clone(),
-        token,
-    );
-
     // Attempt to close the pull request
-    match github_client.close_pull_request(pr_number).await {
+    match state
+        .gh_client
+        .close_pull_request(pr_number).await {
         Ok(_) => {
             info!("Pull request #{} closed successfully", pr_number);
             Ok((
@@ -353,24 +296,13 @@ pub async fn get_current_branch_handler(State(state): State<AppState>) -> Result
 
 /// Handler for fetching the default branch of the repository.
 pub async fn get_default_branch_handler(State(state): State<AppState>) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
-    info!("Received request to fetch default branch");
-
-    // Get the GitHub access token
-    let token = get_github_token(&state).await.map_err(|err| {
-        let error_message = format!("Failed to get GitHub token: {:?}", err);
-        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
-    })?;
-
-    // Create an instance of the GitHubClient
-    let github_client = GitHubClient::new(
-        state.config.files.repo_url.clone(),
-        state.reqwest_client.clone(),
-        token,
-    );
-    
+    info!("Received request to fetch default branch");    
 
     // Use the `get_default_branch` method from the `Gh` struct in AppState
-    match github_client.get_default_branch().await {
+    match state
+        .gh_client
+        .get_default_branch()
+        .await {
         Ok(default_branch) => {
             info!("Default branch is: {}", default_branch);
             
@@ -403,19 +335,9 @@ pub async fn get_issues_handler(
 
     let state_param = state_param.as_str();
 
-    // Get the GitHubClient instance
-    let github_client = GitHubClient::new(
-        state.config.files.repo_url.clone(),
-        state.reqwest_client.clone(),
-        get_github_token(&state).await.map_err(|err| {
-            let error_message = format!("Failed to get GitHub token: {:?}", err);
-            error!("{}", error_message);  // Log the error here
-            (StatusCode::INTERNAL_SERVER_ERROR, error_message)
-        })?,
-    );
-
     // Fetch issues using the GitHub client
-    match github_client
+    match state
+        .gh_client
         .get_issues(Some(state_param), None)
         .await
     {

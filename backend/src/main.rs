@@ -23,7 +23,7 @@ use clap::{
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use db::Database;
-use gh::GithubAccessToken;
+use gh::GitHubClient;
 use handlers_prelude::*;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
@@ -49,7 +49,7 @@ pub struct AppState {
     git: git::Interface,
     oauth: BasicClient,
     reqwest_client: Client,
-    gh_credentials: GithubAccessToken,
+    gh_client: GitHubClient,
     db: Database,
 }
 
@@ -151,11 +151,14 @@ async fn init_state(cli_args: &Args) -> Result<AppState> {
     );
 
     Ok(AppState {
-        config,
+        config: config.clone(),
         git,
         oauth,
-        reqwest_client,
-        gh_credentials: GithubAccessToken::new(),
+        reqwest_client: reqwest_client.clone(),
+        gh_client: GitHubClient::new(
+            config.files.repo_url.clone(),
+            reqwest_client.clone(),
+            config.oauth.github.client_id.clone()),
         db: Database::new().await?,
     })
 }

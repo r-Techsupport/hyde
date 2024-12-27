@@ -61,38 +61,6 @@ impl Claims {
     }
 }
 
-/// A wrapper around the github access token that automatically refreshes if the token has been invalidated
-#[derive(Clone, Debug)]
-pub struct GithubAccessToken {
-    expires_at: Arc<Mutex<SystemTime>>,
-    token: Arc<Mutex<String>>,
-}
-
-impl GithubAccessToken {
-    /// Initialize, but don't fetch a token yet.
-    pub fn new() -> Self {
-        Self {
-            // I don't know a better way to handle interior mutability
-            expires_at: Arc::new(Mutex::new(UNIX_EPOCH)),
-            token: Arc::new(Mutex::new(String::new())),
-        }
-    }
-
-    /// Return the cached token if it's less than one hour old, or fetch a new token from the api, and return that, updating the cache
-    pub async fn get(&self, req_client: &Client, client_id: &str) -> Result<String> {
-        let mut token_ref = self.token.lock().await;
-        // Fetch a new token if more than 59 minutes have passed
-        // Tokens expire after 1 hour, this is to account for clock drift
-        if SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() > (60 * 59) {
-            let api_response = get_access_token(req_client, client_id).await?;
-            *token_ref = api_response.0;
-            let mut expires_ref = self.expires_at.lock().await;
-            *expires_ref = api_response.1;
-        }
-        Ok(token_ref.clone())
-    }
-}
-
 #[derive(Deserialize)]
 struct AccessTokenResponse {
     expires_at: String,
@@ -172,10 +140,13 @@ fn gen_jwt_token(client_id: &str) -> Result<String> {
     )?)
 }
 
+#[derive(Clone)]
 pub struct GitHubClient {
     repo_url: String,
     client: Client,
-    token: String,
+    client_id: String,
+    token: Arc<Mutex<String>>,
+    expires_at: Arc<Mutex<SystemTime>>
 }
 
 impl GitHubClient {
@@ -188,8 +159,32 @@ impl GitHubClient {
     ///
     /// # Returns
     /// A new `GitHubClient` instance that can be used to interact with the GitHub API.
-    pub const fn new(repo_url: String, client: Client, token: String) -> Self {
-        Self { repo_url, client, token }
+    pub fn new(repo_url: String, client: Client, client_id: String) -> Self {
+        Self {
+            repo_url,
+            client,
+            client_id,
+            token: Arc::new(Mutex::new(String::new())),
+            expires_at: Arc::new(Mutex::new(UNIX_EPOCH)),
+        }
+    }
+
+    /// Ensures a valid token is available, refreshing it if necessary.
+    pub async fn get_token(&self) -> Result<String> {
+        let mut token_ref = self.token.lock().await;
+
+        // Fetch a new token if more than 59 minutes have passed
+        // Tokens expire after 1 hour, this is to account for clock drift
+        if SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() > (60 * 59)
+        {
+            // Fetch a new token
+            let api_response = get_access_token(&self.client, &self.client_id).await?;
+            *token_ref = api_response.0;
+            let mut expires_ref = self.expires_at.lock().await;
+            *expires_ref = api_response.1;
+        }
+
+        Ok(token_ref.clone())
     }
 
     /// Extracts the repository name and owner from a GitHub repository URL in the format `<owner>/<repo>`.
@@ -254,7 +249,7 @@ impl GitHubClient {
     ) -> Result<String> {
         // Parse the repository name from self.repo_url
         let repo_name = self.get_repo_name()?;
-
+        let token = self.get_token().await?;
         let mut pr_body = pr_description.to_string();
 
         // If issue numbers are provided, add them to the body
@@ -278,7 +273,7 @@ impl GitHubClient {
         let response = self
             .client
             .post(format!("{}/repos/{}/pulls", GITHUB_API_URL, repo_name))
-            .bearer_auth(&self.token)
+            .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .json(&pr_body_json)
             .send()
@@ -337,7 +332,7 @@ impl GitHubClient {
     ) -> Result<String> {
         info!("Made it to the start of the update PR");
         let repo_name = self.get_repo_name()?;
-    
+        let token = self.get_token().await?;
         let mut pr_body_json = serde_json::Map::new();
     
         if let Some(title) = pr_title {
@@ -371,7 +366,7 @@ impl GitHubClient {
         let response = self
             .client
             .patch(format!("{}/repos/{}/pulls/{}", GITHUB_API_URL, repo_name, pr_number))
-            .bearer_auth(&self.token)
+            .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .json(&pr_body_json)
             .send()
@@ -403,6 +398,7 @@ impl GitHubClient {
     pub async fn close_pull_request(&self, pr_number: u64) -> Result<()> {
         // Get the repository name from the repository URL
         let repo_name = self.get_repo_name()?;
+        let token = self.get_token().await?;
     
         info!("Closing pull request #{} in repository {}", pr_number, repo_name);
     
@@ -415,7 +411,7 @@ impl GitHubClient {
         let response = self
             .client
             .patch(format!("{}/repos/{}/pulls/{}", GITHUB_API_URL, repo_name, pr_number))
-            .bearer_auth(&self.token)
+            .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .json(&pr_body_json)
             .send()
@@ -460,6 +456,7 @@ impl GitHubClient {
     /// branches are left, ensuring that all branches are retrieved.
     pub async fn list_branches(&self) -> Result<Vec<Branch>> {
         let repo_name = self.get_repo_name()?;
+        let token = self.get_token().await?;
         let mut branches = Vec::new();
         let mut page = 1;
     
@@ -471,7 +468,7 @@ impl GitHubClient {
                     "{}/repos/{}/branches",
                     GITHUB_API_URL, repo_name
                 ))
-                .bearer_auth(&self.token)
+                .bearer_auth(&token)
                 .header("User-Agent", "Hyde")
                 .query(&[("per_page", "100"), ("page", &page.to_string())])
                 .send()
@@ -530,12 +527,13 @@ impl GitHubClient {
     pub async fn get_branch_details(&self, branch_name: &str) -> Result<Branch> {
         // Extract repository name from `repo_url`
         let repo_name = self.get_repo_name()?;
+        let token = self.get_token().await?;
 
         // Send the request to get branch details for the specified branch name
         let response = self
             .client
             .get(format!("{}/repos/{}/branches/{}", GITHUB_API_URL, repo_name, branch_name))
-            .bearer_auth(&self.token)
+            .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .send()
             .await?;
@@ -602,12 +600,13 @@ impl GitHubClient {
     pub async fn get_default_branch(&self) -> Result<String> {
         // Extract repository name from `repo_url`
         let repo_name = self.get_repo_name()?;
+        let token = self.get_token().await?;
     
         // Make the GET request to fetch repository details
         let response = self
             .client
             .get(format!("{}/repos/{}", GITHUB_API_URL, repo_name))
-            .bearer_auth(&self.token)
+            .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .send()
             .await?;
@@ -657,7 +656,8 @@ impl GitHubClient {
             e
         })?;
     
-        let state = state.unwrap_or("open"); // Default state
+        let state = state.unwrap_or("open");
+        let token = self.get_token().await?;
         let mut query_params = vec![format!("state={}", state)];
         if let Some(labels) = labels {
             query_params.push(format!("labels={}", labels));
@@ -670,7 +670,7 @@ impl GitHubClient {
         let response = self
             .client
             .get(&url)
-            .bearer_auth(&self.token)
+            .bearer_auth(&token)
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "Hyde")
             .timeout(std::time::Duration::from_secs(10))
