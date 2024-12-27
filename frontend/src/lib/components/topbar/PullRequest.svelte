@@ -485,8 +485,8 @@
 		margin-right: 1rem;
 	}
 
-	.pull-request:hover {
-		cursor: pointer;
+	.pull-request>span:hover {
+		/* cursor: pointer; */
 		background-color: var(--background-1);
 		transition: background-color 0.3s ease;
 	}
@@ -517,16 +517,18 @@
 
 	.modal-content {
 		position: absolute;
-		background: var(--background-3);
+		background: var(--background-2);
 		padding: 1.5rem;
 		border-radius: 8px;
 		width: 60%;
-		height: 60%;
+		max-height: 60%;
 		margin-left: 1rem;
 		overflow-y: scroll;
 		z-index: 1000;
+	}
 
-		/* pointer-events:; */
+	.modal-content h2 {
+		margin: 0px;
 	}
 
 	.close-btn {
@@ -544,7 +546,7 @@
 	.issues {
 		display: flex;
 		align-items: flex-start;
-		gap: 0.5rem;
+		gap: 0.15rem;
 		margin-left: -2.75rem;
 	}
 
@@ -552,7 +554,6 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 0.5rem;
 	}
 
 	.issues input[type='checkbox'] {
@@ -600,18 +601,21 @@
 
 	.issue-body {
 		font-size: 0.75rem;
-		color: var(--foreground-2);
+		color: var(--foreground-3);
 		line-height: 1.5;
 	}
 
+	.issue-body p {
+		margin: 0;
+	}
+
 	.show-more-button {
-		font-size: 0.875rem;
-		padding: 0.25rem 0.5rem;
-		margin-top: 0.5rem;
+		font-size: 0.6rem;
+		padding: 0.1rem 0.3rem;
 		background-color: transparent;
-		border: 1px solid var(--foreground-1);
+		border: none;
 		border-radius: 0.375rem;
-		color: var(--foreground-1);
+		color: var(--foreground-3);
 		cursor: pointer;
 		transition:
 			background-color 0.2s ease-in-out,
@@ -644,9 +648,9 @@
 		margin-top: 1rem;
 		padding: 0.5rem;
 		resize: vertical;
-		border: 0.5rem;
+		outline: none !important;
 		background: var(--background-3);
-		color: var(--background-0);
+		color: var(--foreground-0);
 	}
 
 	ul {
@@ -654,6 +658,6 @@
 	}
 
 	li {
-		margin-bottom: 0.5rem;
+		margin-bottom: 1rem;
 	}
 </style>
