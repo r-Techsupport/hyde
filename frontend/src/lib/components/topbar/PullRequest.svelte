@@ -485,16 +485,15 @@
 		margin-right: 1rem;
 	}
 
-	.pull-request>span:hover {
-		/* cursor: pointer; */
-		background-color: var(--background-1);
-		transition: background-color 0.3s ease;
-	}
-
 	.pull-request span {
 		margin-left: 0.25rem;
 		text-overflow: clip;
 		white-space: nowrap;
+	}
+
+	.pull-request > span:hover {
+		background-color: var(--background-1);
+		transition: background-color 0.3s ease;
 	}
 
 	.pull-request > svg {
@@ -528,7 +527,7 @@
 	}
 
 	.modal-content h2 {
-		margin: 0px;
+		margin: 0;
 	}
 
 	.close-btn {
