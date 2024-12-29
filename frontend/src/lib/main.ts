@@ -1,5 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
-import type { User, INode, Branch, Issue } from './types';
+import type { User, INode, Branch } from './types';
 export const currentFile = writable('');
 import { dev } from '$app/environment';
 

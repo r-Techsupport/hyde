@@ -4,7 +4,6 @@
 	import { ToastType, addToast } from '$lib/toast';
 	import { apiAddress, branchName, currentFile, me, baseBranch } from '$lib/main';
 	import type { Issue } from '$lib/types';
-	import { get } from 'svelte/store';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
 
 	let showModal = false;
