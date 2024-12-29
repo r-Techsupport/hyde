@@ -269,7 +269,6 @@ impl GitHubClient {
             "head": head_branch,
             "base": base_branch,
             "body": pr_body,
-            "labels": ["discord-user:krol430"]
         });
 
         debug!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
@@ -335,7 +334,6 @@ impl GitHubClient {
         base_branch: Option<&str>,
         issue_numbers: Option<Vec<u64>>,
     ) -> Result<String> {
-        info!("Made it to the start of the update PR");
         let repo_name = self.get_repo_name()?;
     
         let mut pr_body_json = serde_json::Map::new();
@@ -652,10 +650,7 @@ impl GitHubClient {
     /// - The request to fetch issues fails due to authentication issues, invalid input, or network problems.
     /// - The GitHub API response cannot be parsed as a JSON array.
     pub async fn get_issues(&self, state: Option<&str>, labels: Option<&str>) -> Result<Vec<Value>> {
-        let repo_name = self.get_repo_name().map_err(|e| {
-            error!("Failed to get repository name: {:?}", e);
-            e
-        })?;
+        let repo_name = self.get_repo_name()?;
     
         let state = state.unwrap_or("open"); // Default state
         let mut query_params = vec![format!("state={}", state)];
@@ -676,10 +671,6 @@ impl GitHubClient {
             .timeout(std::time::Duration::from_secs(10))
             .send()
             .await?;
-    
-        if let Some(rate_limit_remaining) = response.headers().get("X-RateLimit-Remaining") {
-            debug!("GitHub API rate limit remaining: {}", rate_limit_remaining.to_str().unwrap_or("Unknown"));
-        }
     
         if !response.status().is_success() {
             let status = response.status();

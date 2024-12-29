@@ -187,7 +187,6 @@ pub async fn update_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<UpdatePRRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
-    info!("Received request to update pull request: {:?}", payload);
 
     // Get the GitHub access token
     let token = get_github_token(&state).await.map_err(|err| {

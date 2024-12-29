@@ -25,9 +25,6 @@ export const branchName: Writable<string> = writable('');
 export const baseBranch: Writable<string> = writable('');
 export const allBranches = writable<Branch[]>([]);
 export const editorText = writable<string>('');
-export const openIssues = writable<Issue[]>([]);
-export const selectedIssues = writable<Issue[]>([]);
-export const openPullRequests = writable<Issue[]>([]);
 
 /**
  * The filesystem tree for the document folder

@@ -7,9 +7,6 @@
 		branchName,
 		currentFile,
 		me,
-		openIssues,
-		selectedIssues,
-		openPullRequests,
 		baseBranch
 	} from '$lib/main';
 	import type { Issue } from '$lib/types';
@@ -22,6 +19,9 @@
 	let showLoadingIcon: boolean;
 	let selectedPullRequest: number | null = null;
 	let prAuthor = '';
+	let openIssues: Issue[] = [];
+	let selectedIssues: Issue[] = [];
+	let openPullRequests: Issue[] = [];
 
 	function openModal() {
 		showModal = true;
@@ -30,7 +30,7 @@
 	}
 
 	function closeModal() {
-		selectedIssues.set([]);
+		selectedIssues = [];
 		prCommit = '';
 		showModal = false;
 		selectedPullRequest = null;
@@ -49,72 +49,55 @@
 		}
 	}
 
-	function toggleSelection(issue: Issue) {
-		selectedIssues.update((issues: Issue[]) => {
-			const idx = issues.findIndex((i) => i.id === issue.id);
-			if (idx !== -1) {
-				issues.splice(idx, 1);
-			} else {
-				issues.push(issue);
-			}
-			return [...issues];
-		});
+	function toggleSelection(issue: Issue): void {
+		const idx = selectedIssues.findIndex((i) => i.id === issue.id);
+		if (idx !== -1) {
+			selectedIssues = selectedIssues.filter((i) => i.id !== issue.id);
+		} else {
+			selectedIssues = [...selectedIssues, issue];
+		}
 	}
 
 	onMount(() => {
 		getOpenIssues();
 	});
 
-	async function getOpenIssues() {
+	async function getOpenIssues(): Promise<void> {
 		const state = 'open';
 		const labels = '';
 		const url = `${apiAddress}/api/issues/${state}${labels ? `?labels=${labels}` : ''}`;
 
-		try {
-			// Fetch the data from the API
-			const response = await fetch(url, {
-				method: 'GET',
-				credentials: 'include'
+		// Fetch the data from the API
+		const response = await fetch(url, {
+			method: 'GET',
+			credentials: 'include'
+		});
+
+		// Check if the response is successful (status code 2xx)
+		if (!response.ok) {
+			const errorMessage = `Failed to fetch open issues. (Code ${response.status}: "${response.statusText}")`;
+			addToast({
+				message: errorMessage,
+				type: ToastType.Error,
+				dismissible: true
 			});
+			return;
+		}
 
-			// Check if the response is successful (status code 2xx)
-			if (!response.ok) {
-				const errorMessage = `Failed to fetch open issues. (Code ${response.status}: "${response.statusText}")`;
-				addToast({
-					message: errorMessage,
-					type: ToastType.Error,
-					dismissible: true
-				});
-				return;
-			}
+		// Parse the response as JSON
+		const responseData = await response.json();
 
-			// Parse the response as JSON
-			const responseData = await response.json();
-
-			// Validate the response structure
-			if (responseData.status === 'success' && Array.isArray(responseData.data?.issues)) {
-				const issuesOnly = responseData.data.issues.filter((issue: Issue) => !issue.pull_request);
-				const pullRequestsOnly = responseData.data.issues.filter(
-					(issue: Issue) => issue.pull_request
-				);
-				openIssues.set(issuesOnly);
-				openPullRequests.set(pullRequestsOnly);
-			} else {
-				// Handle unexpected response structure
-				const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
-				addToast({
-					message: errorMessage,
-					type: ToastType.Error,
-					dismissible: true
-				});
-			}
-		} catch (error: unknown) {
-			// Handle fetch or network errors
-			let errorMessage = 'An unknown error occurred.';
-			if (error instanceof Error) {
-				errorMessage = `An error occurred while processing the response: ${error.message}`;
-			}
-
+		// Validate the response structure
+		if (responseData.status === 'success' && Array.isArray(responseData.data?.issues)) {
+			const issuesOnly = responseData.data.issues.filter((issue: Issue) => !issue.pull_request);
+			const pullRequestsOnly = responseData.data.issues.filter(
+				(issue: Issue) => issue.pull_request
+			);
+			openIssues = issuesOnly;
+			openPullRequests = pullRequestsOnly;
+		} else {
+			// Handle unexpected response structure
+			const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
 			addToast({
 				message: errorMessage,
 				type: ToastType.Error,
@@ -123,13 +106,12 @@
 		}
 	}
 
-	let createPullRequest = async (): Promise<void> => {
+	async function createPullRequest(): Promise<void> {
 		const title = `Pull request form: ${$me.username}`;
 		const pr_description = `Changes made from ${$currentFile}.\n ${prCommit}`;
 		const headBranch = $branchName;
 
-		// Get selected issues from the store
-		const selectedIssueNumbers = get(selectedIssues).map((issue: Issue) => issue.number);
+		const selectedIssueNumbers = selectedIssues.map((issue: Issue) => issue.number);
 		showLoadingIcon = true;
 
 		const response = await fetch(`${apiAddress}/api/pulls`, {
@@ -182,14 +164,13 @@
 		closeModal();
 	};
 
-	let updatePullRequest = async (): Promise<void> => {
+	async function updatePullRequest(): Promise<void> {
 		// Ensure the current user is the PR author
 		if ($me.groups?.some((group) => group.name === 'Admin') || prAuthor === $me.username) {
 			const title = `Updated pull request form: ${$me.username}`;
 			const pr_description = `Updated changes made from ${$currentFile}.\n ${prCommit}`;
 
-			// Get selected issues from the store
-			const selectedIssueNumbers = $selectedIssues.map((issue: Issue) => issue.number);
+			const selectedIssueNumbers = selectedIssues.map((issue: Issue) => issue.number);
 			showLoadingIcon = true;
 
 			const response = await fetch(`${apiAddress}/api/pulls/update`, {
@@ -252,7 +233,7 @@
 		closeModal();
 	};
 
-	let closePullRequest = async (): Promise<void> => {
+	async function closePullRequest(): Promise<void> {
 		// Check if the current user is the PR author
 		if ($me.groups?.some((group) => group.name === 'Admin') || prAuthor === $me.username) {
 			showLoadingIcon = true;
@@ -304,7 +285,7 @@
 	async function checkOpenPullRequests() {
 		showLoadingIcon = true;
 		// Loop through each open pull request
-		for (const pr of $openPullRequests) {
+		for (const pr of openPullRequests) {
 			if (!pr.pull_request) continue;
 
 			// Fetch the details of the pull request using the prNumber
@@ -327,7 +308,7 @@
 					linkedIssues.push(parseInt(match[1], 10));
 				}
 				linkedIssues.forEach((issueNumber) => {
-					const matchingIssue = $openIssues.find((issue) => issue.number === issueNumber);
+					const matchingIssue = openIssues.find((issue) => issue.number === issueNumber);
 					if (matchingIssue) {
 						toggleSelection(matchingIssue);
 					}
@@ -388,14 +369,14 @@
 				<div>
 					<!-- Checkbox Group -->
 					<ul>
-						{#each $openIssues as issue}
+						{#each openIssues as issue}
 							<li>
 								<div class="issues">
 									<!-- Checkbox -->
 									<input
 										type="checkbox"
 										id={`issue-${issue.id}`}
-										checked={$selectedIssues.includes(issue)}
+										checked={selectedIssues.includes(issue)}
 										on:change={() => toggleSelection(issue)}
 									/>
 									<!-- Label and Issue Title -->
