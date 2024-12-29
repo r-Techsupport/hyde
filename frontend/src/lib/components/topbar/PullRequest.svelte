@@ -2,13 +2,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ToastType, addToast } from '$lib/toast';
-	import {
-		apiAddress,
-		branchName,
-		currentFile,
-		me,
-		baseBranch
-	} from '$lib/main';
+	import { apiAddress, branchName, currentFile, me, baseBranch } from '$lib/main';
 	import type { Issue } from '$lib/types';
 	import { get } from 'svelte/store';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
@@ -162,7 +156,7 @@
 		}
 		showLoadingIcon = false;
 		closeModal();
-	};
+	}
 
 	async function updatePullRequest(): Promise<void> {
 		// Ensure the current user is the PR author
@@ -231,7 +225,7 @@
 		}
 		showLoadingIcon = false;
 		closeModal();
-	};
+	}
 
 	async function closePullRequest(): Promise<void> {
 		// Check if the current user is the PR author
@@ -280,7 +274,7 @@
 		}
 
 		showLoadingIcon = false;
-	};
+	}
 
 	async function checkOpenPullRequests() {
 		showLoadingIcon = true;

@@ -350,7 +350,8 @@
 
 	.commit-modal-close {
 		position: sticky;
-		/*cursor: pointer;*/
+
+		/* cursor: pointer; */
 		margin-top: 0.2rem;
 		margin-right: 0.2rem;
 		float: right;
