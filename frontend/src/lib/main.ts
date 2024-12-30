@@ -21,9 +21,13 @@ export const me: Writable<User> = writable({
 	permissions: []
 });
 
+/** The currently selected branch */
 export const branchName: Writable<string> = writable('');
+/** The branch pull requests merge into */
 export const baseBranch: Writable<string> = writable('');
+/** A list of every branch */
 export const allBranches = writable<Branch[]>([]);
+/** The text currently in the input editor */
 export const editorText = writable<string>('');
 
 /**

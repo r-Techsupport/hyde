@@ -7,19 +7,20 @@
     // and this example by Scott O'hara https://codepen.io/scottohara/pen/zLZwNv 
 
 
-    export let label: string;
-    export let value: bool | string = 'on';
+    // export let value: boolean | string = '';
     export let size: number = 1;
-    let checked = true;
+    export let checked = true;
+    export let onToggle = (checked: boolean) => {
 
+    };
 
 	const uniqueID = Math.floor(Math.random() * 100)
 
-    function handleClick(event){
-        const target = event.target
-        const state = target.getAttribute('aria-checked')
-        checked = state === 'true' ? false : true
-        value = checked === true ? 'on' : 'off'
+    function handleClick(event: MouseEvent){
+        const target: HTMLInputElement = event.target! as HTMLInputElement;
+        const state = target.getAttribute('aria-checked');
+        checked = state !== 'true';
+        onToggle(checked);
     }
 	
     const slugify = (str = "") =>
@@ -27,7 +28,7 @@
 </script>
 
 <div class="toggle-switch" style="--size={size}">
-    <span>{label}</span>
+    <span><slot /></span>
     <button
     role="switch"
     aria-checked={checked}
