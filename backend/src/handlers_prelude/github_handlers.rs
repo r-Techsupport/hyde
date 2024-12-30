@@ -77,7 +77,7 @@ pub async fn list_branches_handler(
 
     // Fetch the branch details from GitHub using the GitHubClient instance
     let branch_details = state.gh_client
-        .get_all_branch_details() // Call the method on the GitHubClient instance
+        .list_branches() // Call the method on the GitHubClient instance
         .await
         .map_err(|err| {
             // Handle errors in fetching branch details (e.g., connection issues)
@@ -220,7 +220,6 @@ pub async fn checkout_or_create_branch_handler(
     State(state): State<AppState>,
     Path(branch_name): Path<String>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
-    info!("Checking out or creating branch: {}", branch_name);
 
     // Use the git interface to perform operations
     match state.git.checkout_or_create_branch(&branch_name) {
