@@ -3,6 +3,7 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { apiAddress } from '$lib/main';
 	import { Permission, type User } from '$lib/types';
+	import SectionHeader from '../elements/SectionHeader.svelte';
 
 	export let visible = false;
 	let showAdminDashboard = false;
@@ -32,10 +33,7 @@
 		class="backdrop"
 	></div>
 	<div transition:blur={{ duration: 75 }} class="container">
-		<div class="settings-header">
-			<p>Settings</p>
-			<hr />
-		</div>
+		<SectionHeader>Settings</SectionHeader>
 		<!-- Admin Dashboard -->
 		{#if showAdminDashboard}
 			<div>
@@ -123,19 +121,6 @@
 		right: 0;
 		width: 100vw;
 		height: 100vh;
-	}
-
-	.settings-header p {
-		margin-top: 0.3rem;
-		margin-bottom: 0;
-		padding-left: 0.3rem;
-		font-size: 0.7rem;
-		color: var(--foreground-3);
-	}
-
-	.settings-header hr {
-		margin: 0.2rem;
-		border-color: var(--foreground-5);
 	}
 
 	button {

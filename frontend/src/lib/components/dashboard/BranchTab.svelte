@@ -1,22 +1,25 @@
 <script lang="ts">
 	import { allBranches, me } from '$lib/main'; // Import your store with all branches and user data
 	import { Permission } from '$lib/types';
+	import SectionHeader from '../elements/SectionHeader.svelte';
+	import ToggleSwitch from '../elements/ToggleSwitch.svelte';
 
 	// Check if the user has the ManageBranches permission
 	const canAccess = $me.permissions?.includes(Permission.ManageBranches);
-
 	const sortedBranches = $allBranches.slice().sort((a, b) => a.name.localeCompare(b.name));
 </script>
 
 {#if canAccess}
 	<div class="container">
 		<ul>
+		<SectionHeader>Enable Branch Protection</SectionHeader>
 			{#each sortedBranches as branch}
 				<li>
-					<label class="checkbox-label">
+					<!-- <label class="checkbox-label">
 						<input type="checkbox" bind:checked={branch.isProtected} />
 						{branch.name}
-					</label>
+					</label> -->
+					<ToggleSwitch --size=1rem label="{branch.name}" />
 				</li>
 			{/each}
 		</ul>
@@ -27,17 +30,25 @@
 
 <style>
 	.container {
-		width: 100%;
 		display: flex;
-		justify-content: flex-start;
+		flex-direction: column;
+		width: 100%;
+		max-height: 100%;
+		overflow-y: scroll;
+		justify-items: center;
+		padding: 0.5rem;
 	}
 
 	ul {
 		list-style-type: none;
 		padding: 0;
 		margin: 0;
-		margin-left: 1rem;
-		width: 100%;
+	}
+
+	.container li {
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		margin-top: 0.3rem;
 	}
 
 	.checkbox-label {
