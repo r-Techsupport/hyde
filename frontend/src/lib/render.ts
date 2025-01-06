@@ -58,7 +58,7 @@ export function stripFrontMatter(input: TokensList) {
 	if (
 		frontMatterNode !== undefined &&
 		frontMatterNode.type === 'heading' &&
-		frontMatterNode.raw.includes("title: ")
+		frontMatterNode.raw.includes('title: ')
 	) {
 		// The output of this process will contain the serialized frontmatter header
 		frontMatterNode['raw'].replace('---\n', '\n').trim();
