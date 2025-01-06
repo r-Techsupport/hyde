@@ -276,7 +276,7 @@ pub async fn create_tree_route() -> Router<AppState> {
         )
         .route("/tree/asset", get(get_asset_tree_handler))
         .route(
-            "/asset/*path",
+            "/asset/{*path}",
             get(get_asset_handler)
                 .put(put_asset_handler)
                 .delete(delete_asset_handler),

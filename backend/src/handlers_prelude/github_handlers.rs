@@ -242,7 +242,7 @@ pub async fn github_routes() -> Router<AppState> {
     Router::new()
         .route("/branches", get(list_branches_handler))
         .route("/pulls", post(create_pull_request_handler))
-        .route("/checkout/branches/:branch_name", put(checkout_or_create_branch_handler))
-        .route("/pull/:branch", post(pull_handler))
+        .route("/checkout/branches/{branch_name}", put(checkout_or_create_branch_handler))
+        .route("/pull/{branch}", post(pull_handler))
         .route("/current-branch", get(get_current_branch_handler))
 }
