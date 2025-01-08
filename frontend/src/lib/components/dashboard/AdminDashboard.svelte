@@ -2,17 +2,17 @@
 	import GroupTab from './GroupTab.svelte';
 	import UserTab from './UserTab.svelte';
 	import ServerTab from './ServerTab.svelte';
-	import BranchTab from './BranchTab.svelte';
-	import BaseBranch from './BaseBranch.svelte';
+	// import BranchTab from './BranchTab.svelte';
+	// import BaseBranch from './BaseBranch.svelte';
 
 	export let dialog: HTMLDialogElement;
 	let selectedTab = 3;
 	let tabs = [
 		{ name: 'User Management', id: 0, component: UserTab },
 		{ name: 'Group Management', id: 1, component: GroupTab },
-		{ name: 'Server Management', id: 2, component: ServerTab },
-		{ name: 'Branch Management', id: 3, component: BranchTab },
-		{ name: 'Base Branch', id: 4, component: BaseBranch }
+		{ name: 'Server Management', id: 2, component: ServerTab }
+		// { name: 'Branch Management', id: 3, component: BranchTab },
+		// { name: 'Base Branch', id: 4, component: BaseBranch }
 	];
 
 	// E must be defined as any because for some reason typescript thinks parentElement doesn't exist on e.target
