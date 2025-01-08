@@ -6,7 +6,7 @@
 
 <div class="container">
 	<!-- Actions -->
-	 <SectionHeader>Actions</SectionHeader>
+	<SectionHeader>Actions</SectionHeader>
 	<!-- Admin Dashboard -->
 	<div>
 		<button
@@ -52,7 +52,7 @@
 		</button>
 	</div>
 	<!-- Metrics -->
-	 <SectionHeader>Metrics</SectionHeader>
+	<SectionHeader>Metrics</SectionHeader>
 	TODO
 </div>
 

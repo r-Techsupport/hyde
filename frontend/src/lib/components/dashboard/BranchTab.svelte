@@ -3,11 +3,11 @@
 	import { Permission } from '$lib/types';
 	import SectionHeader from '../elements/SectionHeader.svelte';
 	import ToggleSwitch from '../elements/ToggleSwitch.svelte';
-	
+
 	// Check if the user has the ManageBranches permission
 	const canAccess = $me.permissions?.includes(Permission.ManageBranches);
 	const sortedBranches = $allBranches.slice().sort((a, b) => a.name.localeCompare(b.name));
-</script>
+</script
 
 {#if canAccess}
 	<div class="container">
@@ -22,14 +22,16 @@
 			<p>All pull requests opened by Hyde will pull into this branch.</p>
 		</div>
 		<ul>
-		<SectionHeader --scale="0.9rem">Enable Branch Protection For:</SectionHeader>
+			<SectionHeader --scale="0.9rem">Enable Branch Protection For:</SectionHeader>
 			{#each sortedBranches as branch}
 				<li>
 					<!-- <label class="checkbox-label">
 						<input type="checkbox" bind:checked={branch.isProtected} />
 						{branch.name}
 					</label> -->
-					<ToggleSwitch --size="0.97rem" bind:checked={branch.isProtected}>{branch.name}</ToggleSwitch>
+					<ToggleSwitch --size="0.97rem" bind:checked={branch.isProtected} onToggle=
+						>{branch.name}</ToggleSwitch
+					>
 				</li>
 			{/each}
 		</ul>
@@ -46,7 +48,7 @@
 		max-height: 100%;
 		overflow-y: scroll;
 		justify-items: center;
-		padding: 0.5rem 1rem 0.5rem 1rem;
+		padding: 0.5rem 1rem;
 	}
 
 	.container ul {
@@ -66,7 +68,7 @@
 		flex-direction: column;
 		margin: 0.3rem;
 	}
-	
+
 	.base-branch-container label {
 		margin-left: 0.1rem;
 		font-size: 0.8rem;
@@ -78,7 +80,6 @@
 		color: var(--foreground-4);
 		font-size: 0.6rem;
 		margin: 0.1rem;
-
 		margin-left: 0.3rem;
 	}
 

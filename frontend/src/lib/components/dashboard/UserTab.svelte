@@ -71,7 +71,7 @@
 
 <div class="container">
 	<ul class="user-menu">
-		 <SectionHeader>Users</SectionHeader>
+		<SectionHeader>Users</SectionHeader>
 		{#each users.entries() as [index, user]}
 			<li class={selectedUser == index ? 'selected-user' : ''} id={index.toString()}>
 				<button on:click={userSelectHandler}>
@@ -92,7 +92,7 @@
 		{/each}
 	</ul>
 	<ul class="group-menu">
-		 <SectionHeader>Groups</SectionHeader>
+		<SectionHeader>Groups</SectionHeader>
 		{#each allGroups as group}
 			<li>
 				<label for={group.name} class="checkbox-label">
@@ -185,5 +185,4 @@
 	.checkbox-label:hover {
 		background-color: var(--background-3);
 	}
-
 </style>

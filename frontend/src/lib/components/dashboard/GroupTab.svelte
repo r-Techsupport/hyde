@@ -52,7 +52,7 @@
 
 <div class="container">
 	<ul class="group-menu">
-		 <SectionHeader>Groups</SectionHeader>
+		<SectionHeader>Groups</SectionHeader>
 		{#each groups.entries() as [index, group]}
 			<!-- Prevent people from modifying the permissions on the admin group -->
 			{#if group.name !== 'Admin'}

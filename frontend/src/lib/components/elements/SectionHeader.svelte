@@ -21,8 +21,11 @@
 	.header hr {
 		/* margin: calc(--scale / 3); */
 		margin: 0.2rem;
+
 		/* border-color: var(--break-color, --background-1); */
+
 		/* border-: var(--foreground-5); */
+
 		/* border: 1px solid var(--break-color, --foreground-5); */
 		border: none;
 		border-top: 1px solid var(--foreground-5);
