@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { apiAddress } from '$lib/main';
 	import { addToast, dismissToast, ToastType } from '$lib/toast';
+	import SectionHeader from '../elements/SectionHeader.svelte';
 </script>
 
 <div class="container">
 	<!-- Actions -->
-	<div class="header">
-		<p>Actions</p>
-		<hr />
-	</div>
+	<SectionHeader>Actions</SectionHeader>
 	<!-- Admin Dashboard -->
 	<div>
 		<button
@@ -54,10 +52,7 @@
 		</button>
 	</div>
 	<!-- Metrics -->
-	<div class="header">
-		<p>Metrics</p>
-		<hr />
-	</div>
+	<SectionHeader>Metrics</SectionHeader>
 	TODO
 </div>
 
@@ -72,26 +67,11 @@
 		color: var(--foreground-3);
 	}
 
-	.header p {
-		margin-top: 0.3rem;
-		margin-bottom: 0;
-		padding-left: 0.3rem;
-		font-size: 0.7rem;
-		color: var(--foreground-3);
-	}
-
-	.header hr {
-		margin: 0.2rem;
-		border-color: var(--foreground-5);
-	}
-
 	button {
 		display: flex;
 		align-items: center;
 		padding-left: 1rem;
 		width: 100%;
-		height: 2rem;
-		border-radius: 0.5rem;
 		background-color: transparent;
 		border: none;
 	}

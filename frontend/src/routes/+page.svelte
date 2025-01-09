@@ -172,57 +172,6 @@
 			}
 		});
 	});
-
-	let createPullRequestHandler = async (): Promise<void> => {
-		const title = `Pull request for ${$currentFile}`;
-		const description = `This pull request contains changes made by ${$me.username}.`;
-		const headBranch = $branchName;
-
-		const response = await fetch(`${apiAddress}/api/pulls`, {
-			method: 'POST',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				head_branch: headBranch,
-				base_branch: 'master',
-				title: title,
-				description: description
-			})
-		});
-
-		// Handle the response
-		if (!response.ok) {
-			const errorMessage = `Failed to create pull request (Code ${response.status}: "${response.statusText}")`;
-			addToast({
-				message: `Error: ${errorMessage}`,
-				type: ToastType.Error,
-				dismissible: true
-			});
-			return; // Exit the function early on error
-		}
-
-		// Parse the JSON response to get the pull request URL
-		const jsonResponse = await response.json();
-		const pullRequestUrl = jsonResponse.data?.pull_request_url; // Adjusted based on API response
-
-		if (pullRequestUrl) {
-			// If successful, show success toast with the URL
-			addToast({
-				message: `Pull request created successfully. View it [here](${pullRequestUrl}).`,
-				type: ToastType.Success,
-				dismissible: true
-			});
-		} else {
-			// Handle the case where the URL is not present (if needed)
-			addToast({
-				message: 'Pull request created successfully, but the URL is not available.',
-				type: ToastType.Warning,
-				dismissible: true
-			});
-		}
-	};
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
@@ -267,7 +216,7 @@
 		/>
 		{#if mode === SelectedMode.Documents}
 			{#if showEditor && $currentFile !== ''}
-				<DocumentEditor bind:saveChangesHandler bind:previewWindow bind:createPullRequestHandler />
+				<DocumentEditor bind:saveChangesHandler bind:previewWindow />
 			{:else}
 				<span class="nofile-placeholder">
 					<p>

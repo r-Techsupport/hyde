@@ -7,6 +7,7 @@
 	import { tick } from 'svelte';
 	import { addPermissionToGroup, deleteGroup, removePermissionFromGroup } from '$lib/groups';
 	import { type GroupListEntry } from '$lib/groups';
+	import SectionHeader from '../elements/SectionHeader.svelte';
 
 	let groups: GroupListEntry[] = [];
 	let selectedGroup = 1;
@@ -51,7 +52,7 @@
 
 <div class="container">
 	<ul class="group-menu">
-		<li class="header"><u>Groups</u></li>
+		<SectionHeader>Groups</SectionHeader>
 		{#each groups.entries() as [index, group]}
 			<!-- Prevent people from modifying the permissions on the admin group -->
 			{#if group.name !== 'Admin'}
@@ -130,7 +131,7 @@
 		</li>
 	</ul>
 	<ul class="permission-menu">
-		<li class="header" style="justify-content: left; margin-left: 30%;"><u>Permissions</u></li>
+		<SectionHeader>Permissions</SectionHeader>
 		{#each allPermissions as [permission, label]}
 			<li>
 				<label for={permission} class="checkbox-label">
@@ -240,12 +241,5 @@
 		background-color: var(--background-3);
 		border: none;
 		color: var(--foreground-3);
-	}
-
-	.header {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 2.75rem;
 	}
 </style>

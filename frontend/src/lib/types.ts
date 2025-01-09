@@ -8,7 +8,8 @@
  */
 export enum Permission {
 	ManageUsers = 'ManageUsers',
-	ManageContent = 'ManageContent'
+	ManageContent = 'ManageContent',
+	ManageBranches = 'ManageBranches'
 }
 
 /**
@@ -17,6 +18,7 @@ export enum Permission {
 export const allPermissions: Map<Permission, string> = new Map();
 allPermissions.set(Permission.ManageContent, 'Manage Content');
 allPermissions.set(Permission.ManageUsers, 'Manage Users');
+allPermissions.set(Permission.ManageBranches, 'Manage Branches');
 
 export interface User {
 	id: number;
@@ -39,4 +41,16 @@ export interface INode {
 export interface Branch {
 	name: string;
 	isProtected: boolean;
+}
+
+export interface Issue {
+	id: number;
+	number: number;
+	title: string;
+	state: string;
+	labels: string[];
+	body: string;
+	pull_request?: { url: string };
+	html_url: string;
+	url: string;
 }

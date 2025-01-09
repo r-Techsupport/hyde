@@ -29,6 +29,8 @@
 	--foreground-3: #bababa;
 	--foreground-4: #aaaaaa;
 	--foreground-5: #8a8a8a;
+
+	--accent-0: #9347b4;
 }
 
 :root[data-theme='light'] {

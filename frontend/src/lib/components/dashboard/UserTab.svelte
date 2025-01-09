@@ -4,6 +4,7 @@
 	import { addToast, ToastType } from '$lib/toast';
 	import type { Group, User } from '$lib/types';
 	import { onMount } from 'svelte';
+	import SectionHeader from '../elements/SectionHeader.svelte';
 
 	// const allGroups = [{'Admin', 'Group 1', 'Group 2', 'Group 3'];
 	let allGroups: Group[] = [
@@ -70,7 +71,7 @@
 
 <div class="container">
 	<ul class="user-menu">
-		<li class="header"><u>Users</u></li>
+		<SectionHeader>Users</SectionHeader>
 		{#each users.entries() as [index, user]}
 			<li class={selectedUser == index ? 'selected-user' : ''} id={index.toString()}>
 				<button on:click={userSelectHandler}>
@@ -91,8 +92,7 @@
 		{/each}
 	</ul>
 	<ul class="group-menu">
-		<!-- Shush -->
-		<li class="header" style="margin-left: 30%; justify-content: left;"><u>Groups</u></li>
+		<SectionHeader>Groups</SectionHeader>
 		{#each allGroups as group}
 			<li>
 				<label for={group.name} class="checkbox-label">
@@ -184,12 +184,5 @@
 
 	.checkbox-label:hover {
 		background-color: var(--background-3);
-	}
-
-	.header {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 2.75rem;
 	}
 </style>
