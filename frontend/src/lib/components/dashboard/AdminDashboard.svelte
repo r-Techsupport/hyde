@@ -10,8 +10,8 @@
 	let tabs = [
 		{ name: 'User Management', id: 0, component: UserTab },
 		{ name: 'Group Management', id: 1, component: GroupTab },
-		{ name: 'Server Management', id: 2, component: ServerTab },
- 		// { name: 'Branch Management', id: 3, component: BranchTab },
+		{ name: 'Server Management', id: 2, component: ServerTab }
+		// { name: 'Branch Management', id: 3, component: BranchTab },
 		// { name: 'Base Branch', id: 4, component: BaseBranch }
 	];
 
