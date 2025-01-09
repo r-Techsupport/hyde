@@ -7,7 +7,7 @@
 	import SectionHeader from '../elements/SectionHeader.svelte';
 
 	// const allGroups = [{'Admin', 'Group 1', 'Group 2', 'Group 3'];
-	let allGroups: Group[] = [
+	let allGroups: Group[] = $state([
 		{
 			id: 1,
 			name: 'Admin'
@@ -16,9 +16,9 @@
 			id: 2,
 			name: 'Mock group 2'
 		}
-	];
-	let users: User[] = [];
-	let selectedUser = 0;
+	]);
+	let users: User[] = $state([]);
+	let selectedUser = $state(0);
 	function userSelectHandler(e: MouseEvent) {
 		const target = e.target as HTMLElement;
 		selectedUser = Number(target.parentElement!.id);
@@ -74,7 +74,7 @@
 		<SectionHeader>Users</SectionHeader>
 		{#each users.entries() as [index, user]}
 			<li class={selectedUser == index ? 'selected-user' : ''} id={index.toString()}>
-				<button on:click={userSelectHandler}>
+				<button onclick={userSelectHandler}>
 					<!-- <svg
 						xmlns="http://www.w3.org/2000/svg"
 						height="24px"
@@ -97,7 +97,7 @@
 			<li>
 				<label for={group.name} class="checkbox-label">
 					<input
-						on:change={checkboxToggleHandler}
+						onchange={checkboxToggleHandler}
 						id={group.name}
 						type="checkbox"
 						name={group.name}

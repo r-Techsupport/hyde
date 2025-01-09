@@ -9,11 +9,11 @@
 	import { type GroupListEntry } from '$lib/groups';
 	import SectionHeader from '../elements/SectionHeader.svelte';
 
-	let groups: GroupListEntry[] = [];
-	let selectedGroup = 1;
+	let groups: GroupListEntry[] = $state([]);
+	let selectedGroup = $state(1);
 
-	let showNewGroupInput = false;
-	let newGroupInput: HTMLInputElement;
+	let showNewGroupInput = $state(false);
+	let newGroupInput: HTMLInputElement = $state();
 
 	function userSelectHandler(e: MouseEvent) {
 		const target = e.target as HTMLElement;
@@ -57,15 +57,15 @@
 			<!-- Prevent people from modifying the permissions on the admin group -->
 			{#if group.name !== 'Admin'}
 				<li class={selectedGroup == index ? 'selected-group' : ''} id={index.toString()}>
-					<button on:click={userSelectHandler}>
+					<button onclick={userSelectHandler}>
 						<!-- TODO: trashcan on right, label on center -->
 						<span>{group.name}</span>
 						<svg
-							on:click={async () => {
+							onclick={async () => {
 								await deleteGroup(group);
 								groups = groups.filter((g) => g.name !== group.name);
 							}}
-							on:keydown={async () => {
+							onkeydown={async () => {
 								await deleteGroup(group);
 								groups = groups.filter((g) => g.name !== group.name);
 							}}
@@ -88,10 +88,10 @@
 			<li>
 				<input
 					bind:this={newGroupInput}
-					on:blur={() => {
+					onblur={() => {
 						showNewGroupInput = false;
 					}}
-					on:keydown={async (e) => {
+					onkeydown={async (e) => {
 						if (e.key === 'Enter') {
 							// TODO: migrate to a createGroup function
 							const newGroup = await (
@@ -120,7 +120,7 @@
 		<!-- The "new group" button -->
 		<li>
 			<button
-				on:click={async () => {
+				onclick={async () => {
 					showNewGroupInput = true;
 					await tick();
 					newGroupInput.focus();
@@ -136,7 +136,7 @@
 			<li>
 				<label for={permission} class="checkbox-label">
 					<input
-						on:change={checkboxToggleHandler}
+						onchange={checkboxToggleHandler}
 						id={permission}
 						type="checkbox"
 						name={permission}

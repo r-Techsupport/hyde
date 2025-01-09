@@ -5,8 +5,12 @@
 	// import BranchTab from './BranchTab.svelte';
 	// import BaseBranch from './BaseBranch.svelte';
 
-	export let dialog: HTMLDialogElement;
-	let selectedTab = 0;
+	interface Props {
+		dialog: HTMLDialogElement;
+	}
+
+	let { dialog = $bindable() }: Props = $props();
+	let selectedTab = $state(0);
 	let tabs = [
 		{ name: 'User Management', id: 0, component: UserTab },
 		{ name: 'Group Management', id: 1, component: GroupTab },
@@ -20,20 +24,22 @@
 		const target = e.target as HTMLElement;
 		selectedTab = Number(target.parentElement!.id);
 	}
+
+	const SvelteComponent = $derived(tabs[selectedTab].component);
 </script>
 
 <dialog bind:this={dialog} class="container">
 	<ul class="tab-menu">
 		<li>
 			<svg
-				on:click={() => {
+				onclick={() => {
 					dialog.close();
 				}}
 				xmlns="http://www.w3.org/2000/svg"
 				height="1.5rem"
 				viewBox="0 -960 960 960"
 				width="1.5rem"
-				on:keydown={() => {
+				onkeydown={() => {
 					dialog.close();
 				}}
 				role="none"
@@ -46,11 +52,11 @@
 		</li>
 		{#each tabs as tab}
 			<li class={selectedTab == tab.id ? 'selected-tab' : ''} id={tab.id.toString()}>
-				<button on:click={tabSelectHandler}>{tab.name}</button>
+				<button onclick={tabSelectHandler}>{tab.name}</button>
 			</li>
 		{/each}
 	</ul>
-	<svelte:component this={tabs[selectedTab].component} />
+	<SvelteComponent />
 </dialog>
 
 <style>

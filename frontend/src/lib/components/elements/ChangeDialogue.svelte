@@ -1,25 +1,29 @@
 <script lang="ts">
-	export let visible: boolean = false;
+	interface Props {
+		visible: boolean;
+	}
+
+	let { visible = $bindable() }: Props = $props();
 </script>
 
 {#if visible}
 	<div
 		class="background-cover"
-		on:click={() => {
+		onclick={() => {
 			visible = false;
 		}}
 		tabindex="0"
-		on:keypress={() => {
+		onkeypress={() => {
 			visible = false;
 		}}
 		role="button"
 	></div>
 	<div class="change-dialogue">
 		<svg
-			on:click={() => {
+			onclick={() => {
 				visible = false;
 			}}
-			on:keypress={() => {
+			onkeypress={() => {
 				visible = false;
 			}}
 			role="button"
