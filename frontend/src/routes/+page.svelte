@@ -178,8 +178,6 @@
 			}
 		});
 	});
-<<<<<<< HEAD
-=======
 
 	let createPullRequestHandler = $state(async (): Promise<void> => {
 		const title = `Pull request for ${$currentFile}`;
@@ -231,7 +229,6 @@
 			});
 		}
 	});
->>>>>>> svelte-5
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
@@ -276,15 +273,11 @@
 		/>
 		{#if mode === SelectedMode.Documents}
 			{#if showEditor && $currentFile !== ''}
-<<<<<<< HEAD
-				<DocumentEditor bind:saveChangesHandler bind:previewWindow />
-=======
 				<DocumentEditor
 					bind:saveChangesHandler
 					bind:previewWindow={previewWindow!}
 					bind:createPullRequestHandler
 				/>
->>>>>>> svelte-5
 			{:else}
 				<span class="nofile-placeholder">
 					<p>

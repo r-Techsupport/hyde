@@ -9,7 +9,7 @@
 	const charCount = 500;
 
 	let showCommitModal = $state(false);
-	let commitModal: HTMLElement = $state();
+	let commitModal: HTMLElement | undefined = $state();
 	let commitMessageInput: string = $state('');
 
 	let previousFile: string | null = null;
@@ -60,9 +60,6 @@
 		await saveChangesHandler(commitMessage);
 	}
 
-<<<<<<< HEAD
-	export let saveChangesHandler: (commitMessage: string) => Promise<void>;
-=======
 	interface Props {
 		previewWindow: HTMLElement;
 		saveChangesHandler: (commitMessage: string) => Promise<void>;
@@ -74,7 +71,6 @@
 		saveChangesHandler = $bindable(),
 		createPullRequestHandler = $bindable()
 	}: Props = $props();
->>>>>>> svelte-5
 
 	async function cancelChangesHandler() {
 		if ($editorText !== get(currentFile)) {
@@ -149,8 +145,6 @@
 			<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
 		</svg>
 	</button>
-<<<<<<< HEAD
-=======
 	<!-- Pull Request -->
 	<button onclick={createPullRequestHandler} class="pull-request" title="Create Pull Request">
 		<svg
@@ -169,7 +163,6 @@
 		</svg>
 		<span>Create Pull Request</span>
 	</button>
->>>>>>> svelte-5
 </div>
 <div class="editor-panes">
 	<textarea bind:value={$editorText} class="editor-pane"></textarea>
