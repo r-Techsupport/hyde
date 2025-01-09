@@ -171,10 +171,10 @@ pub async fn create_user_route() -> Router<AppState> {
     Router::new()
         .route("/users", get(get_users_handler))
         .route(
-            "/users/groups/:user_id",
+            "/users/groups/{user_id}",
             post(post_user_membership_handler).delete(delete_user_membership_handler),
         )
-        .route("/users/:user_id", delete(delete_user_handler))
+        .route("/users/{user_id}", delete(delete_user_handler))
         .route(
             "/users/me",
             get(get_current_user_handler).delete(delete_current_user),
