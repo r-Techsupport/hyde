@@ -3,7 +3,7 @@
 <script lang="ts">
 	export let size: number = 1;
 	export let checked = true;
-	export let onToggle = (checked: boolean) => {};
+	export let onToggle: (checked: boolean) => undefined = () => {};
 
 	const uniqueID = Math.floor(Math.random() * 100);
 
@@ -54,6 +54,7 @@
 		border: none;
 		cursor: pointer;
 		margin-left: auto;
+		border-radius: var(--size);
 	}
 
 	.toggle-switch button::before {
@@ -69,6 +70,7 @@
 		top: calc(var(--size) / 20);
 		right: calc(var(--size) * 1.2);
 		transition: transform 0.2s;
+		border-radius: 100%;
 	}
 
 	.toggle-switch button[aria-checked='true'] {
@@ -79,13 +81,5 @@
 		transform: translateX(calc(var(--size) / 0.9));
 		transition: transform 0.2s;
 		background-color: var(--foreground-1);
-	}
-
-	.toggle-switch button {
-		border-radius: var(--size);
-	}
-
-	.toggle-switch button::before {
-		border-radius: 100%;
 	}
 </style>

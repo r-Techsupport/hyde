@@ -7,7 +7,7 @@
 	// Check if the user has the ManageBranches permission
 	const canAccess = $me.permissions?.includes(Permission.ManageBranches);
 	const sortedBranches = $allBranches.slice().sort((a, b) => a.name.localeCompare(b.name));
-</script
+</script>
 
 {#if canAccess}
 	<div class="container">
@@ -29,7 +29,7 @@
 						<input type="checkbox" bind:checked={branch.isProtected} />
 						{branch.name}
 					</label> -->
-					<ToggleSwitch --size="0.97rem" bind:checked={branch.isProtected} onToggle=
+					<ToggleSwitch --size="0.97rem" bind:checked={branch.isProtected}
 						>{branch.name}</ToggleSwitch
 					>
 				</li>
