@@ -8,7 +8,7 @@ repository = "https://github.com/r-Techsupport/hyde"
 readme = "../README.md"
 keywords = ["cms", "wiki"]
 categories = ["web-programming"]
-rust-version = "1.75.0"
+rust-version = "1.80.0"
 
 [dependencies]
 axum = { version = "0.8.1", features = ["http2", "macros"] }

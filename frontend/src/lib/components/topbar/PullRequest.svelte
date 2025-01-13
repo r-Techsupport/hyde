@@ -380,6 +380,7 @@
 												<!-- SVG Icon for the Issue URL -->
 												<a
 													href={issue.html_url}
+													aria-label="Issue SVG"
 													target="_blank"
 													rel="noopener noreferrer"
 													class="issue-svg"
