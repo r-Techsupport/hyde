@@ -70,51 +70,37 @@
 		const labels = '';
 		const url = `${apiAddress}/api/issues/${state}${labels ? `?labels=${labels}` : ''}`;
 
-		try {
-			// Fetch the data from the API
-			const response = await fetch(url, {
-				method: 'GET',
-				credentials: 'include'
+		// Fetch the data from the API
+		const response = await fetch(url, {
+			method: 'GET',
+			credentials: 'include'
+		});
+
+		// Check if the response is successful (status code 2xx)
+		if (!response.ok) {
+			const errorMessage = `Failed to fetch open issues. (Code ${response.status}: "${response.statusText}")`;
+			addToast({
+				message: errorMessage,
+				type: ToastType.Error,
+				dismissible: true
 			});
+			return;
+		}
 
-			// Check if the response is successful (status code 2xx)
-			if (!response.ok) {
-				const errorMessage = `Failed to fetch open issues. (Code ${response.status}: "${response.statusText}")`;
-				addToast({
-					message: errorMessage,
-					type: ToastType.Error,
-					dismissible: true
-				});
-				return;
-			}
+		// Parse the response as JSON
+		const responseData = await response.json();
 
-			// Parse the response as JSON
-			const responseData = await response.json();
-
-			// Validate the response structure
-			if (responseData.status === 'success' && Array.isArray(responseData.data?.issues)) {
-				const issuesOnly = responseData.data.issues.filter((issue: Issue) => !issue.pull_request);
-				const pullRequestsOnly = responseData.data.issues.filter(
-					(issue: Issue) => issue.pull_request
-				);
-				openIssues.set(issuesOnly);
-				openPullRequests.set(pullRequestsOnly);
-			} else {
-				// Handle unexpected response structure
-				const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
-				addToast({
-					message: errorMessage,
-					type: ToastType.Error,
-					dismissible: true
-				});
-			}
-		} catch (error: unknown) {
-			// Handle fetch or network errors
-			let errorMessage = 'An unknown error occurred.';
-			if (error instanceof Error) {
-				errorMessage = `An error occurred while processing the response: ${error.message}`;
-			}
-
+		// Validate the response structure
+		if (responseData.status === 'success' && Array.isArray(responseData.data?.issues)) {
+			const issuesOnly = responseData.data.issues.filter((issue: Issue) => !issue.pull_request);
+			const pullRequestsOnly = responseData.data.issues.filter(
+				(issue: Issue) => issue.pull_request
+			);
+			openIssues.set(issuesOnly);
+			openPullRequests.set(pullRequestsOnly);
+		} else {
+			// Handle unexpected response structure
+			const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
 			addToast({
 				message: errorMessage,
 				type: ToastType.Error,
@@ -123,9 +109,9 @@
 		}
 	}
 
-	let createPullRequest = async (): Promise<void> => {
+	async function createPullRequest() : Promise<void> {  
 		const title = `Pull request form: ${$me.username}`;
-		const pr_description = `Changes made from ${$currentFile}.\n ${prCommit}`;
+		const prDescription = `Changes made from ${$currentFile}.\n ${prCommit}`;
 		const headBranch = $branchName;
 
 		// Get selected issues from the store
@@ -142,7 +128,7 @@
 				head_branch: headBranch,
 				base_branch: $baseBranch,
 				title: title,
-				description: pr_description,
+				description: prDescription,
 				issue_numbers: selectedIssueNumbers
 			})
 		});
@@ -182,7 +168,7 @@
 		closeModal();
 	};
 
-	let updatePullRequest = async (): Promise<void> => {
+	async function updatePullRequest (): Promise<void> { 
 		// Ensure the current user is the PR author
 		if ($me.groups?.some((group) => group.name === 'Admin') || prAuthor === $me.username) {
 			const title = `Updated pull request form: ${$me.username}`;
@@ -252,7 +238,7 @@
 		closeModal();
 	};
 
-	let closePullRequest = async (): Promise<void> => {
+	async function closePullRequest(): Promise<void> { 
 		// Check if the current user is the PR author
 		if ($me.groups?.some((group) => group.name === 'Admin') || prAuthor === $me.username) {
 			showLoadingIcon = true;

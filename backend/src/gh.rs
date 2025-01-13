@@ -1,13 +1,13 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
 use chrono::DateTime;
-use color_eyre::eyre::{bail, Context, ContextCompat};
+use color_eyre::eyre::{bail, Context};
 use color_eyre::Result;
 use fs_err as fs;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::io::Read;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -18,10 +18,15 @@ const GITHUB_API_URL: &str = "https://api.github.com";
 
 #[derive(Clone)]
 pub struct GitHubClient {
+    /// The URL of the GitHub repository this client is associated with.
     repo_url: String,
+    /// An HTTP client used to make requests to the GitHub API.
     client: Client,
+    /// The client ID for GitHub OAuth authentication.
     client_id: String,
+    /// A thread-safe, shared access token for authenticating requests.
     token: Arc<Mutex<String>>,
+    /// The expiration time of the current authentication token.
     expires_at: Arc<Mutex<SystemTime>>
 }
 
@@ -461,13 +466,11 @@ impl GitHubClient {
         }
     
         // Deserialize the response to get the repository details
-        let repo_details: serde_json::Value = response.json().await?;
+        let repo_details: Map<String, Value> = response.json().await?;
     
         // Retrieve the default branch from the response
-        let default_branch = repo_details["default_branch"]
-            .as_str()
-            .map(ToString::to_string)
-            .context("'default_branch' field missing in the response")?;
+        let serialized_default_branch = repo_details.get("default_branch").expect("GitHub API response missing expected field 'default_branch'");  
+        let default_branch = serialized_default_branch.as_str().unwrap().to_owned();
     
         Ok(default_branch)
     }        
@@ -478,7 +481,7 @@ impl GitHubClient {
     /// You can filter issues based on their state and associated labels.
     ///
     /// # Parameters:
-    /// - `state`: A string slice representing the state of the issues to fetch (e.g., "open", "closed", "all").
+    /// - `issue_state`: A string slice representing the state of the issues to fetch (e.g., "open", "closed", "all").
     ///            Defaults to "open".
     /// - `labels`: A comma-separated string slice representing labels to filter issues by. Defaults to `None`.
     ///
@@ -496,9 +499,9 @@ impl GitHubClient {
     pub async fn get_issues(&self, state: Option<&str>, labels: Option<&str>) -> Result<Vec<Value>> {
         let repo_name = self.get_repo_name()?;
     
-        let state = state.unwrap_or("open");
+        let issue_state = state.unwrap_or("open");
         let token = self.get_token().await?;
-        let mut query_params = vec![format!("state={}", state)];
+        let mut query_params = vec![format!("state={}", issue_state)];
         if let Some(labels) = labels {
             query_params.push(format!("labels={}", labels));
         }

@@ -270,6 +270,50 @@
 		showMenu = false;
 		showInput = false;
 	}
+
+	async function fetchWebhookEvents() {
+		try {
+			const response = await fetch("https://b48f-98-224-185-247.ngrok-free.app/api/webhook", {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Error: ${response.statusText}`);
+			}
+
+			const data = await response.json();
+			console.log(`Webhook Response:`, data);
+
+			// Log the entire event to the console
+			console.log('Received Webhook Event:', JSON.stringify(data, null, 2)); // Pretty print the JSON data
+
+			// Handle the response based on the event type
+			if (data.type === 'ping') {
+				// Log the ping event in the console
+				console.log(`Received ping event: ${data.message}`);
+
+				// Extract and log specific details
+				const repoName = data.repository?.name;
+				const userName = data.sender?.login;
+				console.log(`Repository: ${repoName}, User: ${userName}`);
+
+				// Update the UI to display the message
+				const pingMessage = document.createElement('div');
+				pingMessage.textContent = `Ping received from ${userName} on repository ${repoName}: ${data.message}`;
+				document.body.appendChild(pingMessage);
+			} else {
+				// Handle other event types
+				console.log(`Received event: ${data.message}`);
+			}
+		} catch (error) {
+			console.error('Error fetching webhook events:', error);
+		}
+	}
+
 </script>
 
 <div class="branch-dropdown">

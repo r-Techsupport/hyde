@@ -14,6 +14,7 @@ pub struct AppConf {
     pub discord: Discord,
     pub oauth: OAuth,
     pub database: Database,
+    pub webhook: Webhook,
 }
 
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
@@ -55,6 +56,11 @@ pub struct Database {
     pub url: String,
 }
 
+#[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
+pub struct Webhook {
+    pub github_webhook_secret: String,
+}
+
 // Trait to validate fields in each struct
 trait ValidateFields {
     fn validate(&self, path: &str) -> Result<(), String>;
@@ -83,6 +89,7 @@ impl_validate!(Discord, admin_username);
 impl_validate!(DiscordOAuth, client_id, secret, url, token_url);
 impl_validate!(GitHubOAuth, client_id);
 impl_validate!(Database, url);
+impl_validate!(Webhook, github_webhook_secret);
 
 impl ValidateFields for OAuth {
     fn validate(&self, path: &str) -> Result<(), String> {
@@ -98,6 +105,7 @@ impl ValidateFields for AppConf {
         self.discord.validate(&format!("{}.discord", path))?;
         self.oauth.validate(&format!("{}.oauth", path))?;
         self.database.validate(&format!("{}.database", path))?;
+        self.webhook.validate(&format!("{}.webhook", path))?;
         Ok(())
     }
 }

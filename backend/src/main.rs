@@ -32,6 +32,7 @@ use reqwest::{
 };
 use std::env::current_exe;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tracing::{debug, info, info_span, warn};
 use tracing::{Level, Span};
@@ -128,10 +129,15 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+static CONFIG: LazyLock<Arc<AppConf>> = LazyLock::new(|| {
+    let args = Args::parse();
+    AppConf::load(&args.cfg).expect("Failed to load configuration")
+});
+
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
-    let config: Arc<AppConf> = AppConf::load(&cli_args.cfg)?;
+    let config = CONFIG.clone();
 
     let repo_url = config.files.repo_url.clone();
     let repo_path = config.files.repo_path.clone();
@@ -182,7 +188,8 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
         .merge(create_reclone_route().await)
         .merge(create_github_route().await)
         .merge(create_tree_route().await)
-        .merge(github_routes().await);
+        .merge(github_routes().await)
+        .merge(create_webhook_routes().await);
 
     let app = Router::new()
         .nest("/api", api_routes)

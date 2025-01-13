@@ -20,6 +20,8 @@ mod reclone;
 pub use reclone::*;
 mod github_handlers;
 pub use github_handlers::*;
+mod webhook;
+pub use webhook::*;
 
 use color_eyre::{
     eyre::{Context, ContextCompat},
