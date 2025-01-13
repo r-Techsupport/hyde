@@ -270,7 +270,6 @@
 		showMenu = false;
 		showInput = false;
 	}
-
 </script>
 
 <div class="branch-dropdown">
