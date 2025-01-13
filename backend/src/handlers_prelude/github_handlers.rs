@@ -72,7 +72,7 @@ pub struct UpdatePRRequest {
 /// Fetches the list of branches from a GitHub repository.
 pub async fn list_branches_handler(
     State(state): State<AppState>,
-) -> Result<(StatusCode, Json<ApiResponse<BranchesData>>), (StatusCode, String)> {;
+) -> Result<(StatusCode, Json<ApiResponse<BranchesData>>), (StatusCode, String)> {
 
     // Fetch the branch details from GitHub using the GitHubClient instance
     let branch_details = state.gh_client
@@ -151,19 +151,6 @@ pub async fn update_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<UpdatePRRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
-
-    // Get the GitHub access token
-    let token = get_github_token(&state).await.map_err(|err| {
-        let error_message = format!("Failed to get GitHub token: {:?}", err);
-        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
-    })?;
-
-    // Create an instance of the GitHubClient
-    let github_client = GitHubClient::new(
-        state.config.files.repo_url.clone(),
-        state.reqwest_client.clone(),
-        token,
-    );
 
     // Update the pull request
     match state

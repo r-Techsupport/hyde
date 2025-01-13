@@ -76,7 +76,7 @@ impl GitHubClient {
         if SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() > (60 * 59)
         {
             // Fetch a new token
-            let api_response = get_access_token(&self.client, &self.client_id).await?;
+            let api_response = self.get_access_token(&self.client, &self.client_id).await?;
             *token_ref = api_response.0;
             let mut expires_ref = self.expires_at.lock().await;
             *expires_ref = api_response.1;
@@ -532,12 +532,12 @@ impl GitHubClient {
     /// Request a github installation access token using the provided reqwest client.
     /// The installation access token will expire after 1 hour.
     /// Returns the new token, and the time of expiration
-    async fn get_access_token(req_client: &Client, client_id: &str) -> Result<(String, SystemTime)> {
-        let token = gen_jwt_token(client_id)?;
+    async fn get_access_token(&self,req_client: &Client, client_id: &str) -> Result<(String, SystemTime)> {
+        let token = self.gen_jwt_token(client_id)?;
         let response = req_client
             .post(format!(
                 "https://api.github.com/app/installations/{}/access_tokens",
-                get_installation_id(req_client, client_id).await?
+                self.get_installation_id(req_client, client_id).await?
             ))
             .bearer_auth(token)
             .header("Accept", "application/vnd.github+json")
@@ -554,18 +554,13 @@ impl GitHubClient {
         ))
     }
 
-    #[derive(Deserialize)]
-    struct InstallationIdResponse {
-        id: u64,
-    }
-
     /// Fetch the Installation ID. This value is required for most API calls
     ///
     /// <https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#generating-an-installation-access-token>
-    async fn get_installation_id(req_client: &Client, client_id: &str) -> Result<String> {
+    async fn get_installation_id(&self,req_client: &Client, client_id: &str) -> Result<String> {
         let response = req_client
             .get("https://api.github.com/app/installations")
-            .bearer_auth(gen_jwt_token(client_id)?)
+            .bearer_auth(self.gen_jwt_token(client_id)?)
             .header("User-Agent", "Hyde")
             // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
             .header("X-GitHub-Api-Version", "2022-11-28")
@@ -584,7 +579,7 @@ impl GitHubClient {
     }
 
     /// Generate a new JWT token for use with github api interactions.
-    fn gen_jwt_token(client_id: &str) -> Result<String> {
+    fn gen_jwt_token(&self,client_id: &str) -> Result<String> {
         let mut private_key_file = fs::File::open("hyde-data/key.pem")
             .wrap_err("Failed to read private key from `hyde-data/key.pem`")?;
         let mut private_key = Vec::new();
@@ -653,4 +648,9 @@ struct AccessTokenResponse {
 pub struct Branch {
     pub name: String,
     pub protected: bool,
+}
+
+#[derive(Deserialize)]
+struct InstallationIdResponse {
+    id: u64,
 }
