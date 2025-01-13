@@ -13,12 +13,12 @@
 	import { ToastType, addToast } from '$lib/toast';
 	import { cache } from '$lib/cache';
 	import type { Branch } from '$lib/types';
-	import LoadingIcon from './elements/LoadingIcon.svelte';
+	import LoadingIcon from '../elements/LoadingIcon.svelte';
 
-	let showMenu = false;
-	let newBranchName: string = '';
-	let showInput = false;
-	let showLoadingIcon: boolean;
+	let showMenu = $state(false);
+	let newBranchName: string = $state('');
+	let showInput = $state(false);
+	let showLoadingIcon: boolean = $state(false);
 
 	/**
 	 * Fetches the list of branches from the GitHub API, categorizing them as protected or non-protected.
@@ -274,7 +274,7 @@
 </script>
 
 <div class="branch-dropdown">
-	<button on:click={toggleMenu} class="branch-button">
+	<button onclick={toggleMenu} class="branch-button">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			fill="currentColor"
@@ -293,7 +293,7 @@
 		<div class="branch-menu">
 			<div class="branch-menu-header">
 				<h4>Select or Create a Branch</h4>
-				<button class="close-button" on:click={closeMenu} aria-label="Close menu">
+				<button class="close-button" onclick={closeMenu} aria-label="Close menu">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						height="1.5rem"
@@ -313,8 +313,8 @@
 					<li>
 						<button
 							class="branch-option"
-							on:click={() => setBranchName(branch.name)}
-							on:keydown={(e) => e.key === 'Enter' && setBranchName(branch.name)}
+							onclick={() => setBranchName(branch.name)}
+							onkeydown={(e) => e.key === 'Enter' && setBranchName(branch.name)}
 							aria-label={`Select branch ${branch.name}`}
 							disabled={branch.isProtected}
 							class:protected={branch.isProtected}
@@ -332,7 +332,7 @@
 					{#if !showInput}
 						<button
 							class="branch-option"
-							on:click={() => {
+							onclick={() => {
 								showInput = true;
 								newBranchName = '';
 							}}
@@ -344,7 +344,7 @@
 						<input
 							type="text"
 							bind:value={newBranchName}
-							on:keydown={(e) => {
+							onkeydown={(e) => {
 								if (e.key === 'Enter') {
 									setBranchName(newBranchName); // Call the function to set the branch name
 									newBranchName = ''; // Reset input field after setting the branch name

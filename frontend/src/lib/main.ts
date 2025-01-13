@@ -1,5 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
-import type { User, INode, Branch, Issue } from './types';
+import type { User, INode, Branch } from './types';
 export const currentFile = writable('');
 import { dev } from '$app/environment';
 
@@ -21,13 +21,14 @@ export const me: Writable<User> = writable({
 	permissions: []
 });
 
+/** The currently selected branch */
 export const branchName: Writable<string> = writable('');
+/** The branch pull requests merge into */
 export const baseBranch: Writable<string> = writable('');
+/** A list of every branch */
 export const allBranches = writable<Branch[]>([]);
+/** The text currently in the input editor */
 export const editorText = writable<string>('');
-export const openIssues = writable<Issue[]>([]);
-export const selectedIssues = writable<Issue[]>([]);
-export const openPullRequests = writable<Issue[]>([]);
 
 /**
  * The filesystem tree for the document folder

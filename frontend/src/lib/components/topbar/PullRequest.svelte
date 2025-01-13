@@ -2,18 +2,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ToastType, addToast } from '$lib/toast';
-	import {
-		apiAddress,
-		branchName,
-		currentFile,
-		me,
-		openIssues,
-		selectedIssues,
-		openPullRequests,
-		baseBranch
-	} from '$lib/main';
+	import { apiAddress, branchName, currentFile, me, baseBranch } from '$lib/main';
 	import type { Issue } from '$lib/types';
-	import { get } from 'svelte/store';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
 
 	let showModal = false;
@@ -22,6 +12,9 @@
 	let showLoadingIcon: boolean;
 	let selectedPullRequest: number | null = null;
 	let prAuthor = '';
+	let openIssues: Issue[] = [];
+	let selectedIssues: Issue[] = [];
+	let openPullRequests: Issue[] = [];
 
 	function openModal() {
 		showModal = true;
@@ -30,7 +23,7 @@
 	}
 
 	function closeModal() {
-		selectedIssues.set([]);
+		selectedIssues = [];
 		prCommit = '';
 		showModal = false;
 		selectedPullRequest = null;
@@ -49,23 +42,20 @@
 		}
 	}
 
-	function toggleSelection(issue: Issue) {
-		selectedIssues.update((issues: Issue[]) => {
-			const idx = issues.findIndex((i) => i.id === issue.id);
-			if (idx !== -1) {
-				issues.splice(idx, 1);
-			} else {
-				issues.push(issue);
-			}
-			return [...issues];
-		});
+	function toggleSelection(issue: Issue): void {
+		const idx = selectedIssues.findIndex((i) => i.id === issue.id);
+		if (idx !== -1) {
+			selectedIssues = selectedIssues.filter((i) => i.id !== issue.id);
+		} else {
+			selectedIssues = [...selectedIssues, issue];
+		}
 	}
 
 	onMount(() => {
 		getOpenIssues();
 	});
 
-	async function getOpenIssues() {
+	async function getOpenIssues(): Promise<void> {
 		const state = 'open';
 		const labels = '';
 		const url = `${apiAddress}/api/issues/${state}${labels ? `?labels=${labels}` : ''}`;
@@ -96,8 +86,8 @@
 			const pullRequestsOnly = responseData.data.issues.filter(
 				(issue: Issue) => issue.pull_request
 			);
-			openIssues.set(issuesOnly);
-			openPullRequests.set(pullRequestsOnly);
+			openIssues = issuesOnly;
+			openPullRequests = pullRequestsOnly;
 		} else {
 			// Handle unexpected response structure
 			const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
@@ -109,13 +99,12 @@
 		}
 	}
 
-	async function createPullRequest() : Promise<void> {  
+	async function createPullRequest(): Promise<void> {
 		const title = `Pull request form: ${$me.username}`;
 		const prDescription = `Changes made from ${$currentFile}.\n ${prCommit}`;
 		const headBranch = $branchName;
 
-		// Get selected issues from the store
-		const selectedIssueNumbers = get(selectedIssues).map((issue: Issue) => issue.number);
+		const selectedIssueNumbers = selectedIssues.map((issue: Issue) => issue.number);
 		showLoadingIcon = true;
 
 		const response = await fetch(`${apiAddress}/api/pulls`, {
@@ -166,16 +155,15 @@
 		}
 		showLoadingIcon = false;
 		closeModal();
-	};
+	}
 
-	async function updatePullRequest (): Promise<void> { 
+	async function updatePullRequest(): Promise<void> {
 		// Ensure the current user is the PR author
 		if ($me.groups?.some((group) => group.name === 'Admin') || prAuthor === $me.username) {
 			const title = `Updated pull request form: ${$me.username}`;
 			const pr_description = `Updated changes made from ${$currentFile}.\n ${prCommit}`;
 
-			// Get selected issues from the store
-			const selectedIssueNumbers = $selectedIssues.map((issue: Issue) => issue.number);
+			const selectedIssueNumbers = selectedIssues.map((issue: Issue) => issue.number);
 			showLoadingIcon = true;
 
 			const response = await fetch(`${apiAddress}/api/pulls/update`, {
@@ -236,9 +224,9 @@
 		}
 		showLoadingIcon = false;
 		closeModal();
-	};
+	}
 
-	async function closePullRequest(): Promise<void> { 
+	async function closePullRequest(): Promise<void> {
 		// Check if the current user is the PR author
 		if ($me.groups?.some((group) => group.name === 'Admin') || prAuthor === $me.username) {
 			showLoadingIcon = true;
@@ -285,12 +273,12 @@
 		}
 
 		showLoadingIcon = false;
-	};
+	}
 
 	async function checkOpenPullRequests() {
 		showLoadingIcon = true;
 		// Loop through each open pull request
-		for (const pr of $openPullRequests) {
+		for (const pr of openPullRequests) {
 			if (!pr.pull_request) continue;
 
 			// Fetch the details of the pull request using the prNumber
@@ -313,7 +301,7 @@
 					linkedIssues.push(parseInt(match[1], 10));
 				}
 				linkedIssues.forEach((issueNumber) => {
-					const matchingIssue = $openIssues.find((issue) => issue.number === issueNumber);
+					const matchingIssue = openIssues.find((issue) => issue.number === issueNumber);
 					if (matchingIssue) {
 						toggleSelection(matchingIssue);
 					}
@@ -374,14 +362,14 @@
 				<div>
 					<!-- Checkbox Group -->
 					<ul>
-						{#each $openIssues as issue}
+						{#each openIssues as issue}
 							<li>
 								<div class="issues">
 									<!-- Checkbox -->
 									<input
 										type="checkbox"
 										id={`issue-${issue.id}`}
-										checked={$selectedIssues.includes(issue)}
+										checked={selectedIssues.includes(issue)}
 										on:change={() => toggleSelection(issue)}
 									/>
 									<!-- Label and Issue Title -->
@@ -471,16 +459,15 @@
 		margin-right: 1rem;
 	}
 
-	.pull-request:hover {
-		cursor: pointer;
-		background-color: var(--background-1);
-		transition: background-color 0.3s ease;
-	}
-
 	.pull-request span {
 		margin-left: 0.25rem;
 		text-overflow: clip;
 		white-space: nowrap;
+	}
+
+	.pull-request > span:hover {
+		background-color: var(--background-1);
+		transition: background-color 0.3s ease;
 	}
 
 	.pull-request > svg {
@@ -503,16 +490,18 @@
 
 	.modal-content {
 		position: absolute;
-		background: var(--background-3);
+		background: var(--background-2);
 		padding: 1.5rem;
 		border-radius: 8px;
 		width: 60%;
-		height: 60%;
+		max-height: 60%;
 		margin-left: 1rem;
 		overflow-y: scroll;
 		z-index: 1000;
+	}
 
-		/* pointer-events:; */
+	.modal-content h2 {
+		margin: 0;
 	}
 
 	.close-btn {
@@ -530,7 +519,7 @@
 	.issues {
 		display: flex;
 		align-items: flex-start;
-		gap: 0.5rem;
+		gap: 0.15rem;
 		margin-left: -2.75rem;
 	}
 
@@ -538,7 +527,6 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 0.5rem;
 	}
 
 	.issues input[type='checkbox'] {
@@ -586,18 +574,21 @@
 
 	.issue-body {
 		font-size: 0.75rem;
-		color: var(--foreground-2);
+		color: var(--foreground-3);
 		line-height: 1.5;
 	}
 
+	.issue-body p {
+		margin: 0;
+	}
+
 	.show-more-button {
-		font-size: 0.875rem;
-		padding: 0.25rem 0.5rem;
-		margin-top: 0.5rem;
+		font-size: 0.6rem;
+		padding: 0.1rem 0.3rem;
 		background-color: transparent;
-		border: 1px solid var(--foreground-1);
+		border: none;
 		border-radius: 0.375rem;
-		color: var(--foreground-1);
+		color: var(--foreground-3);
 		cursor: pointer;
 		transition:
 			background-color 0.2s ease-in-out,
@@ -630,9 +621,9 @@
 		margin-top: 1rem;
 		padding: 0.5rem;
 		resize: vertical;
-		border: 0.5rem;
+		outline: none !important;
 		background: var(--background-3);
-		color: var(--background-0);
+		color: var(--foreground-0);
 	}
 
 	ul {
@@ -640,6 +631,6 @@
 	}
 
 	li {
-		margin-bottom: 0.5rem;
+		margin-bottom: 1rem;
 	}
 </style>

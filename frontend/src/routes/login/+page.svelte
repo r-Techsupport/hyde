@@ -15,7 +15,7 @@
 
 <div class="login-container">
 	<h2>Login to Hyde</h2>
-	<button on:click={loginHandler}>
+	<button onclick={loginHandler}>
 		<img
 			src="/hyde-assets/discord-logo.svg"
 			alt="discord-logo"

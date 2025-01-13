@@ -152,6 +152,19 @@ pub async fn update_pull_request_handler(
     Json(payload): Json<UpdatePRRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
 
+    // Get the GitHub access token
+    let token = get_github_token(&state).await.map_err(|err| {
+        let error_message = format!("Failed to get GitHub token: {:?}", err);
+        (StatusCode::INTERNAL_SERVER_ERROR, error_message)
+    })?;
+
+    // Create an instance of the GitHubClient
+    let github_client = GitHubClient::new(
+        state.config.files.repo_url.clone(),
+        state.reqwest_client.clone(),
+        token,
+    );
+
     // Update the pull request
     match state
         .gh_client
@@ -355,11 +368,11 @@ pub async fn github_routes() -> Router<AppState> {
     Router::new()
         .route("/branches", get(list_branches_handler))
         .route("/pulls", post(create_pull_request_handler))
-        .route("/checkout/branches/:branch_name", put(checkout_or_create_branch_handler))
+        .route("/checkout/branches/{branch_name}", put(checkout_or_create_branch_handler))
         .route("/pulls/update", put(update_pull_request_handler))
-        .route("/pull-requests/:pr_number/close", post(close_pull_request_handler))
-        .route("/pull/:branch", post(pull_handler))
+        .route("/pull-requests/{pr_number}/close", post(close_pull_request_handler))
+        .route("/pull/{branch}", post(pull_handler))
         .route("/current-branch", get(get_current_branch_handler))
-        .route("/issues/:state", get(get_issues_handler))
+        .route("/issues/{state}", get(get_issues_handler))
         .route("/repos/default-branch", get(get_default_branch_handler))
 }

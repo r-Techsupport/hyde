@@ -211,8 +211,7 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
             ServeDir::new(format!("repo/{asset_path}")),
         )
         // Serve the frontend files
-        .nest_service(
-            "/",
+        .fallback_service(
             ServeDir::new(frontend_dir)
                 .precompressed_br()
                 .precompressed_gzip(),

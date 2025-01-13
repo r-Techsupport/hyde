@@ -1,14 +1,13 @@
 <!-- The sidebar navigation for the asset editor -->
 <script lang="ts">
 	import { assetTree, SelectedMode, type INode } from '$lib/main';
-	export let mode;
-	export let assetFolderPath;
+	let { mode = $bindable(), assetFolderPath = $bindable() } = $props();
 
 	/** The base directory for filesystem navigation */
-	let tree: INode = {
+	let tree: INode = $state({
 		name: '',
 		children: []
-	};
+	});
 	assetTree.subscribe((t) => (tree = t));
 
 	function assetSelectionHandler(e: MouseEvent) {
@@ -19,10 +18,10 @@
 
 <div class="container">
 	<span
-		on:click={() => {
+		onclick={() => {
 			mode = SelectedMode.Documents;
 		}}
-		on:keydown={() => {
+		onkeydown={() => {
 			mode = SelectedMode.Documents;
 		}}
 		class="label"
@@ -42,7 +41,7 @@
 	<!-- <input type="search" class="search-bar" placeholder="Filter folders..."/> -->
 	{#each tree.children as node}
 		{#if node.children.length > 0}
-			<button on:click={assetSelectionHandler} class="directory-listing">
+			<button onclick={assetSelectionHandler} class="directory-listing">
 				<svg
 					class="file-icon"
 					xmlns="http://www.w3.org/2000/svg"

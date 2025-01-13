@@ -190,9 +190,9 @@ pub async fn delete_group_handler(
 pub async fn create_group_route() -> Router<AppState> {
     Router::new()
         .route("/groups", get(get_groups_handler).post(post_group_handler))
-        .route("/groups/:group_id", delete(delete_group_handler))
+        .route("/groups/{group_id}", delete(delete_group_handler))
         .route(
-            "/groups/:group_id/permissions",
+            "/groups/{group_id}/permissions",
             put(put_group_permissions_handler),
         )
 }

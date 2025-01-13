@@ -29,10 +29,10 @@
 	import { SelectedMode } from '$lib/main';
 	import AssetEditor from '$lib/components/editors/AssetEditor.svelte';
 
-	let mode = SelectedMode.Documents;
+	let mode = $state(SelectedMode.Documents);
 	// TODO: figure out how to move this out of +page.svelte and into the document editor
 	/** A reference to the div where markdown is rendered to */
-	let previewWindow: HTMLElement;
+	let previewWindow: HTMLElement | undefined = $state();
 
 	onMount(async () => {
 		const response = await fetch(`${apiAddress}/api/tree/doc`);
@@ -40,25 +40,26 @@
 		documentTree.set(fetchedRootNode); // Update the store with the fetched data
 	});
 
-	let showChangeDialogue: boolean;
-	let showLoadingIcon: boolean;
-	let showSettingsMenu: boolean;
-	let adminDashboardDialog: HTMLDialogElement;
-	let showEditor: boolean = false;
+	let showChangeDialogue: boolean = $state(false);
+	let showLoadingIcon: boolean = $state(false);
+	let showSettingsMenu: boolean = $state(false);
+	let adminDashboardDialog: HTMLDialogElement | undefined = $state();
+	let showEditor: boolean = $state(false);
 	/** The path to the currently selected assets folder */
-	let assetFolderPath = '';
+	let assetFolderPath = $state('');
 
-	async function documentSelectionHandler(e: CustomEvent) {
+	async function documentSelectionHandler(path: string) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if ($currentFile === '' || (await cache.get($currentFile)) === $editorText) {
 			showEditor = true;
-			currentFile.set(e.detail.path);
+			currentFile.set(path);
 			editorText.set(
-				(await cache.get(e.detail.path)) ??
+				(await cache.get(path)) ??
 					'Something went wrong, the file tree reported by the backend references a nonexistent file.'
 			);
-			renderMarkdown($editorText, previewWindow);
-		} else if (e.detail.path === $currentFile) {
+			// non-null assertion: The above code shows the preview window
+			renderMarkdown($editorText, previewWindow!);
+		} else if (path === $currentFile) {
 			// Do nothing
 		} else {
 			// Unsaved changes
@@ -66,7 +67,7 @@
 		}
 	}
 
-	let saveChangesHandler = async (commitMessage: string): Promise<void> => {
+	let saveChangesHandler = $state(async (commitMessage: string): Promise<void> => {
 		showLoadingIcon = true;
 
 		const branch = $allBranches.find((b) => b.name === $branchName);
@@ -112,9 +113,14 @@
 					dismissible: true
 				});
 		}
-	};
-	/** The width of the sidebar */
-	export let sidebarWidth = '14rem';
+	});
+
+	interface Props {
+		/** The width of the sidebar */
+		sidebarWidth?: string;
+	}
+
+	let { sidebarWidth = $bindable('14rem') }: Props = $props();
 
 	onMount(async () => {
 		// Fetch the document tree
@@ -172,6 +178,57 @@
 			}
 		});
 	});
+
+	let createPullRequestHandler = $state(async (): Promise<void> => {
+		const title = `Pull request for ${$currentFile}`;
+		const description = `This pull request contains changes made by ${$me.username}.`;
+		const headBranch = $branchName;
+
+		const response = await fetch(`${apiAddress}/api/pulls`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				head_branch: headBranch,
+				base_branch: 'master',
+				title: title,
+				description: description
+			})
+		});
+
+		// Handle the response
+		if (!response.ok) {
+			const errorMessage = `Failed to create pull request (Code ${response.status}: "${response.statusText}")`;
+			addToast({
+				message: `Error: ${errorMessage}`,
+				type: ToastType.Error,
+				dismissible: true
+			});
+			return; // Exit the function early on error
+		}
+
+		// Parse the JSON response to get the pull request URL
+		const jsonResponse = await response.json();
+		const pullRequestUrl = jsonResponse.data?.pull_request_url; // Adjusted based on API response
+
+		if (pullRequestUrl) {
+			// If successful, show success toast with the URL
+			addToast({
+				message: `Pull request created successfully. View it [here](${pullRequestUrl}).`,
+				type: ToastType.Success,
+				dismissible: true
+			});
+		} else {
+			// Handle the case where the URL is not present (if needed)
+			addToast({
+				message: 'Pull request created successfully, but the URL is not available.',
+				type: ToastType.Warning,
+				dismissible: true
+			});
+		}
+	});
 </script>
 
 <div style="--sidebar-width: {sidebarWidth}" class="container">
@@ -180,11 +237,11 @@
 		<div class="directory-nav">
 			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->
 			{#if mode === SelectedMode.Documents}
-				<FileNavigation on:fileselect={documentSelectionHandler} {...$documentTree} />
+				<FileNavigation fileSelectHandler={documentSelectionHandler} {...$documentTree} />
 			{:else}
 				<!-- Display a button that switches the mode to docs -->
 				<MockDirectory
-					on:click={() => {
+					onclick={() => {
 						mode = SelectedMode.Documents;
 					}}
 					label="docs"
@@ -194,7 +251,7 @@
 				<AssetSelector bind:mode bind:assetFolderPath />
 			{:else}
 				<MockDirectory
-					on:click={() => {
+					onclick={() => {
 						mode = SelectedMode.Assets;
 					}}
 					label="assets"
@@ -211,12 +268,16 @@
 		<SettingsMenu
 			bind:visible={showSettingsMenu}
 			on:showadmindashboard={() => {
-				adminDashboardDialog.showModal();
+				adminDashboardDialog!.showModal();
 			}}
 		/>
 		{#if mode === SelectedMode.Documents}
 			{#if showEditor && $currentFile !== ''}
-				<DocumentEditor bind:saveChangesHandler bind:previewWindow />
+				<DocumentEditor
+					bind:saveChangesHandler
+					bind:previewWindow={previewWindow!}
+					bind:createPullRequestHandler
+				/>
 			{:else}
 				<span class="nofile-placeholder">
 					<p>
@@ -231,7 +292,7 @@
 	</div>
 	<LoadingIcon bind:visible={showLoadingIcon} />
 	<ChangeDialogue bind:visible={showChangeDialogue} />
-	<AdminDashboard bind:dialog={adminDashboardDialog} />
+	<AdminDashboard bind:dialog={adminDashboardDialog!} />
 </div>
 
 <style>

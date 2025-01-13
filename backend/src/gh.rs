@@ -233,7 +233,6 @@ impl GitHubClient {
         base_branch: Option<&str>,
         issue_numbers: Option<Vec<u64>>,
     ) -> Result<String> {
-        info!("Made it to the start of the update PR");
         let repo_name = self.get_repo_name()?;
         let token = self.get_token().await?;
         let mut pr_body_json = serde_json::Map::new();

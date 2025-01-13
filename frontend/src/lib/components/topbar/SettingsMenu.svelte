@@ -3,9 +3,14 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { apiAddress } from '$lib/main';
 	import { Permission, type User } from '$lib/types';
+	import SectionHeader from '../elements/SectionHeader.svelte';
 
-	export let visible = false;
-	let showAdminDashboard = false;
+	interface Props {
+		visible: boolean;
+	}
+
+	let { visible = $bindable() }: Props = $props();
+	let showAdminDashboard = $state(false);
 	onMount(async () => {
 		// This could probably be generalized into a single call that loads
 		// into a svelte store or something, rather than this call being made multiple times
@@ -22,25 +27,22 @@
 {#if visible}
 	<!-- The "Click anywhere else to hide the dialogue" functionality is implemented by having a div that sits behind the settings menu, listening for clicks -->
 	<div
-		on:click={() => {
+		onclick={() => {
 			visible = false;
 		}}
-		on:keydown={() => {
+		onkeydown={() => {
 			visible = false;
 		}}
 		role="none"
 		class="backdrop"
 	></div>
 	<div transition:blur={{ duration: 75 }} class="container">
-		<div class="settings-header">
-			<p>Settings</p>
-			<hr />
-		</div>
+		<SectionHeader>Settings</SectionHeader>
 		<!-- Admin Dashboard -->
 		{#if showAdminDashboard}
 			<div>
 				<button
-					on:click={() => {
+					onclick={() => {
 						dispatch('showadmindashboard');
 					}}
 				>
@@ -61,7 +63,7 @@
 		<!-- Logout -->
 		<div>
 			<button
-				on:click={async () => {
+				onclick={async () => {
 					document.cookie =
 						'username=; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
 					await fetch(`${apiAddress}/api/logout`);
@@ -123,19 +125,6 @@
 		right: 0;
 		width: 100vw;
 		height: 100vh;
-	}
-
-	.settings-header p {
-		margin-top: 0.3rem;
-		margin-bottom: 0;
-		padding-left: 0.3rem;
-		font-size: 0.7rem;
-		color: var(--foreground-3);
-	}
-
-	.settings-header hr {
-		margin: 0.2rem;
-		border-color: var(--foreground-5);
 	}
 
 	button {

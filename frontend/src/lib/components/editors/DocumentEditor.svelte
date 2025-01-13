@@ -5,13 +5,12 @@
 	import { get } from 'svelte/store';
 	import { cache } from '$lib/cache';
 	import { renderMarkdown } from '$lib/render';
-	export let previewWindow: HTMLElement;
 
 	const charCount = 500;
 
-	let showCommitModal = false;
-	let commitModal: HTMLElement;
-	let commitMessageInput: string = '';
+	let showCommitModal = $state(false);
+	let commitModal: HTMLElement | undefined = $state();
+	let commitMessageInput: string = $state('');
 
 	let previousFile: string | null = null;
 
@@ -61,7 +60,17 @@
 		await saveChangesHandler(commitMessage);
 	}
 
-	export let saveChangesHandler: (commitMessage: string) => Promise<void>;
+	interface Props {
+		previewWindow: HTMLElement;
+		saveChangesHandler: (commitMessage: string) => Promise<void>;
+		createPullRequestHandler: () => Promise<void>;
+	}
+
+	let {
+		previewWindow = $bindable(),
+		saveChangesHandler = $bindable(),
+		createPullRequestHandler = $bindable()
+	}: Props = $props();
 
 	async function cancelChangesHandler() {
 		if ($editorText !== get(currentFile)) {
@@ -106,7 +115,7 @@
 
 <div class="editor-controls">
 	<!-- Cancel -->
-	<button on:click={cancelChangesHandler} class="cancel" title="Cancel Changes">
+	<button onclick={cancelChangesHandler} class="cancel" title="Cancel Changes">
 		<span>Cancel Changes</span>
 		<svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px">
 			<title>Cancel Changes</title>
@@ -117,7 +126,7 @@
 	</button>
 	<!-- Save -->
 	<button
-		on:click={async () => {
+		onclick={async () => {
 			showCommitModal = true;
 		}}
 		class="publish"
@@ -136,6 +145,24 @@
 			<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
 		</svg>
 	</button>
+	<!-- Pull Request -->
+	<button onclick={createPullRequestHandler} class="pull-request" title="Create Pull Request">
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="25px"
+			height="25px"
+			viewBox="0 0 24 24"
+			fill="none"
+		>
+			<path
+				fill-rule="evenodd"
+				clip-rule="evenodd"
+				d="M14.7071 2.70711L13.4142 4H14C17.3137 4 20 6.68629 20 10V16.1707C21.1652 16.5825 22 17.6938 22 19C22 20.6569 20.6569 22 19 22C17.3431 22 16 20.6569 16 19C16 17.6938 16.8348 16.5825 18 16.1707V10C18 7.79086 16.2091 6 14 6H13.4142L14.7071 7.29289C15.0976 7.68342 15.0976 8.31658 14.7071 8.70711C14.3166 9.09763 13.6834 9.09763 13.2929 8.70711L10.2929 5.70711C9.90237 5.31658 9.90237 4.68342 10.2929 4.29289L13.2929 1.29289C13.6834 0.902369 14.3166 0.902369 14.7071 1.29289C15.0976 1.68342 15.0976 2.31658 14.7071 2.70711ZM18 19C18 18.4477 18.4477 18 19 18C19.5523 18 20 18.4477 20 19C20 19.5523 19.5523 20 19 20C18.4477 20 18 19.5523 18 19ZM6 4C5.44772 4 5 4.44772 5 5C5 5.55228 5.44772 6 6 6C6.55228 6 7 5.55228 7 5C7 4.44772 6.55228 4 6 4ZM7 7.82929C8.16519 7.41746 9 6.30622 9 5C9 3.34315 7.65685 2 6 2C4.34315 2 3 3.34315 3 5C3 6.30622 3.83481 7.41746 5 7.82929V16.1707C3.83481 16.5825 3 17.6938 3 19C3 20.6569 4.34315 22 6 22C7.65685 22 9 20.6569 9 19C9 17.6938 8.16519 16.5825 7 16.1707V7.82929ZM6 18C5.44772 18 5 18.4477 5 19C5 19.5523 5.44772 20 6 20C6.55228 20 7 19.5523 7 19C7 18.4477 6.55228 18 6 18Z"
+				fill="#000000"
+			/>
+		</svg>
+		<span>Create Pull Request</span>
+	</button>
 </div>
 <div class="editor-panes">
 	<textarea bind:value={$editorText} class="editor-pane"></textarea>
@@ -144,10 +171,10 @@
 
 {#if showCommitModal}
 	<div
-		on:click={() => {
+		onclick={() => {
 			showCommitModal = false;
 		}}
-		on:keydown={(e) => {
+		onkeydown={(e) => {
 			if (e.key === 'Escape') {
 				showCommitModal = false;
 			}
@@ -159,10 +186,10 @@
 	<div class="commit-modal" bind:this={commitModal}>
 		<div class="commit-modal-content">
 			<svg
-				on:click={() => {
+				onclick={() => {
 					showCommitModal = false;
 				}}
-				on:keypress={() => {
+				onkeypress={() => {
 					showCommitModal = false;
 				}}
 				class="commit-modal-close"
@@ -190,14 +217,14 @@
 				{charCount - commitMessageInput.length} characters remaining
 			</p>
 			<div class="commit-modal-buttons">
-				<button on:click={() => (showCommitModal = false)}>Deny</button>
-				<button on:click={confirmCommitHandler}>Confirm</button>
+				<button onclick={() => (showCommitModal = false)}>Deny</button>
+				<button onclick={confirmCommitHandler}>Confirm</button>
 			</div>
 		</div>
 	</div>
 {/if}
 
-<svelte:window on:keydown={onKeyDown} />
+<svelte:window onkeydown={onKeyDown} />
 
 <style>
 	.editor-controls {
@@ -350,7 +377,8 @@
 
 	.commit-modal-close {
 		position: sticky;
-		cursor: pointer;
+
+		/* cursor: pointer; */
 		margin-top: 0.2rem;
 		margin-right: 0.2rem;
 		float: right;
