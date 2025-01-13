@@ -528,7 +528,74 @@ impl GitHubClient {
         let issues: Vec<Value> = response.json().await?;
     
         Ok(issues)
-    }                
+    }
+
+    /// Request a github installation access token using the provided reqwest client.
+    /// The installation access token will expire after 1 hour.
+    /// Returns the new token, and the time of expiration
+    async fn get_access_token(req_client: &Client, client_id: &str) -> Result<(String, SystemTime)> {
+        let token = gen_jwt_token(client_id)?;
+        let response = req_client
+            .post(format!(
+                "https://api.github.com/app/installations/{}/access_tokens",
+                get_installation_id(req_client, client_id).await?
+            ))
+            .bearer_auth(token)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "Hyde")
+            // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .send()
+            .await?;
+        let deserialized_response: AccessTokenResponse =
+            serde_json::from_slice(&response.bytes().await?)?;
+        Ok((
+            deserialized_response.token,
+            DateTime::parse_from_rfc3339(&deserialized_response.expires_at)?.into(),
+        ))
+    }
+
+    #[derive(Deserialize)]
+    struct InstallationIdResponse {
+        id: u64,
+    }
+
+    /// Fetch the Installation ID. This value is required for most API calls
+    ///
+    /// <https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#generating-an-installation-access-token>
+    async fn get_installation_id(req_client: &Client, client_id: &str) -> Result<String> {
+        let response = req_client
+            .get("https://api.github.com/app/installations")
+            .bearer_auth(gen_jwt_token(client_id)?)
+            .header("User-Agent", "Hyde")
+            // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .send()
+            .await?;
+        // Validate that there's only one repo the app is installed on
+        let repo_list =
+            &serde_json::from_slice::<Vec<InstallationIdResponse>>(&response.bytes().await?)?;
+        if repo_list.len() != 1 {
+            bail!(
+                "Hyde must only be installed on one repo, Github currently reports {} repos",
+                repo_list.len()
+            );
+        }
+        Ok(repo_list[0].id.to_string())
+    }
+
+    /// Generate a new JWT token for use with github api interactions.
+    fn gen_jwt_token(client_id: &str) -> Result<String> {
+        let mut private_key_file = fs::File::open("hyde-data/key.pem")
+            .wrap_err("Failed to read private key from `hyde-data/key.pem`")?;
+        let mut private_key = Vec::new();
+        private_key_file.read_to_end(&mut private_key)?;
+        Ok(encode(
+            &Header::new(Algorithm::RS256),
+            &Claims::new(client_id)?,
+            &EncodingKey::from_rsa_pem(&private_key)?,
+        )?)
+    }
 
 }
 
@@ -588,71 +655,3 @@ pub struct Branch {
     pub name: String,
     pub protected: bool,
 }
-
-/// Request a github installation access token using the provided reqwest client.
-/// The installation access token will expire after 1 hour.
-/// Returns the new token, and the time of expiration
-async fn get_access_token(req_client: &Client, client_id: &str) -> Result<(String, SystemTime)> {
-    let token = gen_jwt_token(client_id)?;
-    let response = req_client
-        .post(format!(
-            "https://api.github.com/app/installations/{}/access_tokens",
-            get_installation_id(req_client, client_id).await?
-        ))
-        .bearer_auth(token)
-        .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "Hyde")
-        // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
-        .header("X-GitHub-Api-Version", "2022-11-28")
-        .send()
-        .await?;
-    let deserialized_response: AccessTokenResponse =
-        serde_json::from_slice(&response.bytes().await?)?;
-    Ok((
-        deserialized_response.token,
-        DateTime::parse_from_rfc3339(&deserialized_response.expires_at)?.into(),
-    ))
-}
-
-#[derive(Deserialize)]
-struct InstallationIdResponse {
-    id: u64,
-}
-
-/// Fetch the Installation ID. This value is required for most API calls
-///
-/// <https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#generating-an-installation-access-token>
-async fn get_installation_id(req_client: &Client, client_id: &str) -> Result<String> {
-    let response = req_client
-        .get("https://api.github.com/app/installations")
-        .bearer_auth(gen_jwt_token(client_id)?)
-        .header("User-Agent", "Hyde")
-        // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
-        .header("X-GitHub-Api-Version", "2022-11-28")
-        .send()
-        .await?;
-    // Validate that there's only one repo the app is installed on
-    let repo_list =
-        &serde_json::from_slice::<Vec<InstallationIdResponse>>(&response.bytes().await?)?;
-    if repo_list.len() != 1 {
-        bail!(
-            "Hyde must only be installed on one repo, Github currently reports {} repos",
-            repo_list.len()
-        );
-    }
-    Ok(repo_list[0].id.to_string())
-}
-
-/// Generate a new JWT token for use with github api interactions.
-fn gen_jwt_token(client_id: &str) -> Result<String> {
-    let mut private_key_file = fs::File::open("hyde-data/key.pem")
-        .wrap_err("Failed to read private key from `hyde-data/key.pem`")?;
-    let mut private_key = Vec::new();
-    private_key_file.read_to_end(&mut private_key)?;
-    Ok(encode(
-        &Header::new(Algorithm::RS256),
-        &Claims::new(client_id)?,
-        &EncodingKey::from_rsa_pem(&private_key)?,
-    )?)
-}
-

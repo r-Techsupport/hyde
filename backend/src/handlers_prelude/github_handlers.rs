@@ -72,8 +72,7 @@ pub struct UpdatePRRequest {
 /// Fetches the list of branches from a GitHub repository.
 pub async fn list_branches_handler(
     State(state): State<AppState>,
-) -> Result<(StatusCode, Json<ApiResponse<BranchesData>>), (StatusCode, String)> {
-    info!("Received request to fetch branches");
+) -> Result<(StatusCode, Json<ApiResponse<BranchesData>>), (StatusCode, String)> {;
 
     // Fetch the branch details from GitHub using the GitHubClient instance
     let branch_details = state.gh_client
@@ -114,7 +113,6 @@ pub async fn create_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<CreatePRRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<CreatePRData>>), (StatusCode, String)> {
-    info!("Received create pull request request: {:?}", payload);
 
     // Create the pull request using the new method from GitHubClient
     match state
@@ -153,7 +151,6 @@ pub async fn update_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<UpdatePRRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
-    info!("Received request to update pull request: {:?}", payload);
 
     // Update the pull request
     match state
@@ -190,7 +187,6 @@ pub async fn close_pull_request_handler(
     State(state): State<AppState>,
     Path(pr_number): Path<u64>,
 ) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
-    info!("Received request to close pull request #{}", pr_number);
 
     // Attempt to close the pull request
     match state
@@ -239,7 +235,6 @@ pub async fn pull_handler(
     State(state): State<AppState>,
     Path(branch): Path<String>,
 ) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
-    info!("Received request to pull latest changes for branch '{}'", branch);
 
     // Attempt to pull the latest changes for the specified branch
     match state.git.git_pull_branch(&branch) {
@@ -266,7 +261,6 @@ pub async fn pull_handler(
 
 /// Handler for fetching the current branch of the repository.
 pub async fn get_current_branch_handler(State(state): State<AppState>) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
-    info!("Received request to fetch current branch");
 
     // Use the git::Interface from AppState to get the current branch
     match state.git.get_current_branch().await {
@@ -294,8 +288,7 @@ pub async fn get_current_branch_handler(State(state): State<AppState>) -> Result
 }
 
 /// Handler for fetching the default branch of the repository.
-pub async fn get_default_branch_handler(State(state): State<AppState>) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
-    info!("Received request to fetch default branch");    
+pub async fn get_default_branch_handler(State(state): State<AppState>) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {  
 
     // Use the `get_default_branch` method from the `Gh` struct in AppState
     match state
@@ -330,7 +323,6 @@ pub async fn get_issues_handler(
     State(state): State<AppState>,
     Path(state_param): Path<String>,
 ) -> Result<(StatusCode, Json<ApiResponse<IssuesData>>), (StatusCode, String)> {
-    info!("Received request to fetch issues");
 
     let state_param = state_param.as_str();
 
