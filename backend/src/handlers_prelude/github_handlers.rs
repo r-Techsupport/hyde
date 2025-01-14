@@ -78,7 +78,7 @@ pub async fn list_branches_handler(
         .gh_client
         .list_branches()
         .await
-        .map_err(|err| eyre_to_axum_err(err))?;
+        .map_err(eyre_to_axum_err)?;
 
     // Extract branch names and handle protection status if needed
     let branches: Vec<String> = branch_details
