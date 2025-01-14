@@ -74,19 +74,11 @@ pub async fn list_branches_handler(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<ApiResponse<BranchesData>>), (StatusCode, String)> {
     // Fetch the branch details from GitHub using the GitHubClient instance
-<<<<<<< HEAD
     let branch_details = state
         .gh_client
-        .list_branches() // Call the method on the GitHubClient instance
-=======
-    let branch_details = state.gh_client
         .list_branches()
->>>>>>> 854ef16962a08c055c24b6d4ca8eaa65a78e98c1
         .await
-        .map_err(|err| {
-            // Handle errors in fetching branch details (e.g., connection issues)
-            eyre_to_axum_err(err)
-        })?;
+        .map_err(|err| eyre_to_axum_err(err))?;
 
     // Extract branch names and handle protection status if needed
     let branches: Vec<String> = branch_details

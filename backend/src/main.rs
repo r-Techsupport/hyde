@@ -137,11 +137,10 @@ async fn main() -> Result<()> {
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
-
-    let repo_url = config.files.repo_url.clone();
-    let repo_path = config.files.repo_path.clone();
-    let docs_path = config.files.docs_path.clone();
-    let asset_path = config.files.asset_path.clone();
+    let repo_url = CONFIG.files.repo_url.clone();
+    let repo_path = CONFIG.files.repo_path.clone();
+    let docs_path = CONFIG.files.docs_path.clone();
+    let asset_path = CONFIG.files.asset_path.clone();
 
     let git =
         task::spawn(async { git::Interface::new(repo_url, repo_path, docs_path, asset_path) })
@@ -149,10 +148,10 @@ async fn init_state(cli_args: &Args) -> Result<AppState> {
     let reqwest_client = Client::new();
 
     let oauth = BasicClient::new(
-        ClientId::new(config.oauth.discord.client_id.clone()),
-        Some(ClientSecret::new(config.oauth.discord.secret.clone())),
-        AuthUrl::new(config.oauth.discord.url.clone())?,
-        Some(TokenUrl::new(config.oauth.discord.token_url.clone())?),
+        ClientId::new(CONFIG.oauth.discord.client_id.clone()),
+        Some(ClientSecret::new(CONFIG.oauth.discord.secret.clone())),
+        AuthUrl::new(CONFIG.oauth.discord.url.clone())?,
+        Some(TokenUrl::new(CONFIG.oauth.discord.token_url.clone())?),
     );
 
     Ok(AppState {
@@ -161,9 +160,9 @@ async fn init_state(cli_args: &Args) -> Result<AppState> {
         oauth,
         reqwest_client: reqwest_client.clone(),
         gh_client: GitHubClient::new(
-            config.files.repo_url.clone(),
+            CONFIG.files.repo_url.clone(),
             reqwest_client.clone(),
-            config.oauth.github.client_id.clone(),
+            CONFIG.oauth.github.client_id.clone(),
         ),
         db: Database::new().await?,
     })
