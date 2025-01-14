@@ -43,10 +43,15 @@ use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
+static CONFIG: LazyLock<Arc<AppConf>> = LazyLock::new(|| {
+    let args = Args::parse();
+    AppConf::load(&args.cfg).expect("Failed to load configuration")
+});
+
 /// Global app state passed to handlers by axum
 #[derive(Clone)]
 pub struct AppState {
-    pub config: Arc<AppConf>,
+    pub config: &'static AppConf,
     git: git::Interface,
     oauth: BasicClient,
     reqwest_client: Client,
@@ -129,11 +134,6 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-static CONFIG: LazyLock<Arc<AppConf>> = LazyLock::new(|| {
-    let args = Args::parse();
-    AppConf::load(&args.cfg).expect("Failed to load configuration")
-});
-
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
@@ -157,14 +157,15 @@ async fn init_state(cli_args: &Args) -> Result<AppState> {
     );
 
     Ok(AppState {
-        config: config.clone(),
+        config: &CONFIG,
         git,
         oauth,
         reqwest_client: reqwest_client.clone(),
         gh_client: GitHubClient::new(
             config.files.repo_url.clone(),
             reqwest_client.clone(),
-            config.oauth.github.client_id.clone()),
+            config.oauth.github.client_id.clone(),
+        ),
         db: Database::new().await?,
     })
 }
@@ -176,7 +177,7 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
     // current_exe returns the path of the file, we need the dir the file is in
     frontend_dir.pop();
     frontend_dir.push("web");
-    let config = Arc::clone(&state.config);
+    let config = state.config;
     let asset_path = &config.files.asset_path;
 
     // Initialize the handler and router

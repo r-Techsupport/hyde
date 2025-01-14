@@ -806,7 +806,11 @@ mod tests {
         let admin_permissions = mock_db.get_group_permissions(1).await.unwrap();
         assert_eq!(
             admin_permissions,
-            vec![Permission::ManageContent, Permission::ManageUsers, Permission::ManageBranches],
+            vec![
+                Permission::ManageContent,
+                Permission::ManageUsers,
+                Permission::ManageBranches
+            ],
             "admin group should have the right permissions"
         );
     }

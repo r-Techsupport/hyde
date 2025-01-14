@@ -15,7 +15,7 @@ impl From<Permission> for String {
         match value {
             Permission::ManageContent => "ManageContent",
             Permission::ManageUsers => "ManageUsers",
-            Permission::ManageBranches => "ManageBranches"
+            Permission::ManageBranches => "ManageBranches",
         }
         .to_string()
     }

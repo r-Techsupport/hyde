@@ -12,7 +12,7 @@ use std::io::Read;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
-use tracing::{ info, debug };
+use tracing::{debug, info};
 
 const GITHUB_API_URL: &str = "https://api.github.com";
 
@@ -27,12 +27,12 @@ pub struct GitHubClient {
     /// A thread-safe, shared access token for authenticating requests.
     token: Arc<Mutex<String>>,
     /// The expiration time of the current authentication token.
-    expires_at: Arc<Mutex<SystemTime>>
+    expires_at: Arc<Mutex<SystemTime>>,
 }
 
 impl GitHubClient {
     /// Creates a new instance of `GitHubClient`.
-    /// 
+    ///
     /// # Arguments
     /// - `repo_url` - A `String` representing the URL of the GitHub repository.
     /// - `client` - A `reqwest::Client` used for making HTTP requests to GitHub's API.
@@ -73,10 +73,9 @@ impl GitHubClient {
 
         // Fetch a new token if more than 59 minutes have passed
         // Tokens expire after 1 hour, this is to account for clock drift
-        if SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() > (60 * 59)
-        {
+        if SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() > (60 * 59) {
             // Fetch a new token
-            let api_response = self.get_access_token(&self.client, &self.client_id).await?;
+            let api_response = self.get_access_token().await?;
             *token_ref = api_response.0;
             let mut expires_ref = self.expires_at.lock().await;
             *expires_ref = api_response.1;
@@ -86,17 +85,17 @@ impl GitHubClient {
     }
 
     /// Extracts the repository name and owner from a GitHub repository URL in the format `<owner>/<repo>`.
-    /// 
-    /// This function expects the `repo_url` to be in the format `https://<host>/<owner>/<repo>.git` (e.g., 
-    /// `https://github.com/owner/repository.git`). It removes the `.git` suffix and extracts the owner 
+    ///
+    /// This function expects the `repo_url` to be in the format `https://<host>/<owner>/<repo>.git` (e.g.,
+    /// `https://github.com/owner/repository.git`). It removes the `.git` suffix and extracts the owner
     /// and repository name. The result is returned as a string in the format `<owner>/<repo>`.
-    /// 
+    ///
     /// # Returns
     /// A `Result<String>`, where:
-    /// - `Ok(<owner>/<repo>)`: A string in the format `<owner>/<repo>`, representing the repository owner 
+    /// - `Ok(<owner>/<repo>)`: A string in the format `<owner>/<repo>`, representing the repository owner
     ///   and name extracted from the URL.
     /// - `Err(e)`: An error message if the URL is not in the expected format or missing the `.git` suffix.
-    /// 
+    ///
     /// # Errors
     /// This function returns an error if:
     /// - The URL does not contain both an owner and a repository name (e.g., `https://github.com`).
@@ -117,22 +116,22 @@ impl GitHubClient {
     }
 
     /// Creates a GitHub pull request using the provided parameters.
-    /// 
-    /// This function sends a request to the GitHub API to create a pull request from a specified head branch 
-    /// to a base branch in the specified repository. It requires the repository URL, an authentication token, 
+    ///
+    /// This function sends a request to the GitHub API to create a pull request from a specified head branch
+    /// to a base branch in the specified repository. It requires the repository URL, an authentication token,
     /// and the details of the pull request (title, description, and branches involved).
-    /// 
+    ///
     /// # Parameters:
     /// - `head_branch`: A string slice representing the branch with changes (source branch).
     /// - `base_branch`: A string slice representing the base branch to which the pull request is created (target branch).
     /// - `pr_title`: A string slice representing the title of the pull request.
     /// - `pr_description`: A string slice representing the description of the pull request.
-    /// 
+    ///
     /// # Returns:
     /// A `Result<String>`:
     /// - `Ok(url)`: If the pull request is successfully created, it returns the URL of the created pull request.
     /// - `Err(e)`: If the pull request creation fails, it returns an error message describing the failure.
-    /// 
+    ///
     /// # Errors:
     /// This function may return an error if:
     /// - The `repo_url` is not in the expected format and cannot be parsed to derive the repository name.
@@ -166,7 +165,10 @@ impl GitHubClient {
             "body": pr_body,
         });
 
-        debug!("Creating pull request to {}/repos/{}/pulls", GITHUB_API_URL, repo_name);
+        debug!(
+            "Creating pull request to {}/repos/{}/pulls",
+            GITHUB_API_URL, repo_name
+        );
 
         // Send the pull request creation request to the GitHub API
         let response = self
@@ -180,8 +182,11 @@ impl GitHubClient {
 
         // Handle the response based on the status code
         if response.status().is_success() {
-            info!("Pull request created to merge {} into {}", head_branch, base_branch);
-            
+            info!(
+                "Pull request created to merge {} into {}",
+                head_branch, base_branch
+            );
+
             // Extract the response JSON to get the pull request URL
             let response_json: Value = response.json().await?;
             if let Some(url) = response_json.get("html_url").and_then(Value::as_str) {
@@ -202,7 +207,7 @@ impl GitHubClient {
 
     /// Updates an existing pull request on GitHub with the specified details.
     ///
-    /// This function sends a `PATCH` request to the GitHub API to update an existing pull request. 
+    /// This function sends a `PATCH` request to the GitHub API to update an existing pull request.
     /// It allows updating the title, description, base branch, and associated issues of the pull request.
     ///
     /// # Arguments
@@ -210,7 +215,7 @@ impl GitHubClient {
     /// - `pr_title` - Optional new title for the pull request.
     /// - `pr_description` - Optional updated description for the pull request.
     /// - `base_branch` - Optional target base branch to change the pull request's target.
-    /// - `issue_numbers` - Optional list of GitHub issue numbers to associate with the pull request. 
+    /// - `issue_numbers` - Optional list of GitHub issue numbers to associate with the pull request.
     ///   These issues will be referenced in the pull request description using the "Closes #<issue_number>" syntax.
     ///
     /// # Returns
@@ -236,48 +241,54 @@ impl GitHubClient {
         let repo_name = self.get_repo_name()?;
         let token = self.get_token().await?;
         let mut pr_body_json = serde_json::Map::new();
-    
+
         if let Some(title) = pr_title {
             pr_body_json.insert("title".to_string(), json!(title));
         }
-    
+
         let mut pr_body = String::new();
-    
+
         // If description is provided, include it in the body
         if let Some(description) = pr_description {
             pr_body.push_str(description);
         }
-    
+
         // If issue numbers are provided, add them to the body
         if let Some(issues) = issue_numbers {
             for issue in issues {
                 pr_body.push_str(&format!("\n\nCloses #{}", issue));
             }
         }
-    
+
         // Add the constructed body to the JSON body
         pr_body_json.insert("body".to_string(), json!(pr_body));
-    
+
         if let Some(base) = base_branch {
             pr_body_json.insert("base".to_string(), json!(base));
         }
-    
-        debug!("Updating pull request {} in {}/repos/{}/pulls", pr_number, GITHUB_API_URL, repo_name);
-    
+
+        debug!(
+            "Updating pull request {} in {}/repos/{}/pulls",
+            pr_number, GITHUB_API_URL, repo_name
+        );
+
         // Send the request to the GitHub API to update the pull request
         let response = self
             .client
-            .patch(format!("{}/repos/{}/pulls/{}", GITHUB_API_URL, repo_name, pr_number))
+            .patch(format!(
+                "{}/repos/{}/pulls/{}",
+                GITHUB_API_URL, repo_name, pr_number
+            ))
             .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .json(&pr_body_json)
             .send()
             .await?;
-    
+
         // Handle the response based on the status code
         if response.status().is_success() {
             info!("Pull request #{} updated successfully", pr_number);
-    
+
             // Extract the response JSON to get the updated pull request URL
             let response_json: Value = response.json().await?;
             if let Some(url) = response_json.get("html_url").and_then(Value::as_str) {
@@ -325,22 +336,25 @@ impl GitHubClient {
         // Get the repository name from the repository URL
         let repo_name = self.get_repo_name()?;
         let token = self.get_token().await?;
-    
+
         // Construct the JSON body to close the pull request
         let pr_body_json = json!({
             "state": "closed"
         });
-    
+
         // Send the request to GitHub API to close the pull request
         let response = self
             .client
-            .patch(format!("{}/repos/{}/pulls/{}", GITHUB_API_URL, repo_name, pr_number))
+            .patch(format!(
+                "{}/repos/{}/pulls/{}",
+                GITHUB_API_URL, repo_name, pr_number
+            ))
             .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .json(&pr_body_json)
             .send()
             .await?;
-    
+
         // Handle the response
         if response.status().is_success() {
             info!("Pull request #{} closed successfully", pr_number);
@@ -356,13 +370,11 @@ impl GitHubClient {
             );
         }
     }
-    
+
     /// Fetches a complete list of branches with detailed information from the specified GitHub repository.
     ///
     /// This function retrieves all branches for a repository by sending paginated GET requests to the GitHub API.
     /// Each response includes detailed information about each branch, such as whether it is protected and its commit metadata.
-    /// The function iterates over pages of results, each containing up to 100 branches, until it has fetched all branches.
-    /// The responses are deserialized into a vector of `Branch` structs.
     ///
     /// # Returns:
     /// A `Result<Vec<Branch>>`:
@@ -384,21 +396,18 @@ impl GitHubClient {
         let token = self.get_token().await?;
         let mut branches = Vec::new();
         let mut page = 1;
-    
+
         loop {
             // Make a GET request to fetch a page of branches
             let response = self
                 .client
-                .get(format!(
-                    "{}/repos/{}/branches",
-                    GITHUB_API_URL, repo_name
-                ))
+                .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
                 .bearer_auth(&token)
                 .header("User-Agent", "Hyde")
                 .query(&[("per_page", "100"), ("page", &page.to_string())])
                 .send()
                 .await?;
-    
+
             // Check response status and handle it accordingly
             if response.status().is_success() {
                 let page_branches: Vec<Branch> = response.json().await?;
@@ -419,14 +428,14 @@ impl GitHubClient {
                 );
             }
         }
-    
+
         Ok(branches)
     }
 
     /// Fetches the default branch of the repository associated with the authenticated user.
     ///
-    /// This function retrieves the repository name using `get_repo_name`, 
-    /// sends a `GET` request to the GitHub API to fetch repository details, 
+    /// This function retrieves the repository name using `get_repo_name`,
+    /// sends a `GET` request to the GitHub API to fetch repository details,
     /// and extracts the default branch from the response.
     ///
     /// # Returns
@@ -447,7 +456,7 @@ impl GitHubClient {
         // Extract repository name from `repo_url`
         let repo_name = self.get_repo_name()?;
         let token = self.get_token().await?;
-    
+
         // Make the GET request to fetch repository details
         let response = self
             .client
@@ -456,31 +465,37 @@ impl GitHubClient {
             .header("User-Agent", "Hyde")
             .send()
             .await?;
-    
+
         // Check response status
         if !response.status().is_success() {
             let status = response.status();
             let response_text = response.text().await?;
-            bail!("Failed to fetch repository details: {}, Response: {}", status, response_text);
+            bail!(
+                "Failed to fetch repository details: {}, Response: {}",
+                status,
+                response_text
+            );
         }
-    
+
         // Deserialize the response to get the repository details
         let repo_details: Map<String, Value> = response.json().await?;
-    
+
         // Retrieve the default branch from the response
-        let serialized_default_branch = repo_details.get("default_branch").expect("GitHub API response missing expected field 'default_branch'");  
+        let serialized_default_branch = repo_details
+            .get("default_branch")
+            .expect("GitHub API response missing expected field 'default_branch'");
         let default_branch = serialized_default_branch.as_str().unwrap().to_owned();
-    
+
         Ok(default_branch)
-    }        
+    }
 
     /// Fetches issues from the GitHub repository.
     ///
     /// This function retrieves issues from the specified repository using the GitHub API.
-    /// You can filter issues based on their state and associated labels.
+    /// You can filter issues based on their issue_state and associated labels.
     ///
     /// # Parameters:
-    /// - `issue_state`: A string slice representing the state of the issues to fetch (e.g., "open", "closed", "all").
+    /// - `issue_state`: A string slice representing the issue_state of the issues to fetch (e.g., "open", "closed", "all").
     ///            Defaults to "open".
     /// - `labels`: A comma-separated string slice representing labels to filter issues by. Defaults to `None`.
     ///
@@ -495,9 +510,13 @@ impl GitHubClient {
     /// - The request to fetch issues fails due to authentication issues, invalid input, or network problems.
     /// - The GitHub API response cannot be parsed as a JSON array.
     #[tracing::instrument(level = "debug", skip(self))]
-    pub async fn get_issues(&self, state: Option<&str>, labels: Option<&str>) -> Result<Vec<Value>> {
+    pub async fn get_issues(
+        &self,
+        state: Option<&str>,
+        labels: Option<&str>,
+    ) -> Result<Vec<Value>> {
         let repo_name = self.get_repo_name()?;
-    
+
         let issue_state = state.unwrap_or("open");
         let token = self.get_token().await?;
         let mut query_params = vec![format!("state={}", issue_state)];
@@ -505,9 +524,12 @@ impl GitHubClient {
             query_params.push(format!("labels={}", labels));
         }
         let query_string = format!("?{}", query_params.join("&"));
-    
-        let url = format!("{}/repos/{}/issues{}", GITHUB_API_URL, repo_name, query_string);
-    
+
+        let url = format!(
+            "{}/repos/{}/issues{}",
+            GITHUB_API_URL, repo_name, query_string
+        );
+
         let response = self
             .client
             .get(&url)
@@ -520,24 +542,28 @@ impl GitHubClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             bail!("GitHub API request failed ({}): {}", status, error_text);
         }
-    
+
         let issues: Vec<Value> = response.json().await?;
-    
+
         Ok(issues)
     }
 
     /// Request a github installation access token using the provided reqwest client.
     /// The installation access token will expire after 1 hour.
     /// Returns the new token, and the time of expiration
-    async fn get_access_token(&self,req_client: &Client, client_id: &str) -> Result<(String, SystemTime)> {
-        let token = self.gen_jwt_token(client_id)?;
-        let response = req_client
+    async fn get_access_token(&self) -> Result<(String, SystemTime)> {
+        let token = self.gen_jwt_token()?;
+        let response = self
+            .client
             .post(format!(
                 "https://api.github.com/app/installations/{}/access_tokens",
-                self.get_installation_id(req_client, client_id).await?
+                self.get_installation_id().await?
             ))
             .bearer_auth(token)
             .header("Accept", "application/vnd.github+json")
@@ -557,10 +583,11 @@ impl GitHubClient {
     /// Fetch the Installation ID. This value is required for most API calls
     ///
     /// <https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#generating-an-installation-access-token>
-    async fn get_installation_id(&self,req_client: &Client, client_id: &str) -> Result<String> {
-        let response = req_client
+    async fn get_installation_id(&self) -> Result<String> {
+        let response = self
+            .client
             .get("https://api.github.com/app/installations")
-            .bearer_auth(self.gen_jwt_token(client_id)?)
+            .bearer_auth(self.gen_jwt_token()?)
             .header("User-Agent", "Hyde")
             // https://docs.github.com/en/rest/about-the-rest-api/api-versions?apiVersion=2022-11-28
             .header("X-GitHub-Api-Version", "2022-11-28")
@@ -579,18 +606,17 @@ impl GitHubClient {
     }
 
     /// Generate a new JWT token for use with github api interactions.
-    fn gen_jwt_token(&self,client_id: &str) -> Result<String> {
+    fn gen_jwt_token(&self) -> Result<String> {
         let mut private_key_file = fs::File::open("hyde-data/key.pem")
             .wrap_err("Failed to read private key from `hyde-data/key.pem`")?;
         let mut private_key = Vec::new();
         private_key_file.read_to_end(&mut private_key)?;
         Ok(encode(
             &Header::new(Algorithm::RS256),
-            &Claims::new(client_id)?,
+            &Claims::new(&self.client_id)?,
             &EncodingKey::from_rsa_pem(&private_key)?,
         )?)
     }
-
 }
 
 /// In order to authenticate as a github app or generate an installation access token, you must generate a JSON Web Token (JWT). The JWT must contain predefined *claims*.
