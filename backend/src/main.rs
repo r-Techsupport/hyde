@@ -137,7 +137,6 @@ async fn main() -> Result<()> {
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
-    let config = CONFIG.clone();
 
     let repo_url = config.files.repo_url.clone();
     let repo_path = config.files.repo_path.clone();
