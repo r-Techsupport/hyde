@@ -76,7 +76,7 @@ pub async fn list_branches_handler(
 
     // Fetch the branch details from GitHub using the GitHubClient instance
     let branch_details = state.gh_client
-        .list_branches() // Call the method on the GitHubClient instance
+        .list_branches()
         .await
         .map_err(|err| {
             // Handle errors in fetching branch details (e.g., connection issues)
