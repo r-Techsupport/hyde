@@ -23,7 +23,7 @@ use clap::{
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use db::Database;
-use gh::GithubAccessToken;
+use gh::GitHubClient;
 use handlers_prelude::*;
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
 use reqwest::{
@@ -32,6 +32,7 @@ use reqwest::{
 };
 use std::env::current_exe;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tracing::{debug, info, info_span, warn};
 use tracing::{Level, Span};
@@ -42,14 +43,19 @@ use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::{normalize_path::NormalizePathLayer, services::ServeDir};
 
+static CONFIG: LazyLock<Arc<AppConf>> = LazyLock::new(|| {
+    let args = Args::parse();
+    AppConf::load(&args.cfg).expect("Failed to load configuration")
+});
+
 /// Global app state passed to handlers by axum
 #[derive(Clone)]
 pub struct AppState {
-    pub config: Arc<AppConf>,
+    pub config: &'static AppConf,
     git: git::Interface,
     oauth: BasicClient,
     reqwest_client: Client,
-    gh_credentials: GithubAccessToken,
+    gh_client: GitHubClient,
     db: Database,
 }
 
@@ -131,12 +137,10 @@ async fn main() -> Result<()> {
 /// Initialize an instance of [`AppState`]
 #[tracing::instrument]
 async fn init_state(cli_args: &Args) -> Result<AppState> {
-    let config: Arc<AppConf> = AppConf::load(&cli_args.cfg)?;
-
-    let repo_url = config.files.repo_url.clone();
-    let repo_path = config.files.repo_path.clone();
-    let docs_path = config.files.docs_path.clone();
-    let asset_path = config.files.asset_path.clone();
+    let repo_url = CONFIG.files.repo_url.clone();
+    let repo_path = CONFIG.files.repo_path.clone();
+    let docs_path = CONFIG.files.docs_path.clone();
+    let asset_path = CONFIG.files.asset_path.clone();
 
     let git =
         task::spawn(async { git::Interface::new(repo_url, repo_path, docs_path, asset_path) })
@@ -144,18 +148,22 @@ async fn init_state(cli_args: &Args) -> Result<AppState> {
     let reqwest_client = Client::new();
 
     let oauth = BasicClient::new(
-        ClientId::new(config.oauth.discord.client_id.clone()),
-        Some(ClientSecret::new(config.oauth.discord.secret.clone())),
-        AuthUrl::new(config.oauth.discord.url.clone())?,
-        Some(TokenUrl::new(config.oauth.discord.token_url.clone())?),
+        ClientId::new(CONFIG.oauth.discord.client_id.clone()),
+        Some(ClientSecret::new(CONFIG.oauth.discord.secret.clone())),
+        AuthUrl::new(CONFIG.oauth.discord.url.clone())?,
+        Some(TokenUrl::new(CONFIG.oauth.discord.token_url.clone())?),
     );
 
     Ok(AppState {
-        config,
+        config: &CONFIG,
         git,
         oauth,
-        reqwest_client,
-        gh_credentials: GithubAccessToken::new(),
+        reqwest_client: reqwest_client.clone(),
+        gh_client: GitHubClient::new(
+            CONFIG.files.repo_url.clone(),
+            reqwest_client.clone(),
+            CONFIG.oauth.github.client_id.clone(),
+        ),
         db: Database::new().await?,
     })
 }
@@ -167,7 +175,7 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
     // current_exe returns the path of the file, we need the dir the file is in
     frontend_dir.pop();
     frontend_dir.push("web");
-    let config = Arc::clone(&state.config);
+    let config = state.config;
     let asset_path = &config.files.asset_path;
 
     // Initialize the handler and router

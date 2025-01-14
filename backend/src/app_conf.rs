@@ -1,12 +1,12 @@
 use color_eyre::eyre::ContextCompat;
+use color_eyre::Result;
 use serde::Deserialize;
 use std::ffi::OsStr;
-use std::path::PathBuf;
-use std::{fs, path::Path};
 use std::fmt::Debug;
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::{fs, path::Path};
 use tracing::{info, trace};
-use color_eyre::Result;
 
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct AppConf {
@@ -103,7 +103,7 @@ impl ValidateFields for AppConf {
 }
 impl AppConf {
     /// Deserializes the config located at `path`.
-    /// 
+    ///
     /// If a file is passed, it will load that file. If a directory is passed,
     /// then it'll search that directory for any `.toml` file.
     pub fn load<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<Arc<Self>> {
@@ -111,7 +111,8 @@ impl AppConf {
         let config_path: PathBuf = if file_metadata.is_file() {
             path.as_ref().to_path_buf()
         } else {
-            locate_config_file(path)?.wrap_err_with(|| format!("No config was found in the {path:?} directory"))?
+            locate_config_file(path)?
+                .wrap_err_with(|| format!("No config was found in the {path:?} directory"))?
         };
         let serialized_config = fs::read_to_string(config_path)?;
         let config: Self = toml::from_str(&serialized_config)?;

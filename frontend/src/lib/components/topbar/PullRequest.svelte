@@ -101,7 +101,7 @@
 
 	async function createPullRequest(): Promise<void> {
 		const title = `Pull request form: ${$me.username}`;
-		const pr_description = `Changes made from ${$currentFile}.\n ${prCommit}`;
+		const prDescription = `Changes made from ${$currentFile}.\n ${prCommit}`;
 		const headBranch = $branchName;
 
 		const selectedIssueNumbers = selectedIssues.map((issue: Issue) => issue.number);
@@ -117,7 +117,7 @@
 				head_branch: headBranch,
 				base_branch: $baseBranch,
 				title: title,
-				description: pr_description,
+				description: prDescription,
 				issue_numbers: selectedIssueNumbers
 			})
 		});
@@ -380,6 +380,7 @@
 												<!-- SVG Icon for the Issue URL -->
 												<a
 													href={issue.html_url}
+													aria-label="Issue SVG"
 													target="_blank"
 													rel="noopener noreferrer"
 													class="issue-svg"
