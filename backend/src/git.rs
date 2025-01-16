@@ -338,7 +338,9 @@ impl Interface {
 
         rename(tmp_repo_path, repo_path)?;
 
-        *lock = Repository::open(&repo_path)?;
+        *lock = Repository::open(repo_path)?;
+
+        drop(lock);
 
         remove_dir_all("dummy.git")?;
 
