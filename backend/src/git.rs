@@ -10,10 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{path::PathBuf, sync::{Arc, Mutex, TryLockError}};
+use std::fs::{remove_dir_all, rename};
+use std::mem::{drop, replace};
 use tracing::{debug, info, warn};
 
 /// Interacts with a Jekyll repo's version control and filesystem.
@@ -301,25 +300,48 @@ impl Interface {
         Ok(repo)
     }
 
-    /// Completely clone and open a new repository, deleting the old one.
+    /// Completely clone and open a new repository, deleting the old one, atomically
     #[tracing::instrument(skip_all)]
     pub fn reclone(&self) -> Result<()> {
-        // First clone a repo into `repo__tmp`, open that, swap out
-        // TODO: nuke `repo__tmp` if it exists already
-        let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
-        let tmp_path = Path::new("./repo__tmp"); // TODO: Same here?
-        info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
-        let tmp_repo = Repository::clone(&self.repo_url, tmp_path)?;
-        info!("Pointing changes to new temp repository");
-        let mut lock = self.repo.lock().unwrap();
-        *lock = tmp_repo;
-        info!("Deleting the old repo...");
-        fs::remove_dir_all(repo_path)?;
-        info!("Moving the temp repo to take the place of the old one");
-        fs::rename(tmp_path, repo_path)?;
-        *lock = Repository::open(repo_path)?;
-        info!("Re-clone succeeded");
-        drop(lock);
+        // Before anything, see if we can acquire the repo mutex lock
+        let mut lock = match self.repo.try_lock() {
+            Ok(lock) => lock, // Acquire the lock
+            Err(TryLockError::WouldBlock) => {
+                bail!("Unable to reclone, repo mutex is locked.");
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                bail!("Unable to reclone, repo mutex is poisoned");
+            }
+        };
+
+        let repo_path = Path::new("./repo");
+        let tmp_repo_path = Path::new("./repo_tmp");
+
+        if tmp_repo_path.exists() { // Explicitily clear tmp path, just in case
+            info!("Temporary repo path: {tmp_repo_path:?} exists, cleaning up");
+            remove_dir_all(tmp_repo_path)?;
+        }
+
+        info!("Cloning repository to: {tmp_repo_path:?}");
+
+        Repository::clone(&self.repo_url, tmp_repo_path)?;
+
+        info!("Moving new clone into old clone");
+
+        let dummy = Repository::init_bare("dummy.git")?;
+
+        drop(replace(&mut *lock, dummy)); // Drop old repo file handles
+
+        if repo_path.exists() {
+            fs::remove_dir_all(repo_path)?;
+        }
+
+        rename(tmp_repo_path, repo_path)?;
+
+        *lock = Repository::open(&repo_path)?;
+
+        remove_dir_all("dummy.git")?;
+
         Ok(())
     }
 
