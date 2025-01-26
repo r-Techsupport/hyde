@@ -59,11 +59,10 @@
 		if (!response.ok) {
 			const errorMessage = await response.json();
 			console.error('Failed to fetch branches:', errorMessage);
-			addToast({
-				message: `Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`,
-				type: ToastType.Error,
-				dismissible: true
-			});
+			addToast(
+				`Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`,
+				ToastType.Error
+			);
 			return [];
 		}
 
@@ -141,22 +140,20 @@
 
 		// Validate branch name
 		if (!isValidBranchName(input)) {
-			addToast({
-				message: 'Please ensure your branch name follows these rules:\n' + rules.join('\n'),
-				type: ToastType.Warning,
-				dismissible: true
-			});
+			addToast(
+				'Please ensure your branch name follows these rules:\n' + rules.join('\n'),
+				ToastType.Warning
+			);
 			return;
 		}
 
 		if ($allBranches.some((branch) => branch.name === input && branch.isProtected)) {
-			addToast({
-				message:
-					'Please select an existing branch name from the list of non-protected branches.\nYou can also create your own.',
-				type: ToastType.Warning,
-				dismissible: true,
-				timeout: 1800
-			});
+			addToast(
+				'Please select an existing branch name from the list of non-protected branches.\nYou can also create your own.',
+				ToastType.Warning,
+				true,
+				1800
+			);
 			return;
 		}
 
@@ -168,12 +165,7 @@
 		showMenu = false;
 
 		if (!$allBranches.some((branch) => branch.name === input)) {
-			addToast({
-				message: `Now working on a new branch: "${input}".`,
-				type: ToastType.Success,
-				dismissible: true,
-				timeout: 1800
-			});
+			addToast(`Now working on a new branch: "${input}".`, ToastType.Success, true, 1800);
 			showLoadingIcon = false;
 			return;
 		}
@@ -185,11 +177,10 @@
 		});
 
 		if (!response.ok) {
-			addToast({
-				message: `Failed to check out branch. Error ${response.status}: ${response.statusText}`,
-				type: ToastType.Error,
-				dismissible: true
-			});
+			addToast(
+				`Failed to check out branch. Error ${response.status}: ${response.statusText}`,
+				ToastType.Error
+			);
 			showLoadingIcon = false;
 			return;
 		}
@@ -201,18 +192,14 @@
 		});
 
 		if (pullResponse.ok) {
-			addToast({
-				message: `Branch "${input}" checked out and updated successfully.`,
-				type: ToastType.Success,
-				dismissible: true,
-				timeout: 1200
-			});
+			addToast(
+				`Branch "${input}" checked out and updated successfully.`,
+				ToastType.Success,
+				true,
+				1200
+			);
 		} else {
-			addToast({
-				message: `Failed to pull latest changes for branch "${input}".`,
-				type: ToastType.Error,
-				dismissible: true
-			});
+			addToast(`Failed to pull latest changes for branch "${input}".`, ToastType.Error);
 			showLoadingIcon = false;
 			return;
 		}
