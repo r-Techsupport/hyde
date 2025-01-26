@@ -103,12 +103,12 @@
 								})
 							).json();
 							groups = [...groups, newGroup];
-							addToast({
-								message: `The ${newGroup.name} group was created successfully`,
-								type: ToastType.Info,
-								dismissible: true,
-								timeout: 1500
-							});
+							addToast(
+								`The ${newGroup.name} group was created successfully`,
+								ToastType.Info,
+								true,
+								1500
+							);
 							showNewGroupInput = false;
 						}
 					}}

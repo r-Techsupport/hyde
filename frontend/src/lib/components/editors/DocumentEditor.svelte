@@ -47,12 +47,7 @@
 		const commitMessage = commitMessageInput.trim();
 
 		if (!(await hasChanges())) {
-			addToast({
-				message: `No changes detected to commit.`,
-				type: ToastType.Error,
-				timeout: 1000,
-				dismissible: true
-			});
+			addToast(`No changes detected to commit.`, ToastType.Error, true, 1000);
 			return;
 		}
 
@@ -72,20 +67,15 @@
 			$editorText =
 				(await cache.get(get(currentFile))) ??
 				"The current file doesn't exist in cache, please report to the developer";
-			addToast({
-				message: `Cancelled edits to "${get(currentFile)}""`,
-				type: ToastType.Success,
-				timeout: 1000,
-				dismissible: true
-			});
+			addToast(`Cancelled edits to "${get(currentFile)}""`, ToastType.Success, true, 1000);
 		} else {
 			// TODO: The button should actually be disabled when there are no unsaved changes
-			addToast({
-				message: `There are no unsaved changes to "${get(currentFile)}""`,
-				type: ToastType.Error,
-				timeout: 1000,
-				dismissible: true
-			});
+			addToast(
+				`There are no unsaved changes to "${get(currentFile)}""`,
+				ToastType.Error,
+				true,
+				1000
+			);
 		}
 	}
 

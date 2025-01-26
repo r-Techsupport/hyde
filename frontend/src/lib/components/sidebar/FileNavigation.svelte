@@ -78,19 +78,9 @@
 			credentials: 'include'
 		});
 		if (r.ok) {
-			addToast({
-				message: `The file "${path}" was deleted successfully."`,
-				type: ToastType.Info,
-				dismissible: true,
-				timeout: 1500
-			});
+			addToast(`The file "${path}" was deleted successfully."`, ToastType.Info, true, 1500);
 		} else {
-			addToast({
-				message: `Deletion failed, please report to the developer`,
-				type: ToastType.Error,
-				dismissible: true,
-				timeout: 1500
-			});
+			addToast(`Deletion failed, please report to the developer`, ToastType.Error, true, 1500);
 		}
 		// While a re-render would happen when the directory
 		// is closed and re-opened, I nuke the current element here

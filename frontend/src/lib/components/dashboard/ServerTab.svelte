@@ -11,30 +11,20 @@
 	<div>
 		<button
 			onclick={async () => {
-				const tid = addToast({
-					message: `Cloning fresh repository, this may take a while...`,
-					type: ToastType.Info,
-					dismissible: false
-				});
+				const toastId = addToast(
+					`Cloning fresh repository, this may take a while...`,
+					ToastType.Info,
+					false
+				);
 				const response = await fetch(`${apiAddress}/api/reclone`, {
 					method: 'POST',
 					credentials: 'include'
 				});
-				dismissToast(tid);
+				dismissToast(toastId);
 				if (response.ok) {
-					addToast({
-						message: `Cloned fresh repository successfully`,
-						type: ToastType.Success,
-						dismissible: true,
-						timeout: 3000
-					});
+					addToast(`Cloned fresh repository successfully`, ToastType.Success);
 				} else {
-					addToast({
-						message: `Clone failed, check server logs`,
-						type: ToastType.Error,
-						dismissible: true,
-						timeout: 3000
-					});
+					addToast(`Clone failed, check server logs`, ToastType.Error);
 				}
 			}}
 		>

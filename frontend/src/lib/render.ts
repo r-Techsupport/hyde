@@ -71,12 +71,11 @@ export function stripFrontMatter(input: TokensList) {
 		if (get(currentFile) !== '') {
 			// -1 means the toast isn't displayed
 			if (toastId === -1) {
-				toastId = addToast({
-					message:
-						'No valid frontmatter header was found, please ensure all documents have a frontmatter header',
-					type: ToastType.Error,
-					dismissible: false
-				});
+				toastId = addToast(
+					'No valid frontmatter header was found, please ensure all documents have a frontmatter header',
+					ToastType.Error,
+					false
+				);
 			}
 		}
 	}

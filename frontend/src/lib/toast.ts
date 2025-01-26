@@ -44,30 +44,37 @@ export enum ToastType {
 export const toasts = writable<ToastInfo[]>([]);
 
 /**
- * Add a new toast notification to the ui
- * @param toast configure the message, id, type, whether or not it's dismissible, and the timeout if applicable.
- * @returns the id of the toast generated
+ * Add a new toast notification to the UI.
  *
- * TODO: this doesn't need to take an object, the interface could be cleaned up a lot
+ * @param message The string rendered inside of the toast notif
+ * @param type The category (ToastType.Info, ToastType.Warning, et cetera)
+ * @param dismissible Whether or not the user can dismiss a toast with a button
+ * @param timeout The number of milliseconds before the toast goes away
+ * @returns The ID of the newly created toast, to be used in conjunction with `dismissToast`
+ *
+ * @example
+ * ```ts
+ * // Create an info toast that's dismissable by the user, or after 3000ms
+ * addToast("Hello, world");
+ * // Create a warning toast the user cannot dismiss
+ * addToast("Warning...", ToastType.Warning, false);
+ * // Create an error toast that goes away after 500ms, or is dismissable by the user
+ * addToast("Error...", ToastType.Error, true, 500);
+ * ```
  */
-export function addToast(toast: ToastInfo): number {
-	// Create a unique ID so we can easily find/remove it
-	// if it is dismissible/has a timeout.
+export function addToast(
+	message: string,
+	type = ToastType.Info,
+	dismissible = true,
+	timeout = 3000
+) {
+	// Create a uniquee ID to identify dismissable/timed out toasts
 	const id = Math.floor(Math.random() * 10000);
 
-	// Setup some sensible defaults for a toast.
-	const defaults = {
-		id,
-		type: ToastType.Info,
-		dismissible: true,
-		timeout: 3000
-	};
-
 	// Push the toast to the top of the list of toasts
-	toasts.update((all) => [{ ...defaults, ...toast }, ...all]);
-
+	toasts.update((all) => [{ id, type, message, dismissible, timeout }, ...all]);
 	// If toast is dismissible, dismiss it after "timeout" amount of time.
-	if (toast.timeout) setTimeout(() => dismissToast(id), toast.timeout);
+	if (dismissible) setTimeout(() => dismissToast(id), timeout);
 	return id;
 }
 
