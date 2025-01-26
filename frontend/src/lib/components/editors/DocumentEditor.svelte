@@ -206,7 +206,7 @@
 <style>
 	.editor-controls {
 		padding-right: 0.5rem;
-		margin: 0.2rem, 0;
+		margin: 0.2rem 0;
 		border-bottom: 0.07rem var(--foreground-4) solid;
 		display: flex;
 		justify-content: right;
@@ -216,7 +216,7 @@
 		border-radius: 0.2rem;
 		fill: var(--foreground-4);
 		float: right;
-		flex-direction: vertical;
+		flex-direction: column;
 		cursor: pointer;
 	}
 
