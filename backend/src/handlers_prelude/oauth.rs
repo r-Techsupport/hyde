@@ -7,8 +7,7 @@ use axum::{
 };
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat};
-use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl};
-use oauth2::{CsrfToken, TokenResponse};
+use oauth2::{AuthorizationCode, CsrfToken, RedirectUrl, TokenResponse};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
@@ -83,7 +82,7 @@ async fn get_oath_processor(
         .oauth
         .exchange_code(AuthorizationCode::new(query.code))
         .set_redirect_uri(std::borrow::Cow::Owned(RedirectUrl::new(redirect_url)?))
-        .request_async(async_http_client)
+        .request_async(&state.reqwest_client)
         .await
         .wrap_err("OAuth token request failed")?;
 
