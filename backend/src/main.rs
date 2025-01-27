@@ -25,7 +25,9 @@ use color_eyre::Result;
 use db::Database;
 use gh::GitHubClient;
 use handlers_prelude::*;
-use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, TokenUrl};
+use oauth2::{
+    basic::BasicClient, AuthUrl, ClientId, ClientSecret, EndpointNotSet, EndpointSet, TokenUrl,
+};
 use reqwest::{
     header::{ACCEPT, ALLOW, CONTENT_TYPE},
     Client, Method,
@@ -53,7 +55,7 @@ static CONFIG: LazyLock<Arc<AppConf>> = LazyLock::new(|| {
 pub struct AppState {
     pub config: &'static AppConf,
     git: git::Interface,
-    oauth: BasicClient,
+    oauth: BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>,
     reqwest_client: Client,
     gh_client: GitHubClient,
     db: Database,
@@ -147,12 +149,10 @@ async fn init_state(cli_args: &Args) -> Result<AppState> {
             .await??;
     let reqwest_client = Client::new();
 
-    let oauth = BasicClient::new(
-        ClientId::new(CONFIG.oauth.discord.client_id.clone()),
-        Some(ClientSecret::new(CONFIG.oauth.discord.secret.clone())),
-        AuthUrl::new(CONFIG.oauth.discord.url.clone())?,
-        Some(TokenUrl::new(CONFIG.oauth.discord.token_url.clone())?),
-    );
+    let oauth = BasicClient::new(ClientId::new(CONFIG.oauth.discord.client_id.clone()))
+        .set_client_secret(ClientSecret::new(CONFIG.oauth.discord.secret.clone()))
+        .set_auth_uri(AuthUrl::new(CONFIG.oauth.discord.url.clone())?)
+        .set_token_uri(TokenUrl::new(CONFIG.oauth.discord.token_url.clone())?);
 
     Ok(AppState {
         config: &CONFIG,
