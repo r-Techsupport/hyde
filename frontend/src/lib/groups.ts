@@ -37,12 +37,12 @@ export async function addUserToGroup(user: User, group: Group) {
 		})
 	});
 	if (r.ok) {
-		addToast({
-			message: `The ${group.name} group was added to the user ${user.username}`,
-			type: ToastType.Info,
-			dismissible: true,
-			timeout: 1500
-		});
+		addToast(
+			`The ${group.name} group was added to the user ${user.username}`,
+			ToastType.Info,
+			true,
+			1500
+		);
 	} else {
 		console.error(
 			`Add group to user operation failed with status code ${r.status}: ${await r.text()}`
@@ -70,12 +70,12 @@ export async function removeUserFromGroup(user: User, group: Group) {
 		})
 	});
 	if (r.ok) {
-		addToast({
-			message: `The ${group.name} group was removed from ${user.username}`,
-			type: ToastType.Info,
-			dismissible: true,
-			timeout: 1500
-		});
+		addToast(
+			`The ${group.name} group was removed from ${user.username}`,
+			ToastType.Info,
+			true,
+			1500
+		);
 	} else {
 		console.error(
 			`Remove group from user operation failed with status code ${r.status}: ${await r.text()}`
@@ -101,12 +101,12 @@ export async function addPermissionToGroup(group: GroupListEntry, permission: Pe
 		})
 	});
 	if (response.ok) {
-		addToast({
-			message: `${group.name} was given the permission "${allPermissions.get(permission)}"`,
-			type: ToastType.Info,
-			dismissible: true,
-			timeout: 1500
-		});
+		addToast(
+			`${group.name} was given the permission "${allPermissions.get(permission)}"`,
+			ToastType.Info,
+			true,
+			1500
+		);
 	} else {
 		console.error(
 			`Add permission to group operation failed with status code ${response.status}: ${await response.text()}`
@@ -132,12 +132,12 @@ export async function removePermissionFromGroup(group: GroupListEntry, permissio
 		})
 	});
 	if (response.ok) {
-		addToast({
-			message: `${group.name} lost the permission "${allPermissions.get(permission)}"`,
-			type: ToastType.Info,
-			dismissible: true,
-			timeout: 1500
-		});
+		addToast(
+			`${group.name} lost the permission "${allPermissions.get(permission)}"`,
+			ToastType.Info,
+			true,
+			1500
+		);
 	} else {
 		console.error(
 			`Remove permission from group failed with status code ${response.status}: ${await response.text()}`
@@ -151,10 +151,5 @@ export async function removePermissionFromGroup(group: GroupListEntry, permissio
  */
 export async function deleteGroup(group: GroupListEntry) {
 	await fetch(`${apiAddress}/api/groups/${group.id}`, { credentials: 'include', method: 'DELETE' });
-	addToast({
-		message: `The ${group.name} group was deleted.`,
-		type: ToastType.Info,
-		dismissible: true,
-		timeout: 1500
-	});
+	addToast(`The ${group.name} group was deleted.`, ToastType.Info, true, 1500);
 }

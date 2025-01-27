@@ -39,13 +39,11 @@
 			if (groupToAdd) {
 				await addUserToGroup(users[selectedUser], groupToAdd);
 			} else {
-				addToast({
-					message:
-						"Wasn't able to add the selected group to that user because that checkbox has an ID tied to a group that does not exist, \
+				addToast(
+					"Wasn't able to add the selected group to that user because that checkbox has an ID tied to a group that does not exist, \
 						please report this to the developer.",
-					type: ToastType.Error,
-					dismissible: true
-				});
+					ToastType.Error
+				);
 			}
 		} else {
 			const groupToRemove = allGroups.find((g) => g.name === target.id);

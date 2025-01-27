@@ -29,19 +29,14 @@
 			assetTree.set(await (await fetch(`${apiAddress}/api/tree/asset`)).json());
 			loadingIconVisible = false;
 			if (r.ok) {
-				addToast({
-					message: `"${file.name}" was uploaded successfully`,
-					type: ToastType.Info,
-					dismissible: true,
-					timeout: 1500
-				});
+				addToast(`"${file.name}" was uploaded successfully`, ToastType.Info, true, 1500);
 			} else {
-				addToast({
-					message: `Failed to upload file, please report issue to the developer`,
-					type: ToastType.Error,
-					dismissible: true,
-					timeout: 1500
-				});
+				addToast(
+					`Failed to upload file, please report issue to the developer`,
+					ToastType.Error,
+					true,
+					1500
+				);
 			}
 		}
 	}
@@ -179,19 +174,19 @@
 								credentials: 'include'
 							});
 							if (r.ok) {
-								addToast({
-									message: `"${fullScreenImagePath}" was deleted successfully`,
-									type: ToastType.Info,
-									dismissible: true,
-									timeout: 1500
-								});
+								addToast(
+									`"${fullScreenImagePath}" was deleted successfully`,
+									ToastType.Info,
+									true,
+									1500
+								);
 							} else {
-								addToast({
-									message: `Failed to delete file, please report issue to the developer`,
-									type: ToastType.Error,
-									dismissible: true,
-									timeout: 1500
-								});
+								addToast(
+									`Failed to delete file, please report issue to the developer`,
+									ToastType.Error,
+									true,
+									1500
+								);
 							}
 							assetTree.set(await (await fetch(`${apiAddress}/api/tree/asset`)).json());
 							fullScreenImagePath = '';
