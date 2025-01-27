@@ -75,7 +75,7 @@
 	}
 
 	.container[open]::backdrop {
-		background-color: rgba(0 0 0 61);
+		background-color: rgb(0 0 0 / 61%);
 		backdrop-filter: blur(5px);
 	}
 
