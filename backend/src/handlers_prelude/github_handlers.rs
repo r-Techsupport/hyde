@@ -94,8 +94,7 @@ pub async fn create_pull_request_handler(
             &payload.description,
             payload.issue_numbers,
         )
-        .await
-        .map_err(ApiError::from)?; // Propagate error properly
+        .await?;
 
     info!(
         "Pull request created successfully from {} to {}",
@@ -120,8 +119,7 @@ pub async fn update_pull_request_handler(
             payload.base_branch.as_deref(),
             payload.issue_numbers,
         )
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
         info!("Pull request #{} updated successfully", payload.pr_number);
         Ok((StatusCode::OK, Json(updated_pr_url)))
@@ -137,8 +135,7 @@ pub async fn close_pull_request_handler(
     state
         .gh_client
         .close_pull_request(pr_number)
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     info!("Pull request #{} closed successfully", pr_number);
     Ok((
@@ -154,8 +151,7 @@ pub async fn checkout_or_create_branch_handler(
 ) -> Result<(StatusCode, String), ApiError> {
     state
         .git
-        .checkout_or_create_branch(&branch_name)
-        .map_err(ApiError::from)?;
+        .checkout_or_create_branch(&branch_name)?;
 
     info!("Successfully checked out/created branch: {}", branch_name);
     Ok((
@@ -171,8 +167,7 @@ pub async fn pull_handler(
 ) -> Result<(StatusCode, Json<String>), ApiError> {
     state
         .git
-        .git_pull_branch(&branch)
-        .map_err(ApiError::from)?;
+        .git_pull_branch(&branch)?;
 
     info!("Repository pulled successfully for branch '{}'.", branch);
     Ok((
@@ -192,8 +187,7 @@ pub async fn get_current_branch_handler(
     let branch_name = state
         .git
         .get_current_branch()
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     info!("Current branch is: {}", branch_name);
     Ok((StatusCode::OK, Json(branch_name)))
@@ -206,8 +200,7 @@ pub async fn get_default_branch_handler(
     let default_branch = state
         .gh_client
         .get_default_branch()
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     info!("Default branch is: {}", default_branch);
     Ok((StatusCode::OK, Json(default_branch)))
@@ -222,8 +215,7 @@ pub async fn get_issues_handler(
     let issues = state
         .gh_client
         .get_issues(Some(state_param.as_str()), None)
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     info!("Issues fetched successfully.");
     let response = IssuesData { issues };
