@@ -46,7 +46,7 @@
 	 *   }
 	 * }
 	 */
-	async function fetchExistingBranches(): Promise<Branch[]> {
+	async function fetchExistingBranches() {
 		const response = await fetch(`${apiAddress}/api/branches`, {
 			method: 'GET',
 			credentials: 'include',
@@ -67,12 +67,11 @@
 		}
 
 		const data = await response.json();
-		return (
-			data.data?.branches?.map((branch: string) => ({
-				name: branch.split(' (')[0],
-				isProtected: branch.includes('(protected)')
-			})) ?? []
-		);
+		const formattedBranches: Branch[] = data.branches.map((branch: string) => ({
+			name: branch.replace(' (protected)', ''),
+			isProtected: branch.includes('(protected)')
+		}));
+		allBranches.set(formattedBranches);
 	}
 
 	async function fetchDefaultBranch() {
@@ -80,10 +79,8 @@
 
 		if (response.ok) {
 			const data = await response.json();
-			const defaultBranch = data.data;
-
 			// Set the default branch to the baseBranch store
-			baseBranch.set(defaultBranch);
+			baseBranch.set(data);
 		} else {
 			console.error('Failed to fetch default branch:', response.statusText);
 		}
@@ -95,8 +92,7 @@
 
 			if (response.ok) {
 				const data = await response.json();
-				const currentBranch = data.data;
-				branchName.set(currentBranch);
+				branchName.set(data);
 			} else {
 				console.error('Failed to fetch current branch:', response.statusText);
 			}
@@ -108,8 +104,7 @@
 	onMount(async () => {
 		fetchDefaultBranch();
 		fetchCurrentBranch();
-		const branches = await fetchExistingBranches();
-		allBranches.set(branches);
+		await fetchExistingBranches();
 	});
 
 	async function setBranchName(input: string) {
