@@ -51,7 +51,7 @@ impl From<eyre::Error> for ApiError {
 
 impl From<String> for ApiError {
     fn from(err: String) -> Self {
-        ApiError(eyre::eyre!(err))
+        Self(eyre::eyre!(err))
     }
 }
 
