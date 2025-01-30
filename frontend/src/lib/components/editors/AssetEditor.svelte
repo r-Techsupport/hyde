@@ -2,7 +2,8 @@
 	import { run } from 'svelte/legacy';
 
 	import type { INode } from '$lib/types';
-	import { apiAddress, assetTree } from '$lib/main';
+	import { apiAddress } from '$lib/main';
+	import { assetTree  } from '$lib/state/sidebar.svelte';
 	import { addToast, ToastType } from '$lib/toast';
 	import { tick } from 'svelte';
 	import { blur } from 'svelte/transition';
@@ -26,7 +27,9 @@
 				headers: { 'Content-Type': 'application/octet-stream' },
 				body: await file.arrayBuffer()
 			});
-			assetTree.set(await (await fetch(`${apiAddress}/api/tree/asset`)).json());
+			const reportedTree = await (await fetch(`${apiAddress}/api/tree/asset`)).json();
+			assetTree.name = reportedTree.name;
+
 			loadingIconVisible = false;
 			if (r.ok) {
 				addToast(`"${file.name}" was uploaded successfully`, ToastType.Info, true, 1500);
@@ -62,33 +65,38 @@
 		}
 	}
 
-	let tree: INode = $state({
-		name: 'loading',
-		children: []
-	});
-
-	assetTree.subscribe(async (t) => {
+	// let tree: INode = $state({
+	// 	name: 'loading',
+	// 	children: []
+	// })
+	// // On changes, stop displaying a full screen image and refresh the tree
+	// assetTree.subscribe(async (t) => {
+	// 	fullScreenImagePath = '';
+	// 	tree = {
+	// 		name: '',
+	// 		children: []
+	// 	};
+	// 	for (let i = 0; i < 20; i++) {
+	// 		await tick();
+	// 	}
+	// 	tree = t;
+	// });
+	$effect(() => {
+		assetTree;
 		fullScreenImagePath = '';
-		tree = {
-			name: '',
-			children: []
-		};
-		for (let i = 0; i < 20; i++) {
-			await tick();
-		}
-		tree = t;
-	});
+	})
 
 	let deletionConfirmationVisible = $state(false);
 	let loadingIconVisible = $state(false);
 	// Whenever the list of uploaded files changes, call the handler
-	run(() => {
+	// run(() => {
+	$effect.pre(() => {
 		// This shouldn't be an issue when we switch to svelte 5, so ignoring it for now
 		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		uploadedFiles;
 		fileUploadHandler();
 	});
-	run(() => {
+	$effect.pre(() => {
 		if (fullScreenImagePath !== '') {
 			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
 				fullScreenHttpInfo = r;
@@ -188,7 +196,9 @@
 									1500
 								);
 							}
-							assetTree.set(await (await fetch(`${apiAddress}/api/tree/asset`)).json());
+							const reportedTree = await (await fetch(`${apiAddress}/api/tree/asset`)).json();
+							assetTree.name = reportedTree.name;
+							assetTree.children = reportedTree.children;
 							fullScreenImagePath = '';
 							loadingIconVisible = false;
 						}}
@@ -207,7 +217,7 @@
 	</div>
 
 	<div class="asset-catalogue">
-		{#each tree.children.find((n) => n.name === assetFolderPath)?.children ?? [] as asset}
+		{#each assetTree.children.find((n) => n.name === assetFolderPath)?.children ?? [] as asset}
 			<button
 				onclick={() => {
 					fullScreenImagePath = `${assetFolderPath}/${asset.name}`;

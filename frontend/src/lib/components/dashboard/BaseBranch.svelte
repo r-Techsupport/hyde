@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { baseBranch, allBranches } from '$lib/main';
+	import { branchInfo } from '$lib/state/branch.svelte';
 </script>
 
 <div>
-	<h2 class="heading">Current Base Branch: {$baseBranch}</h2>
+	<h2 class="heading">Current Base Branch: {branchInfo.base}</h2>
 
 	<!-- Dropdown to select a branch -->
-	<select bind:value={$baseBranch} class="branch-dropdown">
-		{#each $allBranches as { name }}
+	<select bind:value={branchInfo.current} class="branch-dropdown">
+		{#each branchInfo.list as { name }}
 			<option value={name}>{name}</option>
 		{/each}
 	</select>

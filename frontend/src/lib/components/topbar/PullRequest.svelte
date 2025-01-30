@@ -2,9 +2,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ToastType, addToast } from '$lib/toast';
-	import { apiAddress, branchName, currentFile, me, baseBranch } from '$lib/main';
+	import { apiAddress, currentFile, me } from '$lib/main';
 	import type { Issue } from '$lib/types';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
+	import { branchInfo } from '$lib/state/branch.svelte';
 
 	let showModal = false;
 	let prCommit = '';
@@ -94,7 +95,7 @@
 	async function createPullRequest(): Promise<void> {
 		const title = `Pull request form: ${$me.username}`;
 		const prDescription = `Changes made from ${$currentFile}.\n ${prCommit}`;
-		const headBranch = $branchName;
+		const headBranch = branchInfo.current;
 
 		const selectedIssueNumbers = selectedIssues.map((issue: Issue) => issue.number);
 		showLoadingIcon = true;
@@ -107,7 +108,7 @@
 			},
 			body: JSON.stringify({
 				head_branch: headBranch,
-				base_branch: $baseBranch,
+				base_branch: branchInfo.base,
 				title: title,
 				description: prDescription,
 				issue_numbers: selectedIssueNumbers
@@ -161,7 +162,7 @@
 					pr_number: selectedPullRequest,
 					title: title,
 					description: pr_description,
-					base_branch: $baseBranch,
+					base_branch: branchInfo.base,
 					issue_numbers: selectedIssueNumbers
 				})
 			});
@@ -255,7 +256,7 @@
 			const sourceBranch = prData.head.ref;
 
 			// Compare the source branch with the current branch
-			if (sourceBranch === $branchName) {
+			if (sourceBranch === branchInfo.current) {
 				// Extract issue numbers from the PR body (e.g., #25, #28)
 				const issueRegex = /#(\d+)/g;
 				const linkedIssues: number[] = [];
