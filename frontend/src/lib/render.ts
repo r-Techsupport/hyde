@@ -26,7 +26,6 @@ export async function renderMarkdown(input: string, output: HTMLElement): Promis
 	// This whole pipeline needs to be manually defined otherwise everything breaks
 	marked.use({ renderer: new Renderer() });
 	const rawTokens: TokensList = marked.lexer(input);
-	console.log("Markdown", marked.lexer(input))
 	stripFrontMatter(rawTokens);
 	// rewrite image urls to point to the correct location
 	if (dev) {
