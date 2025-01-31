@@ -26,6 +26,7 @@ export async function renderMarkdown(input: string, output: HTMLElement): Promis
 	// This whole pipeline needs to be manually defined otherwise everything breaks
 	marked.use({ renderer: new Renderer() });
 	const rawTokens: TokensList = marked.lexer(input);
+	console.log("Markdown", marked.lexer(input))
 	stripFrontMatter(rawTokens);
 	// rewrite image urls to point to the correct location
 	if (dev) {
@@ -59,10 +60,8 @@ export function stripFrontMatter(input: TokensList) {
 		frontMatterNode !== undefined &&
 		frontMatterNode.type === 'paragraph' &&
 		frontMatterNode.raw.includes('title: ')
-		
 	) {
-		// The output of this process will contain the serialized frontmatter header
-		frontMatterNode['raw'].replace('---\n', '\n').trim();
+		input.shift();
 		// Hide the toast if a header was detected and it's being displayed
 		if (toastId !== -1) {
 			dismissToast(toastId);
