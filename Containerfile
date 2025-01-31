@@ -1,5 +1,5 @@
 # builder base image
-FROM alpine:3.20 as builder
+FROM alpine:latest AS builder
 
 # add required packages
 RUN apk add --no-cache \
@@ -21,7 +21,7 @@ RUN cargo build --release
 RUN cp /app/backend/target/release/hyde-backend /app/target/hyde
 
 # runtime container
-FROM alpine:3.20 as runtime
+FROM alpine:latest AS runtime
 
 # add required runtime packages
 RUN apk add --no-cache libgcc
