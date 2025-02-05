@@ -58,7 +58,7 @@
 					'Something went wrong, the file tree reported by the backend references a nonexistent file.'
 			);
 			// non-null assertion: The above code shows the preview window
-			renderMarkdown($editorText, previewWindow!);
+			renderMarkdown($editorText, previewWindow!, $currentFile);
 		} else if (path === $currentFile) {
 			// Do nothing
 		} else {

@@ -29,7 +29,7 @@
 		lastKeyPressedTime = Date.now();
 		setTimeout(() => {
 			if (lastKeyPressedTime + DEBOUNCE_TIME >= Date.now()) {
-				renderMarkdown($editorText, previewWindow);
+				renderMarkdown($editorText, previewWindow, $currentFile);
 			}
 		}, DEBOUNCE_TIME);
 	}

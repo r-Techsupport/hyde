@@ -14,6 +14,7 @@ import { currentFile } from './main';
  * If the toast is not displayed, this is set to zero. If it *is* displayed, this is the ID of the toast being rendered.
  */
 let toastId = -1;
+const assetPath = 'src/assets';
 
 /**
  * Compile the provided input string into markdown and render it,
@@ -21,7 +22,11 @@ let toastId = -1;
  * @param input The raw markdown to be rendered
  * @param output The element to insert the markdown into
  */
-export async function renderMarkdown(input: string, output: HTMLElement): Promise<undefined> {
+export async function renderMarkdown(
+	input: string,
+	output: HTMLElement,
+	docPath: string
+): Promise<undefined> {
 	// https://marked.js.org/#demo
 	// This whole pipeline needs to be manually defined otherwise everything breaks
 	marked.use({ renderer: new Renderer() });
@@ -32,6 +37,12 @@ export async function renderMarkdown(input: string, output: HTMLElement): Promis
 		marked.walkTokens(rawTokens, (t) => {
 			if (t.type !== 'image') {
 				return;
+			}
+			if (t.type === 'image') {
+				const baseURL = new URL(docPath, window.location.origin);
+				const resolvedPath = new URL(t.href, baseURL).pathname;
+
+				t.href = resolvedPath.replace(/^.*\/assets\//, '/src/assets/');
 			}
 			if (t.href.startsWith('/')) {
 				t.href = 'http://localhost:8080' + t.href;
