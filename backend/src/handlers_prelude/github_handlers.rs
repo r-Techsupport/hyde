@@ -9,7 +9,7 @@ use axum::{
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::{error, info};
+use tracing::info;
 
 /// Represents the structure for a pull request creation response
 #[derive(Serialize, Debug)]
@@ -84,9 +84,8 @@ pub async fn list_branches_handler(
 pub async fn create_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<CreatePRRequest>,
-) -> Result<(StatusCode, Json<CreatePRData>), (StatusCode, String)> {
-    // Create the pull request using the new method from GitHubClient
-    match state
+) -> Result<(StatusCode, Json<CreatePRData>), ApiError> {
+    let pull_request_url = state
         .gh_client
         .create_pull_request(
             &payload.head_branch,
@@ -95,31 +94,23 @@ pub async fn create_pull_request_handler(
             &payload.description,
             payload.issue_numbers,
         )
-        .await
-    {
-        Ok(pull_request_url) => {
-            // If the pull request creation is successful, respond with the pull request URL
-            info!(
-                "Pull request created successfully from {} to {}",
-                payload.head_branch, payload.base_branch
-            );
-            Ok((StatusCode::CREATED, Json(CreatePRData { pull_request_url })))
-        }
-        Err(err) => {
-            // Handle error case in creating the pull request
-            let error_message = format!("Failed to create pull request: {:?}", err);
-            error!("{}", error_message);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
-        }
-    }
+        .await?;
+
+    info!(
+        "Pull request created successfully from {} to {}",
+        payload.head_branch, payload.base_branch
+    );
+
+    Ok((StatusCode::CREATED, Json(CreatePRData { pull_request_url })))
 }
 
+/// Handler to update a pull request from a specified head branch to a base branch.
 pub async fn update_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<UpdatePRRequest>,
-) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<String>), ApiError> {
     // Update the pull request
-    match state
+    let updated_pr_url = state
         .gh_client
         .update_pull_request(
             payload.pr_number,
@@ -128,156 +119,108 @@ pub async fn update_pull_request_handler(
             payload.base_branch.as_deref(),
             payload.issue_numbers,
         )
-        .await
-    {
-        Ok(updated_pr_url) => {
-            info!("Pull request #{} updated successfully", payload.pr_number);
-            Ok((StatusCode::OK, Json(updated_pr_url)))
-        }
-        Err(err) => {
-            let error_message = format!("Failed to update pull request: {:?}", err);
-            error!("{}", error_message);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
-        }
-    }
+        .await?;
+
+        info!("Pull request #{} updated successfully", payload.pr_number);
+        Ok((StatusCode::OK, Json(updated_pr_url)))
+        
 }
 
+/// Handler to close a pull request.
 pub async fn close_pull_request_handler(
     State(state): State<AppState>,
     Path(pr_number): Path<u64>,
-) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<String>), ApiError> {
     // Attempt to close the pull request
-    match state.gh_client.close_pull_request(pr_number).await {
-        Ok(_) => {
-            info!("Pull request #{} closed successfully", pr_number);
-            Ok((
-                StatusCode::OK,
-                Json(format!("Pull request #{} closed.", pr_number)),
-            ))
-        }
-        Err(err) => {
-            let error_message = format!("Failed to close pull request: {:?}", err);
-            error!("{}", error_message);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
-        }
-    }
+    state
+        .gh_client
+        .close_pull_request(pr_number)
+        .await?;
+
+    info!("Pull request #{} closed successfully", pr_number);
+    Ok((
+        StatusCode::OK,
+        Json(format!("Pull request #{} closed.", pr_number)),
+    ))
 }
 
 /// Handler to check out or create a Git branch.
 pub async fn checkout_or_create_branch_handler(
     State(state): State<AppState>,
     Path(branch_name): Path<String>,
-) -> Result<(StatusCode, String), (StatusCode, String)> {
-    // Use the git interface to perform operations
-    match state.git.checkout_or_create_branch(&branch_name) {
-        Ok(_) => {
-            info!("Successfully checked out/created branch: {}", branch_name);
-            Ok((
-                StatusCode::OK,
-                format!("Successfully checked out/created branch: {}", branch_name),
-            ))
-        }
-        Err(err) => {
-            error!("Error checking out/creating branch: {:?}", err);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to checkout/create branch: {}", err),
-            ))
-        }
-    }
+) -> Result<(StatusCode, String), ApiError> {
+    state
+        .git
+        .checkout_or_create_branch(&branch_name)?;
+
+    info!("Successfully checked out/created branch: {}", branch_name);
+    Ok((
+        StatusCode::OK,
+        format!("Successfully checked out/created branch: {}", branch_name),
+    ))
 }
 
 /// Handler to pull the latest changes for a specified branch.
 pub async fn pull_handler(
     State(state): State<AppState>,
     Path(branch): Path<String>,
-) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
-    // Attempt to pull the latest changes for the specified branch
-    match state.git.git_pull_branch(&branch) {
-        Ok(_) => {
-            info!("Repository pulled successfully for branch '{}'.", branch);
-            Ok((
-                StatusCode::OK,
-                Json(format!(
-                    "Repository pulled successfully for branch '{}'.",
-                    branch
-                )),
-            ))
-        }
-        Err(err) => {
-            error!(
-                "Failed to pull repository for branch '{}': {:?}",
-                branch, err
-            );
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to pull repository for branch '{}': {}", branch, err),
-            ))
-        }
-    }
+) -> Result<(StatusCode, Json<String>), ApiError> {
+    state
+        .git
+        .git_pull_branch(&branch)?;
+
+    info!("Repository pulled successfully for branch '{}'.", branch);
+    Ok((
+        StatusCode::OK,
+        Json(format!(
+            "Repository pulled successfully for branch '{}'.",
+            branch
+        )),
+    ))
 }
 
 /// Handler for fetching the current branch of the repository.
 pub async fn get_current_branch_handler(
     State(state): State<AppState>,
-) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<String>), ApiError> {
     // Use the git::Interface from AppState to get the current branch
-    match state.git.get_current_branch().await {
-        Ok(branch_name) => {
-            info!("Current branch is: {}", branch_name);
-            Ok((StatusCode::OK, Json(branch_name)))
-        }
-        Err(err) => {
-            error!("Failed to get current branch: {}", err);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to get current branch: {}", err),
-            ))
-        }
-    }
+    let branch_name = state
+        .git
+        .get_current_branch()
+        .await?;
+
+    info!("Current branch is: {}", branch_name);
+    Ok((StatusCode::OK, Json(branch_name)))
 }
 
 /// Handler for fetching the default branch of the repository.
 pub async fn get_default_branch_handler(
     State(state): State<AppState>,
-) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
-    // Use the `get_default_branch` method from the `Gh` struct in AppState
-    match state.gh_client.get_default_branch().await {
-        Ok(default_branch) => {
-            info!("Default branch is: {}", default_branch);
-            Ok((StatusCode::OK, Json(default_branch)))
-        }
-        Err(err) => {
-            error!("Failed to get default branch: {}", err);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to get default branch: {}", err),
-            ))
-        }
-    }
+) -> Result<(StatusCode, Json<String>), ApiError> {
+    let default_branch = state
+        .gh_client
+        .get_default_branch()
+        .await?;
+
+    info!("Default branch is: {}", default_branch);
+    Ok((StatusCode::OK, Json(default_branch)))
 }
 
 /// Handler to fetch issues from a GitHub repository.
 pub async fn get_issues_handler(
     State(state): State<AppState>,
     Path(state_param): Path<String>,
-) -> Result<(StatusCode, Json<IssuesData>), (StatusCode, String)> {
-    let state_param = state_param.as_str();
-
+) -> Result<(StatusCode, Json<IssuesData>), ApiError> {
     // Fetch issues using the GitHub client
-    match state.gh_client.get_issues(Some(state_param), None).await {
-        Ok(issues) => {
-            info!("Issues fetched successfully.");
-            let response = IssuesData { issues };
-            Ok((StatusCode::OK, Json(response)))
-        }
-        Err(err) => {
-            // Log and return an error
-            let error_message = format!("Failed to fetch issues: {:?}", err);
-            error!("{}", error_message); // Log the error here
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
-        }
-    }
+    let issues = state
+        .gh_client
+        .get_issues(Some(state_param.as_str()), None)
+        .await?;
+
+    info!("Issues fetched successfully.");
+    let response = IssuesData { issues };
+
+    Ok((StatusCode::OK, Json(response)))
 }
 
 /// Route definitions for GitHub operations
