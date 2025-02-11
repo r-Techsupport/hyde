@@ -49,6 +49,12 @@ impl From<eyre::Error> for ApiError {
     }
 }
 
+impl From<String> for ApiError {
+    fn from(err: String) -> Self {
+        Self(eyre::eyre!(err))
+    }
+}
+
 /// Quick and dirty way to convert an eyre error to a (StatusCode, message) response, meant for use with `map_err`, so that errors can be propagated out of
 /// axum handlers with `?`.
 pub fn eyre_to_axum_err(e: Report) -> (StatusCode, String) {
