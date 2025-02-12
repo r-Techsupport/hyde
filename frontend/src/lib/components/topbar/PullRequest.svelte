@@ -7,15 +7,16 @@
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
 	import { branchInfo } from '$lib/state/branch.svelte';
 
-	let showModal = false;
-	let prCommit = '';
+	let showModal = $state(false);
+	/** User supplied pull request description */
+	let prCommit = $state('');
 	let isExpanded: { [key: number]: boolean } = {};
-	let showLoadingIcon: boolean;
-	let selectedPullRequest: number | null = null;
+	let showLoadingIcon: boolean = $state(false);
+	let selectedPullRequest: number | null = $state(null);
 	let prAuthor = '';
-	let openIssues: Issue[] = [];
-	let selectedIssues: Issue[] = [];
-	let openPullRequests: Issue[] = [];
+	let openIssues: Issue[] = $state([]);
+	let selectedIssues: Issue[] = $state([]);
+	let openPullRequests: Issue[] = $state([]);
 
 	function openModal() {
 		showModal = true;
@@ -281,7 +282,7 @@
 
 <div class="pull-request">
 	<!-- Pull Request -->
-	<button on:click={() => openModal()} class="pull-request" title="Pull Request" type="button">
+	<button onclick={() => openModal()} class="pull-request" title="Pull Request" type="button">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			width="25px"
@@ -306,7 +307,7 @@
 				<h2>Open Issues</h2>
 				<button
 					class="close-btn"
-					on:click={() => closeModal()}
+					onclick={() => closeModal()}
 					type="button"
 					aria-label="Close modal"
 				>
@@ -334,7 +335,7 @@
 										type="checkbox"
 										id={`issue-${issue.id}`}
 										checked={selectedIssues.includes(issue)}
-										on:change={() => toggleSelection(issue)}
+										onchange={() => toggleSelection(issue)}
 									/>
 									<!-- Label and Issue Title -->
 									<div class="issue-container">
@@ -368,7 +369,7 @@
 														{issue.body}
 													{/if}
 												</p>
-												<button on:click={() => toggleExpand(issue.id)} class="show-more-button">
+												<button onclick={() => toggleExpand(issue.id)} class="show-more-button">
 													{#if !isExpanded[issue.id]}
 														Show More
 													{:else}
@@ -392,14 +393,14 @@
 					></textarea>
 					<!-- Pull Request Button -->
 					{#if selectedPullRequest === null}
-						<button on:click={createPullRequest} class="submit-pr-btn">
+						<button onclick={createPullRequest} class="submit-pr-btn">
 							Submit Pull Request
 						</button>
 					{:else}
-						<button on:click={updatePullRequest} class="submit-pr-btn">
+						<button onclick={updatePullRequest} class="submit-pr-btn">
 							Update Pull Request
 						</button>
-						<button on:click={closePullRequest} class="submit-pr-btn"> Delete Pull Request </button>
+						<button onclick={closePullRequest} class="submit-pr-btn"> Delete Pull Request </button>
 					{/if}
 				</div>
 			</div>
