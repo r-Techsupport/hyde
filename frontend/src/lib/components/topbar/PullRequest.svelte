@@ -77,20 +77,12 @@
 
 		// Parse the response as JSON
 		const responseData = await response.json();
+		const issues = responseData.issues ?? [];
 
-		// Validate the response structure
-		if (responseData.status === 'success' && Array.isArray(responseData.data?.issues)) {
-			const issuesOnly = responseData.data.issues.filter((issue: Issue) => !issue.pull_request);
-			const pullRequestsOnly = responseData.data.issues.filter(
-				(issue: Issue) => issue.pull_request
-			);
-			openIssues = issuesOnly;
-			openPullRequests = pullRequestsOnly;
-		} else {
-			// Handle unexpected response structure
-			const errorMessage = `Unexpected response structure: ${JSON.stringify(responseData)}`;
-			addToast(errorMessage, ToastType.Error);
-		}
+		const issuesOnly = issues.filter((issue: Issue) => !issue.pull_request);
+		const pullRequestsOnly = issues.filter((issue: Issue) => issue.pull_request);
+		openIssues = issuesOnly;
+		openPullRequests = pullRequestsOnly;
 	}
 
 	async function createPullRequest(): Promise<void> {
@@ -125,12 +117,12 @@
 
 		// Parse the JSON response to get the pull request URL
 		const jsonResponse = await response.json();
-		const pullRequestUrl = jsonResponse.data?.pull_request_url;
+		const pullRequestUrl = jsonResponse.pull_request_url;
 
 		if (pullRequestUrl) {
 			// If successful, show success toast with the URL
 			addToast(
-				`Pull request created successfully. View it [here](${pullRequestUrl}).`,
+				`Pull request created successfully. View it here: ${pullRequestUrl}`,
 				ToastType.Success
 			);
 		} else {
@@ -177,13 +169,12 @@
 			}
 
 			// Parse the JSON response to get the updated pull request URL or other details
-			const jsonResponse = await response.json();
-			const pullRequestUrl = jsonResponse.data;
+			const pullRequestUrl = await response.json();
 
 			if (pullRequestUrl) {
 				// If successful, show success toast with the URL
 				addToast(
-					`Pull request updated successfully. View it [here](${pullRequestUrl}).`,
+					`Pull request updated successfully. View it here: ${pullRequestUrl}`,
 					ToastType.Success
 				);
 			} else {
@@ -220,17 +211,8 @@
 			}
 
 			const jsonResponse = await response.json();
-
-			addToast(
-				jsonResponse.status === 'success'
-					? 'Pull request closed successfully.'
-					: 'Failed to close the pull request.',
-				jsonResponse.status === 'success' ? ToastType.Success : ToastType.Error
-			);
-
-			if (jsonResponse.status === 'success') {
-				closeModal();
-			}
+			addToast(jsonResponse, ToastType.Success);
+			closeModal();
 		} else {
 			// If the user is not an admin and not the PR author, deny deletion
 			addToast('Error: You are not authorized to close this pull request.', ToastType.Error);

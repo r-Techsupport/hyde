@@ -1,4 +1,4 @@
-use crate::handlers_prelude::eyre_to_axum_err;
+use crate::handlers_prelude::ApiError;
 use crate::AppState;
 use axum::routing::{get, post, put};
 use axum::{
@@ -10,20 +10,6 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{error, info};
-
-/// General API response structure
-#[derive(Serialize, Debug)]
-pub struct ApiResponse<T> {
-    pub status: String,
-    pub message: String,
-    pub data: Option<T>,
-}
-
-/// Error response structure
-#[derive(Serialize, Debug)]
-pub struct ApiErrorResponse {
-    pub error: String,
-}
 
 /// Represents the structure for a pull request creation response
 #[derive(Serialize, Debug)]
@@ -72,13 +58,9 @@ pub struct UpdatePRRequest {
 /// Fetches the list of branches from a GitHub repository.
 pub async fn list_branches_handler(
     State(state): State<AppState>,
-) -> Result<(StatusCode, Json<ApiResponse<BranchesData>>), (StatusCode, String)> {
+) -> Result<Json<BranchesData>, ApiError> {
     // Fetch the branch details from GitHub using the GitHubClient instance
-    let branch_details = state
-        .gh_client
-        .list_branches()
-        .await
-        .map_err(eyre_to_axum_err)?;
+    let branch_details = state.gh_client.list_branches().await?;
 
     // Extract branch names and handle protection status if needed
     let branches: Vec<String> = branch_details
@@ -93,23 +75,16 @@ pub async fn list_branches_handler(
         })
         .collect();
 
-    // Return success response
+    // Wrap the branches data in the BranchesData struct and return as JSON
     info!("Branches fetched successfully.");
-    Ok((
-        StatusCode::OK,
-        Json(ApiResponse {
-            status: "success".to_string(),
-            message: "Branches fetched successfully".to_string(),
-            data: Some(BranchesData { branches }),
-        }),
-    ))
+    Ok(Json(BranchesData { branches }))
 }
 
 /// Handler to create a pull request from a specified head branch to a base branch.
 pub async fn create_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<CreatePRRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<CreatePRData>>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<CreatePRData>), (StatusCode, String)> {
     // Create the pull request using the new method from GitHubClient
     match state
         .gh_client
@@ -128,14 +103,7 @@ pub async fn create_pull_request_handler(
                 "Pull request created successfully from {} to {}",
                 payload.head_branch, payload.base_branch
             );
-            Ok((
-                StatusCode::CREATED,
-                Json(ApiResponse {
-                    status: "success".to_string(),
-                    message: "Pull request created successfully".to_string(),
-                    data: Some(CreatePRData { pull_request_url }),
-                }),
-            ))
+            Ok((StatusCode::CREATED, Json(CreatePRData { pull_request_url })))
         }
         Err(err) => {
             // Handle error case in creating the pull request
@@ -149,7 +117,7 @@ pub async fn create_pull_request_handler(
 pub async fn update_pull_request_handler(
     State(state): State<AppState>,
     Json(payload): Json<UpdatePRRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
     // Update the pull request
     match state
         .gh_client
@@ -164,14 +132,7 @@ pub async fn update_pull_request_handler(
     {
         Ok(updated_pr_url) => {
             info!("Pull request #{} updated successfully", payload.pr_number);
-            Ok((
-                StatusCode::OK,
-                Json(ApiResponse {
-                    status: "success".to_string(),
-                    message: "Pull request updated successfully.".to_string(),
-                    data: Some(updated_pr_url),
-                }),
-            ))
+            Ok((StatusCode::OK, Json(updated_pr_url)))
         }
         Err(err) => {
             let error_message = format!("Failed to update pull request: {:?}", err);
@@ -184,18 +145,14 @@ pub async fn update_pull_request_handler(
 pub async fn close_pull_request_handler(
     State(state): State<AppState>,
     Path(pr_number): Path<u64>,
-) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
     // Attempt to close the pull request
     match state.gh_client.close_pull_request(pr_number).await {
         Ok(_) => {
             info!("Pull request #{} closed successfully", pr_number);
             Ok((
                 StatusCode::OK,
-                Json(ApiResponse {
-                    status: "success".to_string(),
-                    message: "Pull request closed successfully.".to_string(),
-                    data: Some(format!("Pull request #{} closed.", pr_number)),
-                }),
+                Json(format!("Pull request #{} closed.", pr_number)),
             ))
         }
         Err(err) => {
@@ -234,18 +191,17 @@ pub async fn checkout_or_create_branch_handler(
 pub async fn pull_handler(
     State(state): State<AppState>,
     Path(branch): Path<String>,
-) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
     // Attempt to pull the latest changes for the specified branch
     match state.git.git_pull_branch(&branch) {
         Ok(_) => {
             info!("Repository pulled successfully for branch '{}'.", branch);
             Ok((
                 StatusCode::OK,
-                Json(ApiResponse {
-                    status: "success".to_string(),
-                    message: format!("Repository pulled successfully for branch '{}'.", branch),
-                    data: Some("Pull operation completed.".to_string()),
-                }),
+                Json(format!(
+                    "Repository pulled successfully for branch '{}'.",
+                    branch
+                )),
             ))
         }
         Err(err) => {
@@ -264,21 +220,12 @@ pub async fn pull_handler(
 /// Handler for fetching the current branch of the repository.
 pub async fn get_current_branch_handler(
     State(state): State<AppState>,
-) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
     // Use the git::Interface from AppState to get the current branch
     match state.git.get_current_branch().await {
         Ok(branch_name) => {
             info!("Current branch is: {}", branch_name);
-
-            // Return the branch name in the response
-            Ok((
-                StatusCode::OK,
-                Json(ApiResponse {
-                    status: "success".to_string(),
-                    message: "Current branch fetched successfully.".to_string(),
-                    data: Some(branch_name),
-                }),
-            ))
+            Ok((StatusCode::OK, Json(branch_name)))
         }
         Err(err) => {
             error!("Failed to get current branch: {}", err);
@@ -293,21 +240,12 @@ pub async fn get_current_branch_handler(
 /// Handler for fetching the default branch of the repository.
 pub async fn get_default_branch_handler(
     State(state): State<AppState>,
-) -> Result<(StatusCode, Json<ApiResponse<String>>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<String>), (StatusCode, String)> {
     // Use the `get_default_branch` method from the `Gh` struct in AppState
     match state.gh_client.get_default_branch().await {
         Ok(default_branch) => {
             info!("Default branch is: {}", default_branch);
-
-            // Return the default branch name in the response
-            Ok((
-                StatusCode::OK,
-                Json(ApiResponse {
-                    status: "success".to_string(),
-                    message: "Default branch fetched successfully.".to_string(),
-                    data: Some(default_branch),
-                }),
-            ))
+            Ok((StatusCode::OK, Json(default_branch)))
         }
         Err(err) => {
             error!("Failed to get default branch: {}", err);
@@ -323,18 +261,14 @@ pub async fn get_default_branch_handler(
 pub async fn get_issues_handler(
     State(state): State<AppState>,
     Path(state_param): Path<String>,
-) -> Result<(StatusCode, Json<ApiResponse<IssuesData>>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<IssuesData>), (StatusCode, String)> {
     let state_param = state_param.as_str();
 
     // Fetch issues using the GitHub client
     match state.gh_client.get_issues(Some(state_param), None).await {
         Ok(issues) => {
             info!("Issues fetched successfully.");
-            let response = ApiResponse {
-                status: "success".to_string(),
-                message: "Issues fetched successfully.".to_string(),
-                data: Some(IssuesData { issues }),
-            };
+            let response = IssuesData { issues };
             Ok((StatusCode::OK, Json(response)))
         }
         Err(err) => {

@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use axum::response::{IntoResponse, Response};
 use axum::{extract::State, http::HeaderMap};
 use chrono::{DateTime, Utc};
 mod repo_fs;
@@ -22,13 +23,31 @@ mod github_handlers;
 pub use github_handlers::*;
 
 use color_eyre::{
-    eyre::{Context, ContextCompat},
+    eyre::{self, Context, ContextCompat},
     Report,
 };
 use reqwest::StatusCode;
 use tracing::{debug, error, trace};
 
 use crate::{db::User, perms::Permission, AppState};
+
+pub struct ApiError(eyre::Error);
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Something went wrong: {}", self.0),
+        )
+            .into_response()
+    }
+}
+
+impl From<eyre::Error> for ApiError {
+    fn from(err: eyre::Error) -> Self {
+        Self(err)
+    }
+}
 
 /// Quick and dirty way to convert an eyre error to a (StatusCode, message) response, meant for use with `map_err`, so that errors can be propagated out of
 /// axum handlers with `?`.
