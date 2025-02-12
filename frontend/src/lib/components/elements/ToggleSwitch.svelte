@@ -1,9 +1,19 @@
 <!-- https://svelte.dev/playground/d65a4e9f0ae74d1eb1b08d13e428af32?version=3.35.0 -->
 
 <script lang="ts">
-	export let size: number = 1;
-	export let checked = true;
-	export let onToggle: (checked: boolean) => undefined = () => {};
+	interface Props {
+		size?: number;
+		checked?: boolean;
+		onToggle?: (checked: boolean) => undefined;
+		children?: import('svelte').Snippet;
+	}
+
+	let {
+		size = 1,
+		checked = $bindable(true),
+		onToggle = () => {},
+		children
+	}: Props = $props();
 
 	const uniqueID = Math.floor(Math.random() * 100);
 
@@ -16,12 +26,12 @@
 </script>
 
 <div class="toggle-switch" style="--size={size}">
-	<span><slot /></span>
+	<span>{@render children?.()}</span>
 	<button
 		role="switch"
 		aria-checked={checked}
 		aria-labelledby={`switch-${uniqueID}`}
-		on:click={handleClick}
+		onclick={handleClick}
 		style="--size={size}"
 	>
 	</button>

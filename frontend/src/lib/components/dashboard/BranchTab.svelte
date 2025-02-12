@@ -7,7 +7,7 @@
 
 	// Check if the user has the ManageBranches permission
 	const canAccess = $me.permissions?.includes(Permission.ManageBranches);
-	const sortedBranches = branchInfo.list.slice().sort((a, b) => a.name.localeCompare(b.name));
+	const sortedBranches = $state(branchInfo.list.slice().sort((a, b) => a.name.localeCompare(b.name)));
 </script>
 
 {#if canAccess}

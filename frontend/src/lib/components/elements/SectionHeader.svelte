@@ -1,3 +1,11 @@
+<script lang="ts">
+	interface Props {
+		children?: import('svelte').Snippet;
+	}
+
+	let { children }: Props = $props();
+</script>
+
 <!--
  A label with a horizontal line beneath it, used to distinguish different sections of a menu.
    - The `--scale` CSS variable can be used to adjust the size of the header
@@ -5,7 +13,7 @@
 -->
 <div class="header">
 	<!-- TODO: Figure out a more idiomatic way to represent this, eg `h1` -->
-	<p><slot /></p>
+	<p>{@render children?.()}</p>
 	<hr />
 </div>
 
