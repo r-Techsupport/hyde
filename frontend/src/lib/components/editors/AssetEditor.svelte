@@ -1,11 +1,7 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
-	import type { INode } from '$lib/types';
 	import { apiAddress } from '$lib/main';
 	import { assetTree } from '$lib/state/sidebar.svelte';
 	import { addToast, ToastType } from '$lib/toast';
-	import { tick } from 'svelte';
 	import { blur } from 'svelte/transition';
 	import ConfirmationDialogue from '../elements/ConfirmationDialogue.svelte';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
@@ -15,7 +11,7 @@
 	}
 
 	let { assetFolderPath = $bindable('') }: Props = $props();
-	let uploadedFiles: FileList = $state();
+	let uploadedFiles: FileList | undefined = $state();
 
 	async function fileUploadHandler() {
 		if (uploadedFiles && uploadedFiles.length > 0) {
@@ -49,7 +45,7 @@
 	 * image. Otherwise, it's an empty string.
 	 */
 	let fullScreenImagePath = $state('');
-	let fullScreenImage: HTMLImageElement = $state();
+	let fullScreenImage: HTMLImageElement | undefined = $state();
 	let width = $state(0);
 	let height = $state(0);
 	let fullScreenHttpInfo: Response | undefined = $state();
@@ -64,23 +60,6 @@
 			setTimeout(cb, 50);
 		}
 	}
-
-	// let tree: INode = $state({
-	// 	name: 'loading',
-	// 	children: []
-	// })
-	// // On changes, stop displaying a full screen image and refresh the tree
-	// assetTree.subscribe(async (t) => {
-	// 	fullScreenImagePath = '';
-	// 	tree = {
-	// 		name: '',
-	// 		children: []
-	// 	};
-	// 	for (let i = 0; i < 20; i++) {
-	// 		await tick();
-	// 	}
-	// 	tree = t;
-	// });
 	$effect(() => {
 		assetTree;
 		fullScreenImagePath = '';
@@ -88,20 +67,20 @@
 
 	let deletionConfirmationVisible = $state(false);
 	let loadingIconVisible = $state(false);
-	// Whenever the list of uploaded files changes, call the handler
-	// run(() => {
-	$effect.pre(() => {
-		// This shouldn't be an issue when we switch to svelte 5, so ignoring it for now
-		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+	// Whenever the list of uploaded files changes, call the handler to write new changes
+	// to the git repo
+	$effect(() => {
 		uploadedFiles;
 		fileUploadHandler();
 	});
-	$effect.pre(() => {
+	$effect(() => {
 		if (fullScreenImagePath !== '') {
 			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
 				fullScreenHttpInfo = r;
 				const objectUrl = URL.createObjectURL(await r.blob());
-				fullScreenImage.src = objectUrl;
+				// non-null assertion: Once the full screen image path is set, then a full screen image element is
+				// defined
+				fullScreenImage!.src = objectUrl;
 			});
 		}
 		cb();
