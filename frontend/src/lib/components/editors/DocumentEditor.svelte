@@ -58,7 +58,6 @@
 		await saveChangesHandler(commitMessage);
 	}
 
-	
 	async function saveChangesHandler(commitMessage: string): Promise<void> {
 		visible.loadingIcon = true;
 		const branch = branchInfo.list.find((b) => b.name === branchInfo.current);
@@ -95,7 +94,7 @@
 			default:
 				addToast(
 					`An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
-					ToastType.Error,
+					ToastType.Error
 				);
 		}
 	}

@@ -3,7 +3,7 @@
 
 	import type { INode } from '$lib/types';
 	import { apiAddress } from '$lib/main';
-	import { assetTree  } from '$lib/state/sidebar.svelte';
+	import { assetTree } from '$lib/state/sidebar.svelte';
 	import { addToast, ToastType } from '$lib/toast';
 	import { tick } from 'svelte';
 	import { blur } from 'svelte/transition';
@@ -84,7 +84,7 @@
 	$effect(() => {
 		assetTree;
 		fullScreenImagePath = '';
-	})
+	});
 
 	let deletionConfirmationVisible = $state(false);
 	let loadingIconVisible = $state(false);

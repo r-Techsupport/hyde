@@ -8,13 +8,8 @@
 	import LoadingIcon from '../lib/components/elements/LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from '../lib/components/elements/Toasts.svelte';
-	import { visible } from "$lib/state/page.svelte";
-	import {
-		currentFile,
-		me,
-		editorText,
-		apiAddress,
-	} from '$lib/main';
+	import { visible } from '$lib/state/page.svelte';
+	import { currentFile, me, editorText, apiAddress } from '$lib/main';
 	import { branchInfo, loadBranchInfo } from '$lib/state/branch.svelte';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
@@ -48,9 +43,9 @@
 	let adminDashboardDialog: HTMLDialogElement | undefined = $state();
 
 	onMount(() => {
-		loadBranchInfo()
+		loadBranchInfo();
 		loadSidebarInfo();
-	})
+	});
 	async function documentSelectionHandler(path: string) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if ($currentFile === '' || (await cache.get($currentFile)) === $editorText) {

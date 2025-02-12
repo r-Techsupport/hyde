@@ -393,13 +393,9 @@
 					></textarea>
 					<!-- Pull Request Button -->
 					{#if selectedPullRequest === null}
-						<button onclick={createPullRequest} class="submit-pr-btn">
-							Submit Pull Request
-						</button>
+						<button onclick={createPullRequest} class="submit-pr-btn"> Submit Pull Request </button>
 					{:else}
-						<button onclick={updatePullRequest} class="submit-pr-btn">
-							Update Pull Request
-						</button>
+						<button onclick={updatePullRequest} class="submit-pr-btn"> Update Pull Request </button>
 						<button onclick={closePullRequest} class="submit-pr-btn"> Delete Pull Request </button>
 					{/if}
 				</div>

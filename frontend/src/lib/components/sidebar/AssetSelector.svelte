@@ -5,7 +5,6 @@
 	import { assetTree } from '$lib/state/sidebar.svelte';
 	let { mode = $bindable(), assetFolderPath = $bindable() } = $props();
 
-
 	function assetSelectionHandler(e: MouseEvent) {
 		const selectedFolder = (e.currentTarget! as HTMLButtonElement).children[1].innerHTML;
 		assetFolderPath = selectedFolder;
