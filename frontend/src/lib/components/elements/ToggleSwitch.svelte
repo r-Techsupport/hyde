@@ -8,12 +8,7 @@
 		children?: import('svelte').Snippet;
 	}
 
-	let {
-		size = 1,
-		checked = $bindable(true),
-		onToggle = () => {},
-		children
-	}: Props = $props();
+	let { size = 1, checked = $bindable(true), onToggle = () => {}, children }: Props = $props();
 
 	const uniqueID = Math.floor(Math.random() * 100);
 
