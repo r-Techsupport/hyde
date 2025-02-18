@@ -31,11 +31,6 @@ export const branchInfo: BranchInfo = $state({
  *   - `protectedBranches`: A list of branches that are marked as protected.
  * - On failure, it returns an object with empty arrays for both `nonProtectedBranches` and `protectedBranches`.
  *
- * @returns {Promise<{ nonProtectedBranches: Branch[]; protectedBranches: Branch[]; }>} A promise that resolves to an object with two properties:
- * - `nonProtectedBranches`: An array of non-protected branches.
- * - `protectedBranches`: An array of protected branches.
- * If the request fails, both arrays will be empty.
- *
  * @throws {Error} Will throw an error if the response from the API is unsuccessful, with details including the status code and error message from the server.
  *
  * @example
@@ -47,7 +42,7 @@ export const branchInfo: BranchInfo = $state({
  *   }
  * }
  */
-async function fetchExistingBranches(): Promise<Branch[]> {
+async function fetchExistingBranches(): Promise<void> {
 	const response = await fetch(`${apiAddress}/api/branches`, {
 		method: 'GET',
 		credentials: 'include',
@@ -64,16 +59,15 @@ async function fetchExistingBranches(): Promise<Branch[]> {
 			`Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`,
 			ToastType.Error
 		);
-		return [];
+		return;
 	}
 
 	const data = await response.json();
-	return (
-		data.data?.branches?.map((branch: string) => ({
-			name: branch.split(' (')[0],
-			isProtected: branch.includes('(protected)')
-		})) ?? []
-	);
+	const branches: Branch[] = data.branches?.map((branch: string) => ({
+		name: branch.split(' (')[0],
+		isProtected: branch.includes('(protected)')
+	}));
+	branchInfo.list = branches.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function fetchDefaultBranch() {
@@ -95,8 +89,7 @@ async function fetchCurrentBranch() {
 		const response = await fetch(`${apiAddress}/api/current-branch`);
 
 		if (response.ok) {
-			const data = await response.json();
-			const currentBranch = data.data;
+			const currentBranch = await response.json();
 			branchInfo.current = currentBranch;
 		} else {
 			console.error('Failed to fetch current branch:', response.statusText);
@@ -107,8 +100,7 @@ async function fetchCurrentBranch() {
 }
 
 export async function loadBranchInfo() {
-	fetchDefaultBranch();
-	fetchCurrentBranch();
-	const branches = await fetchExistingBranches();
-	branchInfo.list = branches;
+	await Promise.all([fetchDefaultBranch(),
+	fetchCurrentBranch(),
+	fetchExistingBranches()]);
 }

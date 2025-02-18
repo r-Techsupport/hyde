@@ -198,7 +198,7 @@
 				</button>
 			</div>
 			<ul class="branch-list">
-				{#each branchInfo.list.sort((a, b) => a.name.localeCompare(b.name)) as branch}
+				 {#each branchInfo.list as branch}
 					<li>
 						<button
 							class="branch-option"
