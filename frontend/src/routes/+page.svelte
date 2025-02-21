@@ -8,16 +8,9 @@
 	import LoadingIcon from '../lib/components/elements/LoadingIcon.svelte';
 	import { ToastType, addToast } from '$lib/toast';
 	import Toasts from '../lib/components/elements/Toasts.svelte';
-	import {
-		currentFile,
-		me,
-		branchName,
-		documentTree,
-		editorText,
-		apiAddress,
-		assetTree,
-		allBranches
-	} from '$lib/main';
+	import { visible } from '$lib/state/page.svelte';
+	import { currentFile, me, editorText, apiAddress } from '$lib/main';
+	import { branchInfo, loadBranchInfo } from '$lib/state/branch.svelte';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
 	import SettingsMenu from '$lib/components/topbar/SettingsMenu.svelte';
@@ -28,30 +21,35 @@
 	import MockDirectory from '$lib/components/sidebar/MockDirectory.svelte';
 	import { SelectedMode } from '$lib/main';
 	import AssetEditor from '$lib/components/editors/AssetEditor.svelte';
-
+	import { assetTree, documentTree, loadSidebarInfo } from '$lib/state/sidebar.svelte';
+	/** The currently displayed editor (documents, assets)*/
 	let mode = $state(SelectedMode.Documents);
 	// TODO: figure out how to move this out of +page.svelte and into the document editor
 	/** A reference to the div where markdown is rendered to */
 	let previewWindow: HTMLElement | undefined = $state();
-
-	onMount(async () => {
-		const response = await fetch(`${apiAddress}/api/tree/doc`);
-		const fetchedRootNode = await response.json();
-		documentTree.set(fetchedRootNode); // Update the store with the fetched data
-	});
-
-	let showChangeDialogue: boolean = $state(false);
-	let showLoadingIcon: boolean = $state(false);
-	let showSettingsMenu: boolean = $state(false);
-	let adminDashboardDialog: HTMLDialogElement | undefined = $state();
-	let showEditor: boolean = $state(false);
 	/** The path to the currently selected assets folder */
 	let assetFolderPath = $state('');
 
+	// onMount(async () => {
+	// 	const response = await fetch(`${apiAddress}/api/tree/doc`);
+	// 	const fetchedRootNode = await response.json();
+	// 	documentTree.set(fetchedRootNode); // Update the store with the fetched data
+	// });
+
+	// let showChangeDialogue: boolean = $state(false);
+	// let showLoadingIcon: boolean = $state(false);
+	// let showSettingsMenu: boolean = $state(false);
+	// let showEditor: boolean = $state(false);
+	let adminDashboardDialog: HTMLDialogElement | undefined = $state();
+
+	onMount(() => {
+		loadBranchInfo();
+		loadSidebarInfo();
+	});
 	async function documentSelectionHandler(path: string) {
 		// If the file in cache doesn't differ from the editor or no file is selected, there are no unsaved changes
 		if ($currentFile === '' || (await cache.get($currentFile)) === $editorText) {
-			showEditor = true;
+			visible.editor = true;
 			currentFile.set(path);
 			editorText.set(
 				(await cache.get(path)) ??
@@ -63,70 +61,59 @@
 			// Do nothing
 		} else {
 			// Unsaved changes
-			showChangeDialogue = true;
+			visible.changeDialogue = true;
 		}
 	}
 
-	let saveChangesHandler = $state(async (commitMessage: string): Promise<void> => {
-		showLoadingIcon = true;
+	// const saveChangesHandler = $state(async (commitMessage: string) => {
+	// 	visible.loadingIcon = true;
+	// 	const branch = branchInfo.list.find((b) => b.name === branchInfo.current);
 
-		const branch = $allBranches.find((b) => b.name === $branchName);
+	// 	if (branch && branch.isProtected) {
+	// 		addToast(
+	// 			`The branch '${branchInfo.current}' is protected and cannot be modified.`,
+	// 			ToastType.Warning,
+	// 			true
+	// 		);
+	// 		visible.loadingIcon = false; // Ensure loading icon is hidden
+	// 		return;
+	// 	}
 
-		if (branch && branch.isProtected) {
-			addToast(
-				`The branch '${$branchName}' is protected and cannot be modified.`,
-				ToastType.Warning,
-				true
-			);
-			showLoadingIcon = false; // Ensure loading icon is hidden
-			return;
-		}
-
-		const response = await fetch(`${apiAddress}/api/doc`, {
-			method: 'PUT',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				contents: $editorText,
-				path: $currentFile,
-				commit_message: commitMessage,
-				branch_name: $branchName
-			})
-		});
-		showLoadingIcon = false;
-		cache.flush();
-		switch (response.status) {
-			case 201:
-				addToast('Changes synced successfully.', ToastType.Success);
-				break;
-			default:
-				addToast(
-					`An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
-					ToastType.Error,
-					true
-				);
-		}
-	});
+	// 	const response = await fetch(`${apiAddress}/api/doc`, {
+	// 		method: 'PUT',
+	// 		credentials: 'include',
+	// 		headers: {
+	// 			'Content-Type': 'application/json'
+	// 		},
+	// 		body: JSON.stringify({
+	// 			contents: $editorText,
+	// 			path: $currentFile,
+	// 			commit_message: commitMessage,
+	// 			branch_name: branchInfo.current
+	// 		})
+	// 	});
+	// 	visible.loadingIcon = false;
+	// 	cache.flush();
+	// 	switch (response.status) {
+	// 		case 201:
+	// 			addToast('Changes synced successfully.', ToastType.Success);
+	// 			break;
+	// 		default:
+	// 			addToast(
+	// 				`An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
+	// 				ToastType.Error,
+	// 			);
+	// 	}
+	// });
 
 	interface Props {
 		/** The width of the sidebar */
-		sidebarWidth?: string;
+		sidebarWidth: string;
 	}
 
 	let { sidebarWidth = $bindable('14rem') }: Props = $props();
 
-	onMount(async () => {
-		// Fetch the document tree
-		const docResponse = await fetch(`${apiAddress}/api/tree/doc`);
-		documentTree.set(await docResponse.json());
-
-		// Fetch the asset tree
-		const assetResponse = await fetch(`${apiAddress}/api/tree/asset`);
-		assetTree.set(await assetResponse.json());
-	});
-
+	// Log user in and load associated user info
 	onMount(async () => {
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
 		if (!document.cookie.includes('username')) {
@@ -165,7 +152,7 @@
 				return;
 			}
 			if (me.permissions.includes(Permission.ManageContent)) {
-				showEditor = true;
+				visible.editor = true;
 			}
 		});
 	});
@@ -177,7 +164,7 @@
 		<div class="directory-nav">
 			<!-- TODO: migrate this stuff away from page.svelte, probably into the sidebar-->
 			{#if mode === SelectedMode.Documents}
-				<FileNavigation fileSelectHandler={documentSelectionHandler} {...$documentTree} />
+				<FileNavigation fileSelectHandler={documentSelectionHandler} {...documentTree} />
 			{:else}
 				<!-- Display a button that switches the mode to docs -->
 				<MockDirectory
@@ -202,18 +189,18 @@
 	<div style="display: flex; flex-direction: column; height: 100vh; width: 100%;">
 		<TopBar
 			on:settingsopen={() => {
-				showSettingsMenu = true;
+				visible.settingsMenu = true;
 			}}
 		/>
 		<SettingsMenu
-			bind:visible={showSettingsMenu}
+			bind:visible={visible.settingsMenu}
 			on:showadmindashboard={() => {
 				adminDashboardDialog!.showModal();
 			}}
 		/>
 		{#if mode === SelectedMode.Documents}
-			{#if showEditor && $currentFile !== ''}
-				<DocumentEditor bind:saveChangesHandler bind:previewWindow={previewWindow!} />
+			{#if visible.editor && $currentFile !== ''}
+				<DocumentEditor bind:previewWindow={previewWindow!} />
 			{:else}
 				<span class="nofile-placeholder">
 					<p>
@@ -226,8 +213,8 @@
 			<AssetEditor bind:assetFolderPath />
 		{/if}
 	</div>
-	<LoadingIcon bind:visible={showLoadingIcon} />
-	<ChangeDialogue bind:visible={showChangeDialogue} />
+	<LoadingIcon bind:visible={visible.loadingIcon} />
+	<ChangeDialogue bind:visible={visible.loadingIcon} />
 	<AdminDashboard bind:dialog={adminDashboardDialog!} />
 </div>
 

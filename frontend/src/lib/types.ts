@@ -38,11 +38,6 @@ export interface INode {
 	children: INode[];
 }
 
-export interface Branch {
-	name: string;
-	isProtected: boolean;
-}
-
 export interface Issue {
 	id: number;
 	number: number;

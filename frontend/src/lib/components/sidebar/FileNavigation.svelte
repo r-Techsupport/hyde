@@ -26,7 +26,6 @@
 		siblings = undefined,
 		fileSelectHandler = undefined
 	}: Props = $props();
-	let self: HTMLElement;
 	let selected = $state(false);
 	let open = $state(false);
 	let showOptionsMenu = $state(false);
@@ -82,10 +81,6 @@
 		} else {
 			addToast(`Deletion failed, please report to the developer`, ToastType.Error, true, 1500);
 		}
-		// While a re-render would happen when the directory
-		// is closed and re-opened, I nuke the current element here
-		// because I don't know how else to make it happen immediately
-		self.remove();
 	}
 </script>
 

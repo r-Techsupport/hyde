@@ -5,6 +5,9 @@
 	import { get } from 'svelte/store';
 	import { cache } from '$lib/cache';
 	import { renderMarkdown } from '$lib/render';
+	import { visible } from '$lib/state/page.svelte';
+	import { branchInfo } from '$lib/state/branch.svelte';
+	import { apiAddress } from '$lib/main';
 
 	const charCount = 500;
 
@@ -55,12 +58,52 @@
 		await saveChangesHandler(commitMessage);
 	}
 
-	interface Props {
-		previewWindow: HTMLElement;
-		saveChangesHandler: (commitMessage: string) => Promise<void>;
+	async function saveChangesHandler(commitMessage: string): Promise<void> {
+		visible.loadingIcon = true;
+		const branch = branchInfo.list.find((b) => b.name === branchInfo.current);
+
+		if (branch && branch.isProtected) {
+			addToast(
+				`The branch '${branchInfo.current}' is protected and cannot be modified.`,
+				ToastType.Warning,
+				true
+			);
+			visible.loadingIcon = false; // Ensure loading icon is hidden
+			return;
+		}
+
+		const response = await fetch(`${apiAddress}/api/doc`, {
+			method: 'PUT',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				contents: $editorText,
+				path: $currentFile,
+				commit_message: commitMessage,
+				branch_name: branchInfo.current
+			})
+		});
+		visible.loadingIcon = false;
+		cache.flush();
+		switch (response.status) {
+			case 201:
+				addToast('Changes synced successfully.', ToastType.Success);
+				break;
+			default:
+				addToast(
+					`An error was encountered syncing changes, please report to the developer (Code ${response.status}: "${response.statusText}").`,
+					ToastType.Error
+				);
+		}
 	}
 
-	let { previewWindow = $bindable(), saveChangesHandler = $bindable() }: Props = $props();
+	interface Props {
+		previewWindow: HTMLElement;
+	}
+
+	let { previewWindow = $bindable() }: Props = $props();
 
 	async function cancelChangesHandler() {
 		if ($editorText !== get(currentFile)) {

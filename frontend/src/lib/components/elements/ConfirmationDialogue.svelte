@@ -4,12 +4,12 @@
 		/**
 		 * If defined, the code that runs when a user hits "Confirm".
 		 */
-		confirmHandler?: () => undefined;
+		confirmHandler?: () => void;
 		/**
 		 * If defined, the code that runs when the user hits "Deny" or
 		 * clicks out of the widget.
 		 */
-		cancelHandler?: () => undefined;
+		cancelHandler?: () => void;
 		confirmText?: string;
 		cancelText?: string;
 		visible: boolean;

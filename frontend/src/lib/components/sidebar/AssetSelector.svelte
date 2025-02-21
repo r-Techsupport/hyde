@@ -1,14 +1,9 @@
 <!-- The sidebar navigation for the asset editor -->
 <script lang="ts">
-	import { assetTree, SelectedMode, type INode } from '$lib/main';
+	import { SelectedMode } from '$lib/main';
+	import { type INode } from '$lib/types';
+	import { assetTree } from '$lib/state/sidebar.svelte';
 	let { mode = $bindable(), assetFolderPath = $bindable() } = $props();
-
-	/** The base directory for filesystem navigation */
-	let tree: INode = $state({
-		name: '',
-		children: []
-	});
-	assetTree.subscribe((t) => (tree = t));
 
 	function assetSelectionHandler(e: MouseEvent) {
 		const selectedFolder = (e.currentTarget! as HTMLButtonElement).children[1].innerHTML;
@@ -39,7 +34,7 @@
 	</span>
 	<!-- TODO -->
 	<!-- <input type="search" class="search-bar" placeholder="Filter folders..."/> -->
-	{#each tree.children as node}
+	{#each assetTree.children as node}
 		{#if node.children.length > 0}
 			<button onclick={assetSelectionHandler} class="directory-listing">
 				<svg

@@ -1,14 +1,14 @@
 [package]
 name = "hyde-backend"
 version = "2.1.1"
-edition = "2021"
+edition = "2024"
 license-file = "../LICENSE"
 description = "A backend for the r/TechSupport CMS"
 repository = "https://github.com/r-Techsupport/hyde"
 readme = "../README.md"
 keywords = ["cms", "wiki"]
 categories = ["web-programming"]
-rust-version = "1.80.0"
+rust-version = "1.85.0"
 
 [dependencies]
 axum = { version = "0.8.1", features = ["http2", "macros"] }

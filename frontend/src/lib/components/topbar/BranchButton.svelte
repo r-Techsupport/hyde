@@ -1,111 +1,16 @@
 <!-- BranchButton.svelte -->
 <script lang="ts">
-	import {
-		branchName,
-		documentTree,
-		currentFile,
-		editorText,
-		apiAddress,
-		allBranches,
-		baseBranch
-	} from '$lib/main';
-	import { onMount } from 'svelte';
+	import { currentFile, editorText, apiAddress } from '$lib/main';
 	import { ToastType, addToast } from '$lib/toast';
 	import { cache } from '$lib/cache';
-	import type { Branch } from '$lib/types';
+	import { branchInfo } from '$lib/state/branch.svelte';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
+	import { documentTree } from '$lib/state/sidebar.svelte';
 
 	let showMenu = $state(false);
 	let newBranchName: string = $state('');
 	let showInput = $state(false);
 	let showLoadingIcon: boolean = $state(false);
-
-	/**
-	 * Fetches the list of branches from the GitHub API, categorizing them as protected or non-protected.
-	 *
-	 * This asynchronous function sends a GET request to the specified GitHub repository's API endpoint
-	 * to retrieve the branches. The function handles both successful and failed requests:
-	 * - On success, it returns a promise that resolves to an object containing two arrays:
-	 *   - `nonProtectedBranches`: A list of branches that are not protected.
-	 *   - `protectedBranches`: A list of branches that are marked as protected.
-	 * - On failure, it returns an object with empty arrays for both `nonProtectedBranches` and `protectedBranches`.
-	 *
-	 * @returns {Promise<{ nonProtectedBranches: Branch[]; protectedBranches: Branch[]; }>} A promise that resolves to an object with two properties:
-	 * - `nonProtectedBranches`: An array of non-protected branches.
-	 * - `protectedBranches`: An array of protected branches.
-	 * If the request fails, both arrays will be empty.
-	 *
-	 * @throws {Error} Will throw an error if the response from the API is unsuccessful, with details including the status code and error message from the server.
-	 *
-	 * @example
-	 * async function main() {
-	 *   try {
-	 *     const { nonProtectedBranches, protectedBranches } = await fetchExistingBranches();
-	 *   } catch (err) {
-	 *     console.error('Error fetching branches:', err);
-	 *   }
-	 * }
-	 */
-	async function fetchExistingBranches() {
-		const response = await fetch(`${apiAddress}/api/branches`, {
-			method: 'GET',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			}
-		});
-
-		// Check if the response is successful
-		if (!response.ok) {
-			const errorMessage = await response.json();
-			console.error('Failed to fetch branches:', errorMessage);
-			addToast(
-				`Error fetching branches: ${response.statusText}. ${JSON.stringify(errorMessage)}`,
-				ToastType.Error
-			);
-			return [];
-		}
-
-		const data = await response.json();
-		const formattedBranches: Branch[] = data.branches.map((branch: string) => ({
-			name: branch.replace(' (protected)', ''),
-			isProtected: branch.includes('(protected)')
-		}));
-		allBranches.set(formattedBranches);
-	}
-
-	async function fetchDefaultBranch() {
-		const response = await fetch(`${apiAddress}/api/repos/default-branch`);
-
-		if (response.ok) {
-			const data = await response.json();
-			// Set the default branch to the baseBranch store
-			baseBranch.set(data);
-		} else {
-			console.error('Failed to fetch default branch:', response.statusText);
-		}
-	}
-
-	async function fetchCurrentBranch() {
-		try {
-			const response = await fetch(`${apiAddress}/api/current-branch`);
-
-			if (response.ok) {
-				const data = await response.json();
-				branchName.set(data);
-			} else {
-				console.error('Failed to fetch current branch:', response.statusText);
-			}
-		} catch (error) {
-			console.error('Error fetching current branch:', error);
-		}
-	}
-
-	onMount(async () => {
-		fetchDefaultBranch();
-		fetchCurrentBranch();
-		await fetchExistingBranches();
-	});
 
 	async function setBranchName(input: string) {
 		if (!input) return;
@@ -142,7 +47,7 @@
 			return;
 		}
 
-		if ($allBranches.some((branch) => branch.name === input && branch.isProtected)) {
+		if (branchInfo.list.some((branch) => branch.name === input && branch.isProtected)) {
 			addToast(
 				'Please select an existing branch name from the list of non-protected branches.\nYou can also create your own.',
 				ToastType.Warning,
@@ -155,11 +60,11 @@
 		showLoadingIcon = true;
 
 		// Set branch name and reset state
-		branchName.set(input);
+		branchInfo.current = input;
 		newBranchName = '';
 		showMenu = false;
 
-		if (!$allBranches.some((branch) => branch.name === input)) {
+		if (!branchInfo.list.some((branch) => branch.name === input)) {
 			addToast(`Now working on a new branch: "${input}".`, ToastType.Success, true, 1800);
 			showLoadingIcon = false;
 			return;
@@ -206,7 +111,8 @@
 
 		if (treeResponse.ok) {
 			const updatedTree = await treeResponse.json();
-			documentTree.set(updatedTree); // Update the store with the new tree
+			documentTree.name = updatedTree.name; // Update the store with the new tree
+			documentTree.children = updatedTree.children;
 
 			cache.flush();
 
@@ -267,7 +173,9 @@
 				d="M416,160a64,64,0,1,0-96.27,55.24c-2.29,29.08-20.08,37-75,48.42-17.76,3.68-35.93,7.45-52.71,13.93V151.39a64,64,0,1,0-64,0V360.61a64,64,0,1,0,64.42.24c2.39-18,16-24.33,65.26-34.52,27.43-5.67,55.78-11.54,79.78-26.95,29-18.58,44.53-46.78,46.36-83.89A64,64,0,0,0,416,160ZM160,64a32,32,0,1,1-32,32A32,32,0,0,1,160,64Zm0,384a32,32,0,1,1,32-32A32,32,0,0,1,160,448ZM352,192a32,32,0,1,1,32-32A32,32,0,0,1,352,192Z"
 			/>
 		</svg>
-		{$branchName.length > 100 ? `${$branchName.slice(0, 100)}...` : $branchName}
+		{branchInfo.current.length > 100
+			? `${branchInfo.current.slice(0, 100)}...`
+			: branchInfo.current}
 	</button>
 
 	{#if showMenu}
@@ -290,7 +198,7 @@
 				</button>
 			</div>
 			<ul class="branch-list">
-				{#each $allBranches.sort((a, b) => a.name.localeCompare(b.name)) as branch}
+				 {#each branchInfo.list as branch}
 					<li>
 						<button
 							class="branch-option"
@@ -304,7 +212,7 @@
 						</button>
 					</li>
 				{/each}
-				{#if $allBranches.length === 0}
+				{#if branchInfo.list.length === 0}
 					<li>No branches available</li>
 				{/if}
 

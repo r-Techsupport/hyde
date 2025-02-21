@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { baseBranch, allBranches, me } from '$lib/main'; // Import your store with all branches and user data
+	import { me } from '$lib/main';
+	import { branchInfo } from '$lib/state/branch.svelte';
 	import { Permission } from '$lib/types';
 	import SectionHeader from '../elements/SectionHeader.svelte';
 	import ToggleSwitch from '../elements/ToggleSwitch.svelte';
 
 	// Check if the user has the ManageBranches permission
 	const canAccess = $me.permissions?.includes(Permission.ManageBranches);
-	const sortedBranches = $allBranches.slice().sort((a, b) => a.name.localeCompare(b.name));
+	const sortedBranches = $state(
+		branchInfo.list.slice().sort((a, b) => a.name.localeCompare(b.name))
+	);
 </script>
 
 {#if canAccess}
@@ -14,8 +17,8 @@
 		<SectionHeader --scale="0.9rem" --text-color="var(--foreground-2)">Pull Requests</SectionHeader>
 		<div class="base-branch-container">
 			<label for="base-branch">Destination</label>
-			<select name="base-branch" bind:value={$baseBranch} class="branch-dropdown">
-				{#each $allBranches as { name }}
+			<select name="base-branch" bind:value={branchInfo.base} class="branch-dropdown">
+				{#each branchInfo.list as { name }}
 					<option value={name}>{name}</option>
 				{/each}
 			</select>

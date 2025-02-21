@@ -2,19 +2,21 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ToastType, addToast } from '$lib/toast';
-	import { apiAddress, branchName, currentFile, me, baseBranch } from '$lib/main';
+	import { apiAddress, currentFile, me } from '$lib/main';
 	import type { Issue } from '$lib/types';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
+	import { branchInfo } from '$lib/state/branch.svelte';
 
-	let showModal = false;
-	let prCommit = '';
+	let showModal = $state(false);
+	/** User supplied pull request description */
+	let prCommit = $state('');
 	let isExpanded: { [key: number]: boolean } = {};
-	let showLoadingIcon: boolean;
-	let selectedPullRequest: number | null = null;
+	let showLoadingIcon: boolean = $state(false);
+	let selectedPullRequest: number | null = $state(null);
 	let prAuthor = '';
-	let openIssues: Issue[] = [];
-	let selectedIssues: Issue[] = [];
-	let openPullRequests: Issue[] = [];
+	let openIssues: Issue[] = $state([]);
+	let selectedIssues: Issue[] = $state([]);
+	let openPullRequests: Issue[] = $state([]);
 
 	function openModal() {
 		showModal = true;
@@ -86,7 +88,7 @@
 	async function createPullRequest(): Promise<void> {
 		const title = `Pull request form: ${$me.username}`;
 		const prDescription = `Changes made from ${$currentFile}.\n ${prCommit}`;
-		const headBranch = $branchName;
+		const headBranch = branchInfo.current;
 
 		const selectedIssueNumbers = selectedIssues.map((issue: Issue) => issue.number);
 		showLoadingIcon = true;
@@ -99,7 +101,7 @@
 			},
 			body: JSON.stringify({
 				head_branch: headBranch,
-				base_branch: $baseBranch,
+				base_branch: branchInfo.base,
 				title: title,
 				description: prDescription,
 				issue_numbers: selectedIssueNumbers
@@ -153,7 +155,7 @@
 					pr_number: selectedPullRequest,
 					title: title,
 					description: pr_description,
-					base_branch: $baseBranch,
+					base_branch: branchInfo.base,
 					issue_numbers: selectedIssueNumbers
 				})
 			});
@@ -237,7 +239,7 @@
 			const sourceBranch = prData.head.ref;
 
 			// Compare the source branch with the current branch
-			if (sourceBranch === $branchName) {
+			if (sourceBranch === branchInfo.current) {
 				// Extract issue numbers from the PR body (e.g., #25, #28)
 				const issueRegex = /#(\d+)/g;
 				const linkedIssues: number[] = [];
@@ -262,7 +264,7 @@
 
 <div class="pull-request">
 	<!-- Pull Request -->
-	<button on:click={() => openModal()} class="pull-request" title="Pull Request" type="button">
+	<button onclick={() => openModal()} class="pull-request" title="Pull Request" type="button">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			width="25px"
@@ -287,7 +289,7 @@
 				<h2>Open Issues</h2>
 				<button
 					class="close-btn"
-					on:click={() => closeModal()}
+					onclick={() => closeModal()}
 					type="button"
 					aria-label="Close modal"
 				>
@@ -315,7 +317,7 @@
 										type="checkbox"
 										id={`issue-${issue.id}`}
 										checked={selectedIssues.includes(issue)}
-										on:change={() => toggleSelection(issue)}
+										onchange={() => toggleSelection(issue)}
 									/>
 									<!-- Label and Issue Title -->
 									<div class="issue-container">
@@ -349,7 +351,7 @@
 														{issue.body}
 													{/if}
 												</p>
-												<button on:click={() => toggleExpand(issue.id)} class="show-more-button">
+												<button onclick={() => toggleExpand(issue.id)} class="show-more-button">
 													{#if !isExpanded[issue.id]}
 														Show More
 													{:else}
@@ -373,14 +375,10 @@
 					></textarea>
 					<!-- Pull Request Button -->
 					{#if selectedPullRequest === null}
-						<button on:click={createPullRequest} class="submit-pr-btn">
-							Submit Pull Request
-						</button>
+						<button onclick={createPullRequest} class="submit-pr-btn"> Submit Pull Request </button>
 					{:else}
-						<button on:click={updatePullRequest} class="submit-pr-btn">
-							Update Pull Request
-						</button>
-						<button on:click={closePullRequest} class="submit-pr-btn"> Delete Pull Request </button>
+						<button onclick={updatePullRequest} class="submit-pr-btn"> Update Pull Request </button>
+						<button onclick={closePullRequest} class="submit-pr-btn"> Delete Pull Request </button>
 					{/if}
 				</div>
 			</div>

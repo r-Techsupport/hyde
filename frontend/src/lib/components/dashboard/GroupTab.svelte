@@ -13,7 +13,7 @@
 	let selectedGroup = $state(1);
 
 	let showNewGroupInput = $state(false);
-	let newGroupInput: HTMLInputElement = $state();
+	let newGroupInput: HTMLInputElement | undefined = $state();
 
 	function userSelectHandler(e: MouseEvent) {
 		const target = e.target as HTMLElement;
@@ -99,7 +99,7 @@
 									method: 'POST',
 									credentials: 'include',
 									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({ group_name: newGroupInput.value })
+									body: JSON.stringify({ group_name: newGroupInput!.value })
 								})
 							).json();
 							groups = [...groups, newGroup];
@@ -123,7 +123,8 @@
 				onclick={async () => {
 					showNewGroupInput = true;
 					await tick();
-					newGroupInput.focus();
+					// non-null assertion: we indicate the new group input should be displayed and then wait for it to render
+					newGroupInput!.focus();
 				}}
 			>
 				<span>+</span>
