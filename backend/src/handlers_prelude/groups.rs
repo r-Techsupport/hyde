@@ -47,7 +47,7 @@ pub async fn create_group_response(
                 username: m.username,
                 avatar_url: m.avatar_url,
             })
-            .collect(),
+            .collect::<Vec<_>>(),
     })
 }
 
@@ -96,14 +96,11 @@ pub async fn put_group_permissions_handler(
     Path(group_id): Path<i64>,
     Json(body): Json<UpdateGroupPermissionsRequestBody>,
 ) -> Result<Json<GroupResponse>, ApiError> {
-    // Ensure the user has the necessary permissions
     require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
-    // Fetch current permissions for the group
     let current_permissions = state.db.get_group_permissions(group_id).await?;
     let new_permissions = body.permissions;
 
-    // Identify permissions to remove and add
     let permissions_to_remove = current_permissions
         .iter()
         .filter(|perm| !new_permissions.contains(perm))
@@ -114,17 +111,14 @@ pub async fn put_group_permissions_handler(
         .filter(|perm| !current_permissions.contains(perm))
         .collect::<Vec<_>>();
 
-    // Remove permissions
     for perm in permissions_to_remove {
         state.db.remove_group_permission(group_id, *perm).await?;
     }
 
-    // Add permissions
     for perm in permissions_to_add {
         state.db.add_group_permission(group_id, *perm).await?;
     }
 
-    // Fetch updated group and return the response
     let updated_group = state.db.get_group(group_id).await?.ok_or_else(|| {
         ApiError::from((StatusCode::NOT_FOUND, "Group not found in the database".to_string()))
     })?;
