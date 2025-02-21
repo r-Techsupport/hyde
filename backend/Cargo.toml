@@ -13,12 +13,12 @@ rust-version = "1.85.0"
 [dependencies]
 axum = { version = "0.8.1", features = ["http2", "macros"] }
 chrono = "0.4.39"
-clap = { version = "4.5.27", features = ["derive"] }
+clap = { version = "4.5.29", features = ["derive"] }
 color-eyre = "0.6.3"
 dotenvy = "0.15.7"
 fs-err = { version = "3.1.0", features = ["tokio"] }
 git2 = "0.20.0"
-jsonwebtoken = "9.3.0"
+jsonwebtoken = "9.3.1"
 oauth2 = "5.0.0"
 reqwest = { version = "0.12.12", features = ["stream", "json"] }
 serde = { version = "1.0.217", features = ["derive"] }
@@ -28,4 +28,4 @@ tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "signal",
 tower-http = { version = "0.6.2", features = ["normalize-path", "fs", "cors", "tracing", "trace"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
-toml = "0.8.19"
+toml = "0.8.20"

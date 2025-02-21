@@ -39,12 +39,13 @@ describe('Frontmatter removal robustness', () => {
 	test.concurrent('Basic (av-removal header)', async () => {
 		const leftover = stripFrontMatterFromString(
 			String.raw`---
-layout: default
 title: List of AV removers
-nav_exclude: false
+description: A list of links for downloading (or usage guides of) dedicated uninstallers for 3rd party AVs. 
+sidebar:
+    hidden: false
 has_children: false
 parent: Factoids
-search_exclude: false
+pagefind: true
 last_modified_date: 2024-01-02
 ---
 Below is...`
@@ -55,12 +56,12 @@ Below is...`
 	test.concurrent('Basic newline (force-updating-windows header)', async () => {
 		const leftover = stripFrontMatterFromString(
 			String.raw`---
-layout: default
 title: Force updating Windows
-nav_exclude: false
+sidebar:
+    hidden: false
 parent: Factoids
 has_children: false
-search_exclude: false
+pagefind: true
 last_modified_date: 2024-03-09
 ---
 # Force updating Windows
