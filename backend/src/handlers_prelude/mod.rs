@@ -27,7 +27,7 @@ use color_eyre::{
     Report,
 };
 use reqwest::StatusCode;
-use tracing::{debug, trace};
+use tracing::{debug, error, trace};
 
 use crate::{db::User, perms::Permission, AppState};
 
@@ -47,6 +47,7 @@ impl ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        error!(error = %self.error, "Error returned from handler");
         let status = self.status.unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         (status, self.error.to_string()).into_response()
     }
