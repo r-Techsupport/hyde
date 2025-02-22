@@ -13,9 +13,8 @@ use reqwest::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
+use crate::handlers_prelude::ApiError;
 use crate::{perms::Permission, require_perms, AppState};
-
-use super::eyre_to_axum_err;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetDocQuery {
@@ -27,11 +26,14 @@ pub struct GetDocResponse {
     pub contents: String,
 }
 
-async fn get_gh_token(state: &AppState) -> Result<String, (StatusCode, String)> {
-    state.gh_client.get_token().await.map_err(|e| {
-        error!("Failed to retrieve GitHub token: {e}");
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })
+async fn get_gh_token(state: &AppState) -> Result<String, ApiError> {
+    match state.gh_client.get_token().await {
+        Ok(token) => Ok(token),
+        Err(e) => {
+            error!("Failed to retrieve GitHub token: {e}");
+            Err(ApiError::from((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())))
+        }
+    }
 }
 
 /// This handler accepts a `GET` request to `/api/doc?path=`.
@@ -39,13 +41,13 @@ async fn get_gh_token(state: &AppState) -> Result<String, (StatusCode, String)> 
 pub async fn get_doc_handler(
     State(state): State<AppState>,
     Query(query): Query<GetDocQuery>,
-) -> Result<Json<GetDocResponse>, (StatusCode, &'static str)> {
+) -> Result<Json<GetDocResponse>, ApiError> {
     match state.git.get_doc(&query.path) {
         Ok(maybe_doc) => maybe_doc.map_or(
-            Err((
+            Err(ApiError::from((
                 StatusCode::NOT_FOUND,
-                "The file at the provided path was not found.",
-            )),
+                "The file at the provided path was not found.".to_string(),
+            ))),
             |doc| Ok(Json(GetDocResponse { contents: doc })),
         ),
         Err(e) => {
@@ -53,10 +55,10 @@ pub async fn get_doc_handler(
                 "Failed to fetch doc with path: {:?}; error: {:?}",
                 query.path, e
             );
-            Err((
+            Err(ApiError::from((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "Fetch failed, check server logs for more info",
-            ))
+                "Fetch failed, check server logs for more info".to_string(),
+            )))
         }
     }
 }
@@ -74,7 +76,7 @@ pub async fn put_doc_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(body): Json<PutDocRequestBody>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, ApiError> {
     let author = require_perms(
         axum::extract::State(&state),
         headers,
@@ -99,10 +101,10 @@ pub async fn put_doc_handler(
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
             error!("Failed to complete put_doc call with error: {e:?}");
-            Err((
+            Err(ApiError::from((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to create document, check server logs for more info".to_string(),
-            ))
+            )))
         }
     }
 }
@@ -112,7 +114,7 @@ pub async fn delete_doc_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<GetDocQuery>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, ApiError> {
     let author = require_perms(
         axum::extract::State(&state),
         headers,
@@ -127,7 +129,10 @@ pub async fn delete_doc_handler(
             &format!("{} deleted {}", author.username, query.path),
             &get_gh_token(&state).await?,
         )
-        .map_err(eyre_to_axum_err)?;
+        .map_err(|e| {
+            error!("Failed to delete doc: {:?}", e);
+            ApiError::from((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+        })?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -136,16 +141,15 @@ pub async fn delete_doc_handler(
 /// representing the state of the tree. This is used in the viewer for directory navigation.
 pub async fn get_doc_tree_handler(
     State(state): State<AppState>,
-) -> Result<Json<INode>, (StatusCode, &'static str)> {
+) -> Result<Json<INode>, ApiError> {
     match state.git.get_doc_tree() {
         Ok(t) => Ok(Json(t)),
         Err(e) => {
             error!("An error was encountered fetching the document tree: {e:?}");
-            Err((
+            Err(ApiError::from((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "An internal error was encountered fetching the doc tree, \
-                    check server logs for more info",
-            ))
+                "An internal error was encountered fetching the doc tree, check server logs for more info",
+            )))
         }
     }
 }
@@ -172,14 +176,21 @@ pub async fn get_asset_tree_handler(
 pub async fn get_asset_handler(
     State(state): State<AppState>,
     Path(path): Path<Vec<String>>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ApiError> {
     let file_name = path.last().unwrap().clone();
     let path = path.join("/");
-    // https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
-    let file = match state.git.get_asset(&path).map_err(eyre_to_axum_err)? {
+
+    // Attempt to retrieve the asset, returning an ApiError on failure
+    let file = match state.git.get_asset(&path)? {
         Some(file) => file,
-        None => return Err((StatusCode::NOT_FOUND, format!("File not found: {}", path))),
+        None => {
+            return Err(ApiError::from((
+                StatusCode::NOT_FOUND,
+                format!("File not found: {}", path),
+            )));
+        }
     };
+
     let mut headers = HeaderMap::new();
     headers.insert(
         CONTENT_TYPE,
@@ -191,8 +202,10 @@ pub async fn get_asset_handler(
         CONTENT_DISPOSITION,
         format!("inline; filename={file_name:?}").parse().unwrap(),
     );
+
     Ok((headers, file))
 }
+
 
 /// This handler creates or replaces the asset at the provided path
 /// with a new asset
@@ -201,7 +214,7 @@ pub async fn put_asset_handler(
     headers: HeaderMap,
     Path(path): Path<Vec<String>>,
     body: Bytes,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, ApiError> {
     let path = path.join("/");
     let author = require_perms(
         axum::extract::State(&state),
@@ -215,11 +228,7 @@ pub async fn put_asset_handler(
     // Call put_asset to update the asset, passing the required parameters
     state
         .git
-        .put_asset(&path, &body, &message, &get_gh_token(&state).await?)
-        .map_err(|e| {
-            error!("Failed to update asset: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-        })?;
+        .put_asset(&path, &body, &message, &get_gh_token(&state).await?)?;
 
     Ok(StatusCode::CREATED)
 }
@@ -230,15 +239,14 @@ pub async fn delete_asset_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(path): Path<Vec<String>>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, ApiError> {
     let path = path.join("/");
     let author = require_perms(State(&state), headers, &[Permission::ManageContent]).await?;
     // Generate commit message combining author and default update message
     let message = format!("{} deleted {}", author.username, path);
     state
         .git
-        .delete_asset(&path, &message, &get_gh_token(&state).await?)
-        .map_err(eyre_to_axum_err)?;
+        .delete_asset(&path, &message, &get_gh_token(&state).await?)?;
 
     Ok(StatusCode::OK)
 }

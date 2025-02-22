@@ -8,9 +8,9 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
+use crate::handlers_prelude::ApiError;
 use crate::{
     db::{Database, Group, User},
-    eyre_to_axum_err,
     perms::Permission,
     require_perms, AppState,
 };
@@ -27,16 +27,14 @@ pub struct UserResponse {
 pub async fn create_user_response(
     db: &Database,
     user: User,
-) -> Result<UserResponse, (StatusCode, String)> {
+) -> Result<UserResponse, ApiError> {
     let groups = db
         .get_user_groups(user.id)
-        .await
-        .map_err(eyre_to_axum_err)?;
+        .await?;
 
     let permissions = db
         .get_user_permissions(user.id)
-        .await
-        .map_err(eyre_to_axum_err)?;
+        .await?;
 
     Ok(UserResponse {
         id: user.id,
@@ -50,7 +48,7 @@ pub async fn create_user_response(
 pub async fn get_users_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<Json<Vec<UserResponse>>, (StatusCode, String)> {
+) -> Result<Json<Vec<UserResponse>>, ApiError> {
     require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
     match state.db.get_all_users().await {
@@ -65,12 +63,12 @@ pub async fn get_users_handler(
         }
         Err(e) => {
             error!("An error was encountered fetching all users: {e:?}");
-            Err((
+            Err(ApiError::from((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An internal error was encountered fetching all users, \
                     check server logs for more info"
                     .to_owned(),
-            ))
+            )))
         }
     }
 }
@@ -78,7 +76,7 @@ pub async fn get_users_handler(
 pub async fn get_current_user_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<Json<UserResponse>, (StatusCode, String)> {
+) -> Result<Json<UserResponse>, ApiError> {
     let user = require_perms(axum::extract::State(&state), headers, &[]).await?;
     Ok(Json(create_user_response(&state.db, user).await?))
 }
@@ -93,22 +91,20 @@ pub async fn post_user_membership_handler(
     headers: HeaderMap,
     Path(user_id): Path<i64>,
     Json(body): Json<UpdateUserGroupsRequestBody>,
-) -> Result<Json<UserResponse>, (StatusCode, String)> {
+) -> Result<Json<UserResponse>, ApiError> {
     require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
     for group_id in body.group_ids {
         state
             .db
             .add_group_membership(group_id, user_id)
-            .await
-            .map_err(eyre_to_axum_err)?;
+            .await?;
     }
 
     let user = state
         .db
         .get_user(user_id)
-        .await
-        .map_err(eyre_to_axum_err)?
+        .await?
         .unwrap();
 
     Ok(Json(create_user_response(&state.db, user).await?))
@@ -119,22 +115,20 @@ pub async fn delete_user_membership_handler(
     headers: HeaderMap,
     Path(user_id): Path<i64>,
     Json(body): Json<UpdateUserGroupsRequestBody>,
-) -> Result<Json<UserResponse>, (StatusCode, String)> {
+) -> Result<Json<UserResponse>, ApiError> {
     require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
     for group_id in body.group_ids {
         state
             .db
             .remove_group_membership(group_id, user_id)
-            .await
-            .map_err(eyre_to_axum_err)?;
+            .await?;
     }
 
     let user = state
         .db
         .get_user(user_id)
-        .await
-        .map_err(eyre_to_axum_err)?
+        .await?
         .unwrap();
 
     Ok(Json(create_user_response(&state.db, user).await?))
@@ -144,27 +138,37 @@ pub async fn delete_user_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(user_id): Path<i64>,
-) -> Result<(), (StatusCode, String)> {
+) -> Result<(), ApiError> {
     require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
 
-    state
-        .db
-        .delete_user(user_id)
-        .await
-        .map_err(eyre_to_axum_err)
+    match state.db.delete_user(user_id).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            error!("Failed to delete user with ID {}: {}", user_id, e);
+            Err(ApiError::from((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "An internal error occurred while deleting the user, check server logs for more info",
+            )))
+        }
+    }
 }
 
 pub async fn delete_current_user(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<(), (StatusCode, String)> {
+) -> Result<(), ApiError> {
     let user = require_perms(axum::extract::State(&state), headers, &[]).await?;
 
-    state
-        .db
-        .delete_user(user.id)
-        .await
-        .map_err(eyre_to_axum_err)
+    match state.db.delete_user(user.id).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            error!("Failed to delete current user with ID {}: {}", user.id, e);
+            Err(ApiError::from((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "An internal error occurred while deleting the user, check server logs for more info",
+            )))
+        }
+    }
 }
 
 pub async fn create_user_route() -> Router<AppState> {

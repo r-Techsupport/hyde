@@ -27,48 +27,74 @@ use color_eyre::{
     Report,
 };
 use reqwest::StatusCode;
-use tracing::{debug, error, trace};
+use tracing::{debug, trace};
 
 use crate::{db::User, perms::Permission, AppState};
 
-pub struct ApiError(eyre::Error);
+pub struct ApiError {
+    status: Option<StatusCode>,
+    error: Report,
+}
 
-impl IntoResponse for ApiError {
-    fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
+impl ApiError {
+    pub fn new(status: Option<StatusCode>, error: impl Into<Report>) -> Self {
+        Self {
+            status,
+            error: error.into(),
+        }
     }
 }
 
-impl From<eyre::Error> for ApiError {
-    fn from(err: eyre::Error) -> Self {
-        Self(err)
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        let status = self.status.unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        (status, self.error.to_string()).into_response()
     }
 }
 
 impl From<String> for ApiError {
-    fn from(err: String) -> Self {
-        Self(eyre::eyre!(err))
+    fn from(message: String) -> Self {
+        Self {
+            status: Some(StatusCode::INTERNAL_SERVER_ERROR),
+            error: eyre::eyre!(message),
+        }
     }
 }
 
 impl From<(StatusCode, String)> for ApiError {
-    fn from(err: (StatusCode, String)) -> Self {
-        Self(eyre::eyre!("{}: {}", err.0, err.1))
+    fn from((status, message): (StatusCode, String)) -> Self {
+        Self {
+            status: Some(status),
+            error: eyre::eyre!(message),
+        }
     }
 }
 
-/// Quick and dirty way to convert an eyre error to a (StatusCode, message) response, meant for use with `map_err`, so that errors can be propagated out of
-/// axum handlers with `?`.
-pub fn eyre_to_axum_err(e: Report) -> (StatusCode, String) {
-    error!("An error was encountered in an axum handler: {e:?}");
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        format!("An error was encountered, check server logs for more info: {e}"),
-    )
+impl From<&str> for ApiError {
+    fn from(message: &str) -> Self {
+        Self {
+            status: Some(StatusCode::INTERNAL_SERVER_ERROR),
+            error: eyre::eyre!(message.to_string()),
+        }
+    }
+}
+
+impl From<(StatusCode, &str)> for ApiError {
+    fn from((status, message): (StatusCode, &str)) -> Self {
+        Self {
+            status: Some(status),
+            error: eyre::eyre!(message.to_string()),
+        }
+    }
+}
+
+impl From<Report> for ApiError {
+    fn from(error: Report) -> Self {
+        Self {
+            status: Some(StatusCode::INTERNAL_SERVER_ERROR),
+            error,
+        }
+    }
 }
 
 /// The output of a find_user call, used to differentiate between expired users and valid users
@@ -124,13 +150,13 @@ pub async fn require_perms(
     State(state): State<&AppState>,
     headers: HeaderMap,
     perms: &[Permission],
-) -> Result<User, (StatusCode, String)> {
-    let maybe_user = find_user(state, headers).await.map_err(eyre_to_axum_err)?;
+) -> Result<User, ApiError> {
+    let maybe_user = find_user(state, headers).await?;
     match maybe_user {
         Some(user) => match user {
-            FoundUser::ExpiredUser(u) => Err((
-                StatusCode::UNAUTHORIZED,
-                format!(
+            FoundUser::ExpiredUser(u) => Err(ApiError::new(
+                Some(StatusCode::UNAUTHORIZED),
+                eyre::eyre!(
                     "The access token has expired for the user {}, they must authenticate again.",
                     u.username
                 ),
@@ -139,15 +165,14 @@ pub async fn require_perms(
                 let user_perms = &state
                     .db
                     .get_user_permissions(u.id)
-                    .await
-                    .map_err(eyre_to_axum_err)?;
+                    .await?;
                 let has_permissions = perms.iter().all(|perm| user_perms.contains(perm));
                 if has_permissions {
                     Ok(u)
                 } else {
-                    Err((
-                        StatusCode::FORBIDDEN,
-                        format!(
+                    Err(ApiError::new(
+                        Some(StatusCode::FORBIDDEN),
+                        eyre::eyre!(
                             "User {:?} lacks the permission to edit documents.",
                             u.username
                         ),
@@ -155,9 +180,9 @@ pub async fn require_perms(
                 }
             }
         },
-        None => Err((
-            StatusCode::UNAUTHORIZED,
-            "No valid user is authenticated, perhaps you forgot to add `{credentials: \"include\"}` in your fetch options?.".to_string(),
+        None => Err(ApiError::new(
+            Some(StatusCode::UNAUTHORIZED),
+            eyre::eyre!("No valid user is authenticated, perhaps you forgot to add `{{credentials: \"include\"}}` in your fetch options?"),
         )),
     }
 }
