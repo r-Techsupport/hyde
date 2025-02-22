@@ -4,6 +4,7 @@ use axum::routing::post;
 use axum::{extract::State, http::HeaderMap, Router};
 use tracing::{debug, info};
 
+use color_eyre::eyre::WrapErr;
 use crate::handlers_prelude::ApiError;
 use crate::AppState;
 
@@ -17,7 +18,7 @@ pub async fn github_hook_handler(
 
     if event_type == "push" {
         info!("New changes pushed to Github, pulling changes...");
-        state.git.pull()?;
+        state.git.pull().context("Failed during automatic pull triggered by GitHub push event")?;
     }
 
     Ok(())

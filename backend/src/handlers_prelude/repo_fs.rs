@@ -11,7 +11,7 @@ use axum::{
 };
 use reqwest::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::handlers_prelude::ApiError;
 use crate::{perms::Permission, require_perms, AppState};
@@ -27,13 +27,12 @@ pub struct GetDocResponse {
 }
 
 async fn get_gh_token(state: &AppState) -> Result<String, ApiError> {
-    match state.gh_client.get_token().await {
-        Ok(token) => Ok(token),
-        Err(e) => {
-            error!("Failed to retrieve GitHub token: {e}");
-            Err(ApiError::from((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())))
-        }
-    }
+    let token = state
+        .gh_client
+        .get_token()
+        .await?; 
+
+    Ok(token)
 }
 
 /// This handler accepts a `GET` request to `/api/doc?path=`.
@@ -51,7 +50,7 @@ pub async fn get_doc_handler(
             |doc| Ok(Json(GetDocResponse { contents: doc })),
         ),
         Err(e) => {
-            warn!(
+            error!(
                 "Failed to fetch doc with path: {:?}; error: {:?}",
                 query.path, e
             );
@@ -122,19 +121,20 @@ pub async fn delete_doc_handler(
     )
     .await?;
 
-    state
-        .git
-        .delete_doc(
-            &query.path,
-            &format!("{} deleted {}", author.username, query.path),
-            &get_gh_token(&state).await?,
-        )
-        .map_err(|e| {
+    match state.git.delete_doc(
+        &query.path,
+        &format!("{} deleted {}", author.username, query.path),
+        &get_gh_token(&state).await?,
+    ) {
+        Ok(_) => Ok(StatusCode::NO_CONTENT),
+        Err(e) => {
             error!("Failed to delete doc: {:?}", e);
-            ApiError::from((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
-        })?;
-
-    Ok(StatusCode::NO_CONTENT)
+            Err(ApiError::from((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "An error occurred while deleting the document. Please check the server logs.",
+            )))
+        }
+    }
 }
 
 /// This handler reads the document folder and builds a tree style object
