@@ -10,7 +10,7 @@
 	import Toasts from '../lib/components/elements/Toasts.svelte';
 	import { visible } from '$lib/state/page.svelte';
 	import { currentFile, me, editorText, apiAddress } from '$lib/main';
-	import { branchInfo, loadBranchInfo } from '$lib/state/branch.svelte';
+	import { loadBranchInfo } from '$lib/state/branch.svelte';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
 	import SettingsMenu from '$lib/components/topbar/SettingsMenu.svelte';
@@ -21,7 +21,7 @@
 	import MockDirectory from '$lib/components/sidebar/MockDirectory.svelte';
 	import { SelectedMode } from '$lib/main';
 	import AssetEditor from '$lib/components/editors/AssetEditor.svelte';
-	import { assetTree, documentTree, loadSidebarInfo } from '$lib/state/sidebar.svelte';
+	import { documentTree, loadSidebarInfo } from '$lib/state/sidebar.svelte';
 	/** The currently displayed editor (documents, assets)*/
 	let mode = $state(SelectedMode.Documents);
 	// TODO: figure out how to move this out of +page.svelte and into the document editor

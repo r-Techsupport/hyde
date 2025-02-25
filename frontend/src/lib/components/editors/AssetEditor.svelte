@@ -61,6 +61,7 @@
 		}
 	}
 	$effect(() => {
+		// eslint-disable-next-line
 		assetTree;
 		fullScreenImagePath = '';
 	});
@@ -70,6 +71,7 @@
 	// Whenever the list of uploaded files changes, call the handler to write new changes
 	// to the git repo
 	$effect(() => {
+		// eslint-disable-next-line
 		uploadedFiles;
 		fileUploadHandler();
 	});

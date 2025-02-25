@@ -1,7 +1,6 @@
 <!-- The sidebar navigation for the asset editor -->
 <script lang="ts">
 	import { SelectedMode } from '$lib/main';
-	import { type INode } from '$lib/types';
 	import { assetTree } from '$lib/state/sidebar.svelte';
 	let { mode = $bindable(), assetFolderPath = $bindable() } = $props();
 

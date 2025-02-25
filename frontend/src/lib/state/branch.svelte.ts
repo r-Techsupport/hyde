@@ -100,7 +100,5 @@ async function fetchCurrentBranch() {
 }
 
 export async function loadBranchInfo() {
-	await Promise.all([fetchDefaultBranch(),
-	fetchCurrentBranch(),
-	fetchExistingBranches()]);
+	await Promise.all([fetchDefaultBranch(), fetchCurrentBranch(), fetchExistingBranches()]);
 }
