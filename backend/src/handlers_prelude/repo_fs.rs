@@ -11,7 +11,6 @@ use axum::{
 };
 use reqwest::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
-use tracing::error;
 
 use crate::handlers_prelude::ApiError;
 use crate::{perms::Permission, require_perms, AppState};
@@ -41,26 +40,15 @@ pub async fn get_doc_handler(
     State(state): State<AppState>,
     Query(query): Query<GetDocQuery>,
 ) -> Result<Json<GetDocResponse>, ApiError> {
-    match state.git.get_doc(&query.path) {
-        Ok(maybe_doc) => maybe_doc.map_or(
-            Err(ApiError::from((
-                StatusCode::NOT_FOUND,
-                "The file at the provided path was not found.".to_string(),
-            ))),
-            |doc| Ok(Json(GetDocResponse { contents: doc })),
-        ),
-        Err(e) => {
-            error!(
-                "Failed to fetch doc with path: {:?}; error: {:?}",
-                query.path, e
-            );
-            Err(ApiError::from((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Fetch failed, check server logs for more info".to_string(),
-            )))
-        }
-    }
+    let maybe_doc = state.git.get_doc(&query.path)?;
+
+    let doc = maybe_doc.ok_or_else(|| {
+        ApiError::from("The file at the provided path was not found.".to_string())
+    })?;
+
+    Ok(Json(GetDocResponse { contents: doc }))
 }
+
 
 #[derive(Serialize, Deserialize)]
 pub struct PutDocRequestBody {
@@ -90,22 +78,15 @@ pub async fn put_doc_handler(
     // Use the branch name from the request body
     let branch_name = &body.branch_name;
 
-    match state.git.put_doc(
+    state.git.put_doc(
         &body.path,
         &body.contents,
         &final_commit_message,
         &get_gh_token(&state).await?,
         branch_name,
-    ) {
-        Ok(_) => Ok(StatusCode::CREATED),
-        Err(e) => {
-            error!("Failed to complete put_doc call with error: {e:?}");
-            Err(ApiError::from((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to create document, check server logs for more info".to_string(),
-            )))
-        }
-    }
+    )?;
+
+    Ok(StatusCode::CREATED)
 }
 
 /// Deletes the document at the provided path, if the user has perms.
@@ -114,62 +95,37 @@ pub async fn delete_doc_handler(
     headers: HeaderMap,
     Query(query): Query<GetDocQuery>,
 ) -> Result<StatusCode, ApiError> {
-    let author = require_perms(
-        axum::extract::State(&state),
-        headers,
-        &[Permission::ManageContent],
-    )
-    .await?;
+    let author = require_perms(axum::extract::State(&state), headers, &[Permission::ManageContent])
+        .await?;
 
-    match state.git.delete_doc(
+    state.git.delete_doc(
         &query.path,
         &format!("{} deleted {}", author.username, query.path),
         &get_gh_token(&state).await?,
-    ) {
-        Ok(_) => Ok(StatusCode::NO_CONTENT),
-        Err(e) => {
-            error!("Failed to delete doc: {:?}", e);
-            Err(ApiError::from((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "An error occurred while deleting the document. Please check the server logs.",
-            )))
-        }
-    }
+    )?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
+
 
 /// This handler reads the document folder and builds a tree style object
 /// representing the state of the tree. This is used in the viewer for directory navigation.
 pub async fn get_doc_tree_handler(
     State(state): State<AppState>,
 ) -> Result<Json<INode>, ApiError> {
-    match state.git.get_doc_tree() {
-        Ok(t) => Ok(Json(t)),
-        Err(e) => {
-            error!("An error was encountered fetching the document tree: {e:?}");
-            Err(ApiError::from((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "An internal error was encountered fetching the doc tree, check server logs for more info",
-            )))
-        }
-    }
+    let tree = state.git.get_doc_tree()?;
+
+    Ok(Json(tree))
 }
 
 /// This handler reads the assets folder and builds a tree style object
 /// representing the state of the tree. This is used in the viewer for directory navigation.
 pub async fn get_asset_tree_handler(
     State(state): State<AppState>,
-) -> Result<Json<INode>, (StatusCode, &'static str)> {
-    match state.git.get_asset_tree() {
-        Ok(t) => Ok(Json(t)),
-        Err(e) => {
-            error!("An error was encountered fetching the asset tree: {e:?}");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "An internal error was encountered fetching the asset tree, \
-                    check server logs for more info",
-            ))
-        }
-    }
+) -> Result<Json<INode>, ApiError> {
+    let tree = state.git.get_asset_tree()?;
+
+    Ok(Json(tree))
 }
 
 /// This handler fetches an asset from the repo's asset folder
@@ -180,16 +136,13 @@ pub async fn get_asset_handler(
     let file_name = path.last().unwrap().clone();
     let path = path.join("/");
 
-    // Attempt to retrieve the asset, returning an ApiError on failure
-    let file = match state.git.get_asset(&path)? {
-        Some(file) => file,
-        None => {
-            return Err(ApiError::from((
-                StatusCode::NOT_FOUND,
-                format!("File not found: {}", path),
-            )));
-        }
-    };
+    let file = state
+        .git
+        .get_asset(&path)?
+        .ok_or_else(|| ApiError::from((
+            StatusCode::NOT_FOUND,
+            format!("File not found: {}", path),
+        )))?;
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -205,6 +158,7 @@ pub async fn get_asset_handler(
 
     Ok((headers, file))
 }
+
 
 
 /// This handler creates or replaces the asset at the provided path
