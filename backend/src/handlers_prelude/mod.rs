@@ -23,13 +23,13 @@ mod github_handlers;
 pub use github_handlers::*;
 
 use color_eyre::{
-    eyre::{self, Context, ContextCompat},
     Report,
+    eyre::{self, Context, ContextCompat},
 };
 use reqwest::StatusCode;
 use tracing::{debug, error, trace};
 
-use crate::{db::User, perms::Permission, AppState};
+use crate::{AppState, db::User, perms::Permission};
 
 pub struct ApiError(eyre::Error);
 
@@ -91,10 +91,16 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
             let expiration_date = DateTime::parse_from_rfc3339(&user.expiration_date)
                 .wrap_err("Expiration time in database is not a valid time")?;
             if expiration_date < Utc::now() {
-                debug!("User {:?} made a request that requires a valid access token but their access token expired", user.username);
+                debug!(
+                    "User {:?} made a request that requires a valid access token but their access token expired",
+                    user.username
+                );
                 return Ok(Some(FoundUser::ExpiredUser(user)));
             } else {
-                debug!("User {:?} made a request that requires a valid access token and they have a valid access token", user.username);
+                debug!(
+                    "User {:?} made a request that requires a valid access token and they have a valid access token",
+                    user.username
+                );
                 return Ok(Some(FoundUser::User(user)));
             }
         } else {

@@ -11,33 +11,33 @@ mod handlers_prelude;
 pub mod perms;
 
 use axum::{
+    Router,
     extract::MatchedPath,
     http::{HeaderValue, Request},
     response::Response,
-    Router,
 };
 use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
     Parser,
+    builder::{PossibleValuesParser, TypedValueParser},
 };
-use color_eyre::eyre::Context;
 use color_eyre::Result;
+use color_eyre::eyre::Context;
 use db::Database;
 use gh::GitHubClient;
 use handlers_prelude::*;
 use oauth2::{
-    basic::BasicClient, AuthUrl, ClientId, ClientSecret, EndpointNotSet, EndpointSet, TokenUrl,
+    AuthUrl, ClientId, ClientSecret, EndpointNotSet, EndpointSet, TokenUrl, basic::BasicClient,
 };
 use reqwest::{
-    header::{ACCEPT, ALLOW, CONTENT_TYPE},
     Client, Method,
+    header::{ACCEPT, ALLOW, CONTENT_TYPE},
 };
 use std::env::current_exe;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
-use tracing::{debug, info, info_span, warn};
 use tracing::{Level, Span};
+use tracing::{debug, info, info_span, warn};
 
 use crate::app_conf::AppConf;
 use tokio::task;
@@ -118,7 +118,7 @@ async fn main() -> Result<()> {
     // we need to implement our own SIGINT/TERM handlers
     #[cfg(target_family = "unix")]
     {
-        use tokio::signal::unix::{signal, SignalKind};
+        use tokio::signal::unix::{SignalKind, signal};
         use tracing::error;
         debug!("Unix environment detected, starting custom interrupt handler");
         for sig in [SignalKind::interrupt(), SignalKind::terminate()] {

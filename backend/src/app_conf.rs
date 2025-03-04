@@ -1,5 +1,5 @@
-use color_eyre::eyre::ContextCompat;
 use color_eyre::Result;
+use color_eyre::eyre::ContextCompat;
 use serde::Deserialize;
 use std::ffi::OsStr;
 use std::fmt::Debug;
