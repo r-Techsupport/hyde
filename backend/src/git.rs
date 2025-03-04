@@ -1,10 +1,10 @@
 //! Abstractions and interfaces over the git repository
 
-use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail};
+use color_eyre::eyre::{bail, ContextCompat, Result, WrapErr};
 use fs_err as fs;
 use git2::{
-    AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid, Repository, Signature, Status,
-    build::CheckoutBuilder,
+    build::CheckoutBuilder, AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid,
+    Repository, Signature, Status,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -365,7 +365,7 @@ impl Interface {
     /// scenarios, logging the actions taken and returning an error if any operation fails.
     ///
     /// # Arguments
-    /// - `start_point` - The name of the branch to branch off of
+    /// - `parent_branch_name` - The name of the branch to branch off of
     /// - `branch_name` - A string slice that holds the name of the branch to check out or create.
     ///
     /// # Errors
