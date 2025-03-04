@@ -419,11 +419,12 @@ impl Interface {
                     );
 
                     // Now check out the newly created branch
+                    info!("Checking out newly created branch '{}'", branch_name);
                     repo.set_head(&format!("refs/heads/{}", branch_name))
                         .wrap_err_with(|| {
-                            format!("Failed to set head to new branch {}", branch_name)
+                            format!("Failed to set HEAD to new branch {}", branch_name)
                         })?;
-                    info!("Checking out newly created branch '{}'", branch_name);
+                    repo.checkout_head(None)?;
                 }
             }
         }
