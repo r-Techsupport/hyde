@@ -1,18 +1,19 @@
 use axum::routing::{delete, get, put};
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::HeaderMap,
-    Json, Router,
 };
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{
+    AppState,
     db::{Database, Group},
     eyre_to_axum_err,
     perms::Permission,
-    require_perms, AppState,
+    require_perms,
 };
 
 #[derive(Debug, Deserialize, Serialize)]

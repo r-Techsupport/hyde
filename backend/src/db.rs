@@ -1,7 +1,7 @@
 //! Database specific interfaces and abstractions
 
 use crate::perms::Permission;
-use color_eyre::{eyre::bail, Result};
+use color_eyre::{Result, eyre::bail};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tracing::debug;
@@ -759,7 +759,10 @@ mod tests {
             permission_added,
             "add_group_permission: returns true when the permission has been added"
         );
-        assert!(has_manage_content2, "add_group_permission: works, group_has_permission: should return true if the group does have the permission");
+        assert!(
+            has_manage_content2,
+            "add_group_permission: works, group_has_permission: should return true if the group does have the permission"
+        );
         let permissions2 = mock_db.get_group_permissions(group1.id).await.unwrap();
         assert_eq!(
             permissions2,

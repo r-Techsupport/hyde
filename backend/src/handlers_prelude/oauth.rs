@@ -1,9 +1,9 @@
 use axum::routing::get;
 use axum::{
+    Router,
     extract::{Query, Request, State},
     http::{HeaderMap, StatusCode},
     response::Redirect,
-    Router,
 };
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat};
@@ -11,7 +11,7 @@ use oauth2::{AuthorizationCode, CsrfToken, RedirectUrl, TokenResponse};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use crate::{db::User, AppState};
+use crate::{AppState, db::User};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetOAuthQuery {
@@ -162,7 +162,9 @@ async fn get_oath_processor(
                 .db
                 .add_group_membership(admin_group.id, admin_user.id)
                 .await?;
-            info!("User {admin_username:?} was automatically added to the admin group based off of the server config");
+            info!(
+                "User {admin_username:?} was automatically added to the admin group based off of the server config"
+            );
         }
     }
 

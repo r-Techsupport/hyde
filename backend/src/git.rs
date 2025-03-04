@@ -141,7 +141,7 @@ impl Interface {
     ) -> Result<()> {
         // TODO: refactoring hopefully means that all paths can just assume that it's relative to
         // Step 1: Checkout or create the branch
-        self.checkout_or_create_branch(branch)?;
+        self.checkout_or_create_branch("master", branch)?;
         // the root of the repo
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
@@ -253,9 +253,6 @@ impl Interface {
     /// # Errors
     /// This function will return an error if filesystem operations fail, or if any of the git
     /// operations fail.
-    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
-    // but when applied, it creates errors that note the destructor for other values failing
-    // because of it (tree)
     pub fn delete_asset<P: AsRef<Path> + Copy>(
         &self,
         path: P,
@@ -360,13 +357,15 @@ impl Interface {
         Ok(())
     }
 
-    /// Checks out an existing branch or creates a new branch based on the given name.
+    /// Checks out an existing branch or creates a new branch based on the given name, branching
+    /// off of the provided parent branch. The provided parent branch must exist locally.
     ///
     /// This function attempts to switch to a branch specified by `branch_name`. If the branch
     /// does not exist, it creates a new branch at the current HEAD commit. It handles both
     /// scenarios, logging the actions taken and returning an error if any operation fails.
     ///
     /// # Arguments
+    /// - `parent_branch_name` - The name of the branch to branch off of
     /// - `branch_name` - A string slice that holds the name of the branch to check out or create.
     ///
     /// # Errors
@@ -376,7 +375,11 @@ impl Interface {
     /// - The HEAD cannot be set to the specified branch.
     #[allow(clippy::significant_drop_tightening)]
     #[allow(clippy::cognitive_complexity)]
-    pub fn checkout_or_create_branch(&self, branch_name: &str) -> Result<()> {
+    pub fn checkout_or_create_branch(
+        &self,
+        parent_branch_name: &str,
+        branch_name: &str,
+    ) -> Result<()> {
         debug!("Attempting to checkout or create branch: {}", branch_name);
 
         // Lock the repository
@@ -384,14 +387,16 @@ impl Interface {
 
         // Use the repo within this scope
         {
-            // Get the current head reference
-            let head = repo.head().wrap_err("Failed to get the head reference")?;
+            let parent_branch = repo
+                .find_branch(parent_branch_name, BranchType::Local)
+                .wrap_err("Failed to locate the parent branch")?;
+            repo.set_head(&format!("refs/heads/{}", parent_branch_name))?;
 
-            // Peel the head to get the commit
-            let commit = head
-                .peel_to_commit()
-                .wrap_err("Failed to peel the head to commit")?;
-            debug!("Current commit for head: {:?}", commit.id());
+            repo.reset(
+                &parent_branch.get().peel(git2::ObjectType::Commit)?,
+                git2::ResetType::Hard,
+                None,
+            )?;
 
             // Check if the branch already exists
             match repo.find_branch(branch_name, BranchType::Local) {
@@ -413,19 +418,20 @@ impl Interface {
                         branch_name
                     );
                     // If the branch does not exist, create it
-                    repo.branch(branch_name, &commit, false)
+                    repo.branch(branch_name, &parent_branch.get().peel_to_commit()?, false)
                         .wrap_err_with(|| format!("Failed to create branch {}", branch_name))?;
                     info!(
-                        "Successfully created new branch '{}'. Now checking it out...",
-                        branch_name
+                        "Successfully created new branch '{}' off of '{}'",
+                        branch_name, parent_branch_name
                     );
 
                     // Now check out the newly created branch
+                    info!("Checking out newly created branch '{}'", branch_name);
                     repo.set_head(&format!("refs/heads/{}", branch_name))
                         .wrap_err_with(|| {
-                            format!("Failed to set head to new branch {}", branch_name)
+                            format!("Failed to set HEAD to new branch {}", branch_name)
                         })?;
-                    info!("Checked out to newly created branch '{}'", branch_name);
+                    repo.checkout_head(None)?;
                 }
             }
         }
@@ -819,7 +825,11 @@ impl Interface {
         // A git index (or staging area) is where changes are written before they're committed.
         let mut idx = repo.merge_trees(&ancestor, &source_tree, &destination_tree, None)?;
         if idx.has_conflicts() {
-            bail!("Unable to merge changes from {:?} into {:?} because there are merge conflicts and method is currently implemented to handle merge conflicts.", source.refname().unwrap(), destination.refname().unwrap());
+            bail!(
+                "Unable to merge changes from {:?} into {:?} because there are merge conflicts and method is currently implemented to handle merge conflicts.",
+                source.refname().unwrap(),
+                destination.refname().unwrap()
+            );
         }
         // Write the changes to disk, then create and attach a merge commit to that tree then update the working tree to the latest commit.
         let result_tree = repo.find_tree(idx.write_tree()?)?;

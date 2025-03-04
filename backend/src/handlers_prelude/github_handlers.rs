@@ -1,10 +1,10 @@
-use crate::handlers_prelude::ApiError;
 use crate::AppState;
+use crate::handlers_prelude::ApiError;
 use axum::routing::{get, post, put};
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
-    Json, Router,
 };
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -121,9 +121,8 @@ pub async fn update_pull_request_handler(
         )
         .await?;
 
-        info!("Pull request #{} updated successfully", payload.pr_number);
-        Ok((StatusCode::OK, Json(updated_pr_url)))
-        
+    info!("Pull request #{} updated successfully", payload.pr_number);
+    Ok((StatusCode::OK, Json(updated_pr_url)))
 }
 
 /// Handler to close a pull request.
@@ -132,10 +131,7 @@ pub async fn close_pull_request_handler(
     Path(pr_number): Path<u64>,
 ) -> Result<(StatusCode, Json<String>), ApiError> {
     // Attempt to close the pull request
-    state
-        .gh_client
-        .close_pull_request(pr_number)
-        .await?;
+    state.gh_client.close_pull_request(pr_number).await?;
 
     info!("Pull request #{} closed successfully", pr_number);
     Ok((
@@ -151,7 +147,7 @@ pub async fn checkout_or_create_branch_handler(
 ) -> Result<(StatusCode, String), ApiError> {
     state
         .git
-        .checkout_or_create_branch(&branch_name)?;
+        .checkout_or_create_branch("master", &branch_name)?;
 
     info!("Successfully checked out/created branch: {}", branch_name);
     Ok((
@@ -165,9 +161,7 @@ pub async fn pull_handler(
     State(state): State<AppState>,
     Path(branch): Path<String>,
 ) -> Result<(StatusCode, Json<String>), ApiError> {
-    state
-        .git
-        .git_pull_branch(&branch)?;
+    state.git.git_pull_branch(&branch)?;
 
     info!("Repository pulled successfully for branch '{}'.", branch);
     Ok((
@@ -184,10 +178,7 @@ pub async fn get_current_branch_handler(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<String>), ApiError> {
     // Use the git::Interface from AppState to get the current branch
-    let branch_name = state
-        .git
-        .get_current_branch()
-        .await?;
+    let branch_name = state.git.get_current_branch().await?;
 
     info!("Current branch is: {}", branch_name);
     Ok((StatusCode::OK, Json(branch_name)))
@@ -197,10 +188,7 @@ pub async fn get_current_branch_handler(
 pub async fn get_default_branch_handler(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<String>), ApiError> {
-    let default_branch = state
-        .gh_client
-        .get_default_branch()
-        .await?;
+    let default_branch = state.gh_client.get_default_branch().await?;
 
     info!("Default branch is: {}", default_branch);
     Ok((StatusCode::OK, Json(default_branch)))

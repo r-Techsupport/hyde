@@ -1,13 +1,13 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
 use chrono::DateTime;
-use color_eyre::eyre::{bail, Context};
 use color_eyre::Result;
+use color_eyre::eyre::{Context, bail};
 use fs_err as fs;
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::io::Read;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
