@@ -1,16 +1,16 @@
 # builder base image
-FROM alpine:latest AS builder
+FROM rust:1.85-alpine3.21 AS builder
 
 # add required packages
 RUN apk add --no-cache \
-    cargo npm pkgconfig openssl-dev
+     npm pkgconfig openssl-dev openssl-libs-static zlib build-base
 
 # create the app directory and copy in source
 RUN mkdir -p /app/target/web
 COPY frontend/ /app/frontend
 COPY backend/ /app/backend
 
-# build the npm frontend
+# build the svelte frontend
 WORKDIR /app/frontend
 RUN npm i; npm run build
 RUN cp -r /app/frontend/build/* /app/target/web/
