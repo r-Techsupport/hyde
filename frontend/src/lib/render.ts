@@ -5,9 +5,8 @@
 import { Renderer, marked, type TokensList } from 'marked';
 import DOMPurify from 'dompurify';
 import { ToastType, addToast, dismissToast } from './toast';
-import { dev } from '$app/environment';
 import { get } from 'svelte/store';
-import { currentFile } from './main';
+import { currentFile, apiAddress } from './main';
 
 /**
  * When the rendered file is missing a valid frontmatter header, then an error toast is displayed.
@@ -28,16 +27,15 @@ export async function renderMarkdown(input: string, output: HTMLElement): Promis
 	const rawTokens: TokensList = marked.lexer(input);
 	stripFrontMatter(rawTokens);
 	// rewrite image urls to point to the correct location
-	if (dev) {
-		marked.walkTokens(rawTokens, (t) => {
-			if (t.type !== 'image') {
-				return;
-			}
-			if (t.href.startsWith('/')) {
-				t.href = 'http://localhost:8080' + t.href;
-			}
-		});
-	}
+	marked.walkTokens(rawTokens, (t) => {
+		if (t.type !== 'image') {
+			return;
+		}
+		t.href = t.href.replace(/^(?:\.\.\/)+/, '/');
+		if (t.href.startsWith('/')) {
+			t.href = apiAddress + t.href;
+		}
+	});
 	const cleanedOutput: string = DOMPurify.sanitize(await marked.parser(rawTokens));
 	if (DOMPurify.removed.length > 0) {
 		console.warn('Possible XSS detected, modified output: ', DOMPurify.removed);
