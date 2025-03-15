@@ -44,8 +44,7 @@ jobs:
           flavor: latest=auto
           tags: |
             type=sha,enable=true,priority=100,prefix=,suffix=,format=long
-            type=raw,value=devel,enable=${{ github.ref != format('refs/heads/{0}', 'main') }}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=true
 
       - name: Build and push Docker image
         id: push
