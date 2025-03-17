@@ -13,7 +13,7 @@ rust-version = "1.85.0"
 [dependencies]
 axum = { version = "0.8.1", features = ["http2", "macros"] }
 chrono = "0.4.40"
-clap = { version = "4.5.31", features = ["derive"] }
+clap = { version = "4.5.32", features = ["derive"] }
 color-eyre = "0.6.3"
 dotenvy = "0.15.7"
 fs-err = { version = "3.1.0", features = ["tokio"] }
