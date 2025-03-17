@@ -205,10 +205,7 @@ async fn start_server(state: AppState, cli_args: Args) -> Result<()> {
         })
         .with_state(state)
         // Serve the assets folder from the repo
-        .nest_service(
-            "/assets",
-            ServeDir::new(format!("repo/{asset_path}")),
-        )
+        .nest_service("/assets", ServeDir::new(format!("repo/{asset_path}")))
         // Serve the frontend files
         .fallback_service(
             ServeDir::new(frontend_dir)

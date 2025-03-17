@@ -39,7 +39,7 @@ If you're running hyde via local development, place `hyde-data` folder inside `b
 
 Hyde expects:
 
-- `hyde-data/config.toml` file with all configuration options. `./default.toml` is the example config file, copy it to `hyde-data/config.toml`.
+- `hyde-data/config.toml` file with all configuration options. `./config.example.toml` is the example config file, copy it to `hyde-data/config.toml`.
 Hyde will accept any `.toml` file in that directory, but `config.toml` is a good choice.
 - `hyde-data/key.pem`, the private key linked to your Github Application deployment.
 - `hyde-data/data.db` - If not created, this file will be automatically created and stores permissions and user account info.
