@@ -38,10 +38,10 @@
 		// If it's a directory, hide and show children
 		if (children.length > 0) {
 			open = !open;
-			console.log(`Clicked directory with path: "${path}"`);
+			// console.log(`Clicked directory with path: "${path}"`);
 		} else {
 			fileSelectHandler!(path);
-			console.log(`Clicked file with path: "${path}"`);
+			// console.log(`Clicked file with path: "${path}"`);
 		}
 	}
 
@@ -70,7 +70,7 @@
 		}
 		if (siblings !== undefined) {
 			const entryToRemove = siblings.findIndex((n) => n.name === name);
-			console.log(siblings.splice(entryToRemove, 1));
+			siblings.splice(entryToRemove, 1);
 		}
 		const r = await fetch(`${apiAddress}/api/doc?path=${path}`, {
 			method: 'DELETE',
