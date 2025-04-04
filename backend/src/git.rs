@@ -1,10 +1,10 @@
 //! Abstractions and interfaces over the git repository
 
-use color_eyre::eyre::{bail, ContextCompat, Result, WrapErr};
+use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail};
 use fs_err as fs;
 use git2::{
-    build::CheckoutBuilder, AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid,
-    Repository, Signature, Status,
+    AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid, Repository, Signature, Status,
+    build::CheckoutBuilder,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -706,14 +706,12 @@ impl Interface {
         Ok(())
     }
 
-    /// A Rust implementation of `git fetch` that synchronizes the local repository with the remote.
-    ///
-    /// This function mimics the behavior of `git fetch`, which fetches changes from a remote repository
+    /// Mimics the behavior of `git fetch`, which fetches changes from a remote repository
     /// (typically `origin`) and updates the local references (e.g., `origin/[BRANCH]`), but does not
     /// merge those changes into the current working branch.
     ///
-    /// The function can either fetch all branches from the remote repository or just a specific branch
-    /// if a branch name is provided. It also ensures that tags are fetched automatically along with the branches.
+    /// This function will either fetch all branches from the remote repository (if no branch is provided)
+    /// or the provided branch. It also ensures that tags are fetched automatically along with the branches.
     ///
     /// After fetching, the function returns a reference to the latest commit fetched from the remote,
     /// corresponding to the `FETCH_HEAD` reference, which points to the fetched commit.
