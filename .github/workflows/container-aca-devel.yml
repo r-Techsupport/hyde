@@ -2,8 +2,8 @@ name: Build image and push to ACA
 
 on:
   push:
-    tags:
-      - "*"
+    branches:
+      - main
   workflow_dispatch:
 
 env:
@@ -44,8 +44,7 @@ jobs:
           flavor: latest=auto
           tags: |
             type=sha,enable=true,priority=100,prefix=,suffix=,format=long
-            type=raw,value=devel,enable=${{ github.ref != format('refs/heads/{0}', 'main') }}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=devel,enable=true
 
       - name: Build and push Docker image
         id: push
@@ -85,8 +84,8 @@ jobs:
       runs-on: ubuntu-latest
       needs: image-builder
       env:
-        RESOURCE_GROUP: rts-infra
-        CONTAINER_APP: hyde
+        RESOURCE_GROUP: hyde-dev-group
+        CONTAINER_APP: hyde-dev-container
 
       steps:
       - name: Azure login
