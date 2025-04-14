@@ -74,8 +74,7 @@ async function fetchDefaultBranch() {
 	const response = await fetch(`${apiAddress}/api/repos/default-branch`);
 
 	if (response.ok) {
-		const data = await response.json();
-		const defaultBranch = data.data;
+		const defaultBranch = await response.json();
 
 		// Set the default branch to the baseBranch store
 		branchInfo.base = defaultBranch;
