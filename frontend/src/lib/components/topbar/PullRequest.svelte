@@ -92,7 +92,6 @@
 
 		const selectedIssueNumbers = selectedIssues.map((issue: Issue) => issue.number);
 		showLoadingIcon = true;
-
 		const response = await fetch(`${apiAddress}/api/pulls`, {
 			method: 'POST',
 			credentials: 'include',
