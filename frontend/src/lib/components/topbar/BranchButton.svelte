@@ -64,12 +64,6 @@
 		newBranchName = '';
 		showMenu = false;
 
-		if (!branchInfo.list.some((branch) => branch.name === input)) {
-			addToast(`Now working on a new branch: "${input}".`, ToastType.Success, true, 1800);
-			showLoadingIcon = false;
-			return;
-		}
-
 		// Call backend to update working directory by checking out the branch
 		const response = await fetch(`${apiAddress}/api/checkout/branches/${input}`, {
 			method: 'PUT',
@@ -85,24 +79,27 @@
 			return;
 		}
 
-		// After checking out, call the pull endpoint
-		const pullResponse = await fetch(`${apiAddress}/api/pull/${input}`, {
-			method: 'POST',
-			credentials: 'include'
-		});
+		if (branchInfo.list.some((branch) => branch.name === input)) {
+			// After checking out, call the pull endpoint
+			const pullResponse = await fetch(`${apiAddress}/api/pull/${input}`, {
+				method: 'POST',
+				credentials: 'include'
+			});
 
-		if (pullResponse.ok) {
-			addToast(
-				`Branch "${input}" checked out and updated successfully.`,
-				ToastType.Success,
-				true,
-				1200
-			);
-		} else {
-			addToast(`Failed to pull latest changes for branch "${input}".`, ToastType.Error);
-			showLoadingIcon = false;
-			return;
+			if (pullResponse.ok) {
+				addToast(
+					`Branch "${input}" checked out and updated successfully.`,
+					ToastType.Success,
+					true,
+					1200
+				);
+			} else {
+				addToast(`Failed to pull latest changes for branch "${input}".`, ToastType.Error);
+				showLoadingIcon = false;
+				return;
+			}
 		}
+
 		// Fetch the updated document tree after pulling changes
 		const treeResponse = await fetch(`${apiAddress}/api/tree/doc`, {
 			method: 'GET',
@@ -148,6 +145,9 @@
 			);
 		}
 		showLoadingIcon = false;
+		if (!branchInfo.list.some((branch) => branch.name === input)) {
+			addToast(`Now working on a new branch: "${input}".`, ToastType.Success, true, 1800);
+		}
 	}
 
 	function toggleMenu() {
