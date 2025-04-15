@@ -358,7 +358,7 @@
 													{/if}
 												</button>
 											{:else}
-											<p>{issue.body ?? 'No description'}</p>
+												<p>{issue.body ?? 'No description'}</p>
 											{/if}
 										</div>
 									</div>
