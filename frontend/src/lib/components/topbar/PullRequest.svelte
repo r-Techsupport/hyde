@@ -254,7 +254,8 @@
 				});
 				prCommit = pr.body.replace(/Closes\s+#?\d+/g, '').trim();
 				selectedPullRequest = pr.number;
-				break;
+				showLoadingIcon = false;
+				return;
 			}
 		}
 		showLoadingIcon = false;
