@@ -83,6 +83,7 @@
 		const pullRequestsOnly = issues.filter((issue: Issue) => issue.pull_request);
 		openIssues = issuesOnly;
 		openPullRequests = pullRequestsOnly;
+		console.log(openIssues)
 	}
 
 	async function createPullRequest(): Promise<void> {
@@ -307,7 +308,7 @@
 				</button>
 				<div>
 					<!-- Checkbox Group -->
-					<ul>
+					<ul class="issue-list">
 						{#each openIssues as issue}
 							<li>
 								<div class="issues">
@@ -342,7 +343,7 @@
 										</label>
 										<!-- Display Issue Body with Show More/Show Less -->
 										<div class="issue-body">
-											{#if issue.body.length > 200}
+											{#if (issue.body ?? '').length > 200}
 												<p>
 													{#if !isExpanded[issue.id]}
 														{issue.body.slice(0, 200)}...
@@ -358,7 +359,7 @@
 													{/if}
 												</button>
 											{:else}
-												<p>{issue.body}</p>
+											<p>{issue.body ?? 'No description'}</p>
 											{/if}
 										</div>
 									</div>
@@ -462,7 +463,7 @@
 	.issues {
 		display: flex;
 		align-items: flex-start;
-		gap: 0.15rem;
+		gap: .15rem;
 		margin-left: -2.75rem;
 	}
 
@@ -524,6 +525,10 @@
 		margin: 0;
 	}
 
+	.issue-list {
+		max-height: none;
+		overflow-y: visible;
+	}
 	.show-more-button {
 		font-size: 0.6rem;
 		padding: 0.1rem 0.3rem;
