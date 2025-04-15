@@ -83,7 +83,6 @@
 		const pullRequestsOnly = issues.filter((issue: Issue) => issue.pull_request);
 		openIssues = issuesOnly;
 		openPullRequests = pullRequestsOnly;
-		console.log(openIssues)
 	}
 
 	async function createPullRequest(): Promise<void> {
@@ -308,7 +307,7 @@
 				</button>
 				<div>
 					<!-- Checkbox Group -->
-					<ul class="issue-list">
+					<ul>
 						{#each openIssues as issue}
 							<li>
 								<div class="issues">
@@ -463,7 +462,7 @@
 	.issues {
 		display: flex;
 		align-items: flex-start;
-		gap: .15rem;
+		gap: 0.15rem;
 		margin-left: -2.75rem;
 	}
 
@@ -525,10 +524,6 @@
 		margin: 0;
 	}
 
-	.issue-list {
-		max-height: none;
-		overflow-y: visible;
-	}
 	.show-more-button {
 		font-size: 0.6rem;
 		padding: 0.1rem 0.3rem;
