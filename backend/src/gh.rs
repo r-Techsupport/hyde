@@ -519,7 +519,7 @@ impl GitHubClient {
 
         let issue_state = state.unwrap_or("open");
         let token = self.get_token().await?;
-        let mut query_params = vec![format!("state={}", issue_state)];
+        let mut query_params = vec![format!("state={}", issue_state), format!("per_page=100"),];
         if let Some(labels) = labels {
             query_params.push(format!("labels={}", labels));
         }

@@ -254,7 +254,8 @@
 				});
 				prCommit = pr.body.replace(/Closes\s+#?\d+/g, '').trim();
 				selectedPullRequest = pr.number;
-				break;
+				showLoadingIcon = false;
+				return;
 			}
 		}
 		showLoadingIcon = false;
@@ -342,7 +343,7 @@
 										</label>
 										<!-- Display Issue Body with Show More/Show Less -->
 										<div class="issue-body">
-											{#if issue.body.length > 200}
+											{#if (issue.body ?? '').length > 200}
 												<p>
 													{#if !isExpanded[issue.id]}
 														{issue.body.slice(0, 200)}...
@@ -358,7 +359,7 @@
 													{/if}
 												</button>
 											{:else}
-												<p>{issue.body}</p>
+												<p>{issue.body ?? 'No description'}</p>
 											{/if}
 										</div>
 									</div>
