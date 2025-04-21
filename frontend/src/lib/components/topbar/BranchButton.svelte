@@ -65,10 +65,10 @@
 		showMenu = false;
 
 		const toastId = addToast(
-					`Checking out new branch, this may take a while...`,
-					ToastType.Info,
-					false
-				);
+			`Checking out new branch, this may take a while...`,
+			ToastType.Info,
+			false
+		);
 
 		// Call backend to update working directory by checking out the branch
 		const response = await fetch(`${apiAddress}/api/checkout/branches/${input}`, {
