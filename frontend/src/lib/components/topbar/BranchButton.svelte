@@ -1,7 +1,7 @@
 <!-- BranchButton.svelte -->
 <script lang="ts">
 	import { currentFile, editorText, apiAddress } from '$lib/main';
-	import { ToastType, addToast } from '$lib/toast';
+	import { ToastType, addToast, dismissToast } from '$lib/toast';
 	import { cache } from '$lib/cache';
 	import { branchInfo } from '$lib/state/branch.svelte';
 	import LoadingIcon from '../elements/LoadingIcon.svelte';
@@ -64,6 +64,12 @@
 		newBranchName = '';
 		showMenu = false;
 
+		const toastId = addToast(
+					`Checking out new branch, this may take a while...`,
+					ToastType.Info,
+					false
+				);
+
 		// Call backend to update working directory by checking out the branch
 		const response = await fetch(`${apiAddress}/api/checkout/branches/${input}`, {
 			method: 'PUT',
@@ -71,11 +77,12 @@
 		});
 
 		if (!response.ok) {
+			dismissToast(toastId);
+			showLoadingIcon = false;
 			addToast(
 				`Failed to check out branch. Error ${response.status}: ${response.statusText}`,
 				ToastType.Error
 			);
-			showLoadingIcon = false;
 			return;
 		}
 
@@ -87,6 +94,7 @@
 			});
 
 			if (pullResponse.ok) {
+				dismissToast(toastId);
 				addToast(
 					`Branch "${input}" checked out and updated successfully.`,
 					ToastType.Success,
@@ -94,8 +102,9 @@
 					1200
 				);
 			} else {
-				addToast(`Failed to pull latest changes for branch "${input}".`, ToastType.Error);
+				dismissToast(toastId);
 				showLoadingIcon = false;
+				addToast(`Failed to pull latest changes for branch "${input}".`, ToastType.Error);
 				return;
 			}
 		}
@@ -144,6 +153,7 @@
 				treeResponse.statusText
 			);
 		}
+		dismissToast(toastId);
 		showLoadingIcon = false;
 		if (!branchInfo.list.some((branch) => branch.name === input)) {
 			addToast(`Now working on a new branch: "${input}".`, ToastType.Success, true, 1800);
