@@ -389,10 +389,7 @@ impl Interface {
         {
             let parent_branch = repo
                 .find_branch(parent_branch_name, BranchType::Local)
-                .wrap_err("Failed to locate the parent branch")?;
-            // repo.set_head(&format!("refs/heads/{}", parent_branch_name))?;
-
-            
+                .wrap_err("Failed to locate the parent branch")?;        
 
             // Check if the branch already exists
             match repo.find_branch(branch_name, BranchType::Local) {
