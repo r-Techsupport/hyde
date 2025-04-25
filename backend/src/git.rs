@@ -387,10 +387,6 @@ impl Interface {
 
         // Use the repo within this scope
         {
-            let parent_branch = repo
-                .find_branch(parent_branch_name, BranchType::Local)
-                .wrap_err("Failed to locate the parent branch")?;        
-
             // Check if the branch already exists
             match repo.find_branch(branch_name, BranchType::Local) {
                 Ok(_branch) => {
@@ -411,8 +407,7 @@ impl Interface {
                         branch_name
                     );
                     // If the branch does not exist, create it
-                    repo.branch(branch_name, &parent_branch.get().peel_to_commit()?, false)
-                        .wrap_err_with(|| format!("Failed to create branch {}", branch_name))?;
+                    repo.branch(branch_name, &repo.find_reference(&format!("refs/remotes/origin/{}", parent_branch_name))?.peel_to_commit()?, false).wrap_err_with(|| format!("Failed to create branch {}", branch_name))?;
                     info!(
                         "Successfully created new branch '{}' off of '{}'",
                         branch_name, parent_branch_name
@@ -424,11 +419,6 @@ impl Interface {
                         .wrap_err_with(|| {
                             format!("Failed to set HEAD to new branch {}", branch_name)
                         })?;
-                    repo.reset(
-                        &parent_branch.get().peel(git2::ObjectType::Commit)?,
-                        git2::ResetType::Hard,
-                        None,
-                    )?;
                     repo.checkout_head(None)?;
                 }
             }
