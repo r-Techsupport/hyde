@@ -140,8 +140,6 @@ impl Interface {
         branch: &str, // Pass the branch name here
     ) -> Result<()> {
         // TODO: refactoring hopefully means that all paths can just assume that it's relative to
-        // Step 1: Checkout or create the branch
-        self.checkout_or_create_branch("master", branch)?;
         // the root of the repo
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
