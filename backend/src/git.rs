@@ -413,7 +413,7 @@ impl Interface {
                         branch_name, parent_branch_name
                     );
                     repo.reset(
-                        &parent_commit.as_object(),
+                        parent_commit.as_object(),
                         git2::ResetType::Hard,
                         None,
                     )?;
