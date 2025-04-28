@@ -140,8 +140,6 @@ impl Interface {
         branch: &str, // Pass the branch name here
     ) -> Result<()> {
         // TODO: refactoring hopefully means that all paths can just assume that it's relative to
-        // Step 1: Checkout or create the branch
-        self.checkout_or_create_branch("master", branch)?;
         // the root of the repo
         let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
@@ -387,17 +385,6 @@ impl Interface {
 
         // Use the repo within this scope
         {
-            let parent_branch = repo
-                .find_branch(parent_branch_name, BranchType::Local)
-                .wrap_err("Failed to locate the parent branch")?;
-            repo.set_head(&format!("refs/heads/{}", parent_branch_name))?;
-
-            repo.reset(
-                &parent_branch.get().peel(git2::ObjectType::Commit)?,
-                git2::ResetType::Hard,
-                None,
-            )?;
-
             // Check if the branch already exists
             match repo.find_branch(branch_name, BranchType::Local) {
                 Ok(_branch) => {
@@ -417,13 +404,19 @@ impl Interface {
                         "Branch '{}' does not exist. Creating new branch...",
                         branch_name
                     );
+                    let parent_ref = repo.find_reference(&format!("refs/remotes/origin/{}", parent_branch_name))?;
+                    let parent_commit = parent_ref.peel_to_commit()?;
                     // If the branch does not exist, create it
-                    repo.branch(branch_name, &parent_branch.get().peel_to_commit()?, false)
-                        .wrap_err_with(|| format!("Failed to create branch {}", branch_name))?;
+                    repo.branch(branch_name, &parent_commit, false).wrap_err_with(|| format!("Failed to create branch {}", branch_name))?;
                     info!(
                         "Successfully created new branch '{}' off of '{}'",
                         branch_name, parent_branch_name
                     );
+                    repo.reset(
+                        parent_commit.as_object(),
+                        git2::ResetType::Hard,
+                        None,
+                    )?;
 
                     // Now check out the newly created branch
                     info!("Checking out newly created branch '{}'", branch_name);
