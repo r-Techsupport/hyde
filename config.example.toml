@@ -31,7 +31,6 @@ client_id = "aBc123DEf456"
 
 # Database for anything database related Hyde will utilise.
 [database]
-# This is used for the sqlx tooling/compile checking, but is not directly used
-# in the code right now. This should be set to the path of the database relative
-# to the backend folder
-url = "sqlite://../hyde-data/data.db"
+# This should be set to the path of the database relative
+# the executable
+url = "file:hyde-data/data.db?mode=rwc"

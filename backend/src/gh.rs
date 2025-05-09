@@ -1,4 +1,4 @@
-//! Code for interacting with GitHub (authentication, prs, et cetera)
+//! Code for interacting with GitHub (authentication, pull requests, et cetera)
 
 use chrono::DateTime;
 use color_eyre::Result;
@@ -619,7 +619,7 @@ impl GitHubClient {
     }
 }
 
-/// In order to authenticate as a github app or generate an installation access token, you must generate a JSON Web Token (JWT). The JWT must contain predefined *claims*.
+/// In order to authenticate as a Github app or generate an installation access token, you must generate a JSON Web Token (JWT). The JWT must contain predefined *claims*.
 ///
 /// <https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-json-web-token-jwt-for-a-github-app#about-json-web-tokens-jwts>
 /// <https://docs.rs/jsonwebtoken/latest/jsonwebtoken/fn.encode.html>

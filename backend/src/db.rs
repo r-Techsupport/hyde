@@ -50,6 +50,8 @@ pub struct Database {
 impl Database {
     /// Create or connect to the database located at `DATABASE_URL`.
     pub async fn new() -> Result<Self> {
+        // `?mode=rwc` means open the database with read and write permissions, and create a new database
+        // file if one doesn't exist
         let pool = SqlitePool::connect(DATABASE_URL).await?;
 
         debug!("Running SQL migrations...");
