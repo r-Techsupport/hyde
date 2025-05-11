@@ -271,10 +271,10 @@ impl Interface {
     }
 
     /// A code level re-implementation of `git add`.
-    //#[tracing::instrument(skip(repo), err)]
     pub fn git_add<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<()> {
         let repo = self.repo.lock().unwrap();
         let mut index = repo.index()?;
+
         let callback = &mut |path: &Path, _matched_spec: &[u8]| -> i32 {
             debug!("Processing file: {path:?}");
             let status = repo.status_file(path).unwrap();
@@ -299,6 +299,7 @@ impl Interface {
         info!("Updating the index for {path:?}");
         index.update_all([path.as_ref()], Some(callback))?;
         index.write()?;
+        drop(repo);
         Ok(())
     }
 
@@ -401,33 +402,35 @@ impl Interface {
         Ok(repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?)
     }
 
-    /// Pushes commits to a specified branch on a remote repository, or pushes all branches if no branch name is provided.
+    /// Pushes the specified branch—or the current branch if none is specified—to the remote repository.
     ///
-    /// This function mimics the behavior of `git push`, allowing you to push changes from a local repository to a remote repository.
-    /// You can specify a particular branch to push to, or if no branch name is provided, the current branch will be pushed.
-    ///
-    /// The function authenticates using the provided token and pushes the specified branch (or the current branch) to the remote repository.
+    /// This function behaves like `git push`, sending local commits to the `origin` remote using the
+    /// provided personal access token for authentication.
     ///
     /// # Arguments
-    /// - `repo`: A reference to the local `Repository` object from which to push commits.
-    /// - `repo_url`: The URL of the remote repository to push to. This URL must be in the format `https://<hostname>/<user>/<repo>`.
-    /// - `branch_name`: An optional string specifying the name of the branch to push. If `None`, the current branch will be pushed.
-    /// - `token`: The authentication token to use for pushing to the remote repository. This token will be injected into the URL for authentication.
+    /// - `branch_name`: An optional branch name to push. If `None`, the currently checked-out branch is used.
+    /// - `token`: A GitHub access token used for HTTPS authentication.
     ///
     /// # Returns
-    /// - `Result<()>`: A `Result` indicating success or failure of the push operation. Returns `Ok(())` on success, or an error if something goes wrong.
-    ///   
+    /// Returns `Ok(())` if the push operation succeeds, or an error if it fails.
+    ///
     /// # Errors
-    /// - The function may return errors if the push fails, such as authentication errors, network issues, or problems with the remote repository.
+    /// This function may return an error if:
+    /// - The remote cannot be found or accessed.
+    /// - Authentication fails.
+    /// - The push operation is rejected (e.g., due to branch protection).
+    /// - A Git operation (e.g., resolving the current branch) fails.
+    #[allow(clippy::significant_drop_tightening)]
     pub fn git_push(
         &self,
         branch_name: Option<&str>,
         token: &str,
     ) -> Result<()> {
-        let repo = self.repo.lock().unwrap();
         let repo_url = &self.repo_url;
         let authenticated_url =
             repo_url.replace("https://", &format!("https://x-access-token:{token}@"));
+            
+        let repo = self.repo.lock().unwrap();
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
 
         let mut remote = repo.find_remote("origin")?;
@@ -435,18 +438,15 @@ impl Interface {
 
         match branch_name {
             Some(branch) => {
-                // Push only the specified branch
                 remote.push(
                     &[&format!("refs/heads/{}:refs/heads/{}", branch, branch)],
                     None,
                 )?;
             }
             None => {
-                // Get the current branch name
-                let head = repo.head()?; // Bind to a variable to avoid temporary value being dropped
+                let head = repo.head()?;
                 let current_branch = head.shorthand().unwrap_or_default();
 
-                // Push only the current branch
                 remote.push(
                     &[&format!(
                         "refs/heads/{}:refs/heads/{}",
@@ -456,10 +456,10 @@ impl Interface {
                 )?;
             }
         }
-
         remote.disconnect()?;
         Ok(())
     }
+
 
     /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
     ///
