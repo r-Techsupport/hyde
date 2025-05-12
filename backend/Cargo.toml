@@ -17,7 +17,7 @@ clap = { version = "4.5.37", features = ["derive"] }
 color-eyre = "0.6.3"
 dotenvy = "0.15.7"
 fs-err = { version = "3.1.0", features = ["tokio"] }
-git2 = "0.20.1"
+git2 = "0.20.2"
 jsonwebtoken = "9.3.1"
 oauth2 = "5.0.0"
 reqwest = { version = "0.12.15", features = ["stream", "json"] }
