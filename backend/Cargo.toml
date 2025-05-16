@@ -1,6 +1,6 @@
 [package]
 name = "hyde-backend"
-version = "2.1.3"
+version = "2.1.4"
 edition = "2024"
 license-file = "../LICENSE"
 description = "A backend for the r/TechSupport CMS"
