@@ -119,159 +119,105 @@ impl Interface {
         Ok(asset_tree)
     }
 
-    /// Create or overwrite the document at the provided `path` and populate it with the value of `new_doc`.
-    /// `message` will be included in the commit message, and `branch` specifies which branch to commit to.
-    /// `token` is a valid github auth token.
-    ///
+    /// Writes the given document contents to the specified `path` within the repository's document directory.
+    /// This function creates or overwrites the file at `path` with the contents of `new_doc`, relative to the
+    /// repository's root document path (`self.doc_path`). It does **not** perform any Git operations such as
+    /// committing or pushing. Callers are responsible for staging, committing, and pushing separately.
+    /// 
+    /// # Parameters
+    /// - `path`: The relative path (from the document root) where the document should be written.
+    /// - `new_doc`: The contents to write into the file.
+    /// 
     /// # Errors
-    /// This function will return an error if filesystem operations fail, or if any of the git
-    ///operations fail.
-    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
-    // but when applied, it creates errors that note the destructor for other values failing
-    // because of it (tree)
+    /// Returns an error if the file cannot be written to the filesystem.
     #[allow(clippy::significant_drop_tightening)]
     #[tracing::instrument(skip_all)]
     pub fn put_doc<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
         path: P,
         new_doc: &str,
-        message: &str,
-        token: &str,
-        branch: &str, // Pass the branch name here
     ) -> Result<()> {
         // TODO: refactoring hopefully means that all paths can just assume that it's relative to
         // the root of the repo
-        let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
         path_to_doc.push(path.as_ref());
         Self::put_file(&path_to_doc, new_doc.as_bytes())?;
-        let msg = format!("[Hyde]: {message}");
-        Self::git_add(&repo, ".")?;
-        let commit_id = Self::git_commit(&repo, msg, None)?;
-        debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, &self.repo_url, Some(branch), token)?;
-        info!(
-            "Document {:?} edited, committed to branch '{branch}' and pushed to GitHub with message: {message:?}",
-            path.as_ref()
-        );
 
         Ok(())
     }
 
-    /// Create or overwrite the asset at the provided `path`
-    /// with `contents`. `message` will be included in the commit
-    /// message, and `token` is a valid github auth token.
+    /// Writes the provided `contents` to the specified asset `path` within the repository's asset directory.
+    /// This function creates or overwrites the file at `path`, relative to the asset root (`self.asset_path`),
+    /// with the contents of `contents`. It does **not** perform any Git operations such as staging, committing,
+    /// or pushing. These steps must be handled separately by the caller.
     ///
     /// # Arguments
-    /// - `path` - the path of the asset to put relative to the assets folder
-    /// - `contents` - A buffer containing the new asset data
-    /// - `message` - textual context included with the git commit message
-    /// - `token` - github authentication token
+    /// - `path` – The relative path (from the asset root) of the asset to write.
+    /// - `contents` – A byte slice containing the contents to write to the asset file.
     ///
     /// # Panics
-    /// This function will panic if it's called when the repo mutex is already held by the current
-    /// thread.
+    /// This function will panic if called while the repository mutex is already held by the current thread.
     ///
     /// # Errors
-    /// This function will return an error if filesystem operations fail, or if any of the git
-    ///operations fail.
-    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
-    // but when applied, it creates errors that note the destructor for other values failing
-    // because of it (tree)
+    /// Returns an error if the file cannot be written to the filesystem.
     #[allow(clippy::significant_drop_tightening)]
     #[tracing::instrument(skip_all)]
     pub fn put_asset<P: AsRef<Path> + Copy + std::fmt::Debug>(
         &self,
         path: P,
         contents: &[u8],
-        message: &str,
-        token: &str,
     ) -> Result<()> {
-        let repo = self.repo.lock().unwrap();
         let mut path_to_asset: PathBuf = PathBuf::from(&self.asset_path);
         path_to_asset.push(path.as_ref());
         Self::put_file(&path_to_asset, contents)?;
-        let msg = format!("[Hyde]: {message}");
-        Self::git_add(&repo, ".")?;
-        let commit_id = Self::git_commit(&repo, msg, None)?;
-        debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, &self.repo_url, None, token)?;
-        info!(
-            "Asset {:?} edited and pushed to GitHub with message: {message:?}",
-            path.as_ref()
-        );
         debug!("Commit cleanup completed");
         Ok(())
     }
 
-    /// Delete the document at the specified `path`.
-    /// `message` will be included in the commit message, and `token` is a valid github auth token.
+    /// Deletes the document at the specified `path` within the repository's document directory.
+    /// This function removes the file at `path`, which is interpreted relative to the document root (`self.doc_path`).
+    /// It does **not** perform any Git operations such as staging, committing, or pushing. These must be performed
+    /// separately by the caller if version control is required.
+    ///
+    /// # Arguments
+    /// - `path` – The relative path (from the document root) of the file to delete.
     ///
     /// # Panics
-    /// This function will panic if it's called when the repo mutex is already held by the current
-    /// thread.
+    /// This function will panic if called while the repository mutex is already held by the current thread.
     ///
     /// # Errors
-    /// This function will return an error if filesystem operations fail, or if any of the git
-    /// operations fail.
-    // This lint gets upset that `repo` isn't dropped early because it's a performance heavy drop,
-    // but when applied, it creates errors that note the destructor for other values failing
-    // because of it (tree)
+    /// Returns an error if the file cannot be deleted from the filesystem.
     pub fn delete_doc<P: AsRef<Path> + Copy>(
         &self,
         path: P,
-        message: &str,
-        token: &str,
     ) -> Result<()> {
-        let repo = self.repo.lock().unwrap();
         let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
         path_to_doc.push(path);
-        let msg = format!("[Hyde]: {message}");
         Self::delete_file(&path_to_doc)?;
-        Self::git_add(&repo, ".")?;
-        let commit_id = Self::git_commit(&repo, msg, None)?;
-        debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, &self.repo_url, None, token)?;
-        drop(repo);
-        info!(
-            "Document {:?} removed and changes synced to Github with message: {message:?}",
-            path.as_ref()
-        );
-        debug!("Commit cleanup completed");
         Ok(())
     }
 
-    /// Delete the document at the specified `path`.
-    /// and `token` is a valid github auth token.
+    /// Deletes the asset at the specified `path` within the repository's asset directory.
+    /// This function removes the file at `path`, which is interpreted relative to the asset root (`self.asset_path`).
+    /// It does **not** perform any Git operations such as staging, committing, or pushing. These steps must be handled
+    /// separately by the caller if version control is required.
+    ///
+    /// # Arguments
+    /// - `path` – The relative path (from the asset root) of the file to delete.
     ///
     /// # Panics
-    /// This function will panic if it's called when the repo mutex is already held by the current
-    /// thread.
+    /// This function will panic if called while the repository mutex is already held by the current thread.
     ///
     /// # Errors
-    /// This function will return an error if filesystem operations fail, or if any of the git
-    /// operations fail.
+    /// Returns an error if the file cannot be deleted from the filesystem.
     pub fn delete_asset<P: AsRef<Path> + Copy>(
         &self,
         path: P,
-        message: &str,
-        token: &str,
     ) -> Result<()> {
-        let repo = self.repo.lock().unwrap();
         let mut path_to_asset: PathBuf = PathBuf::from(&self.asset_path);
         path_to_asset.push(path);
-        let msg = format!("[Hyde]: {message}");
         // Standard practice is to stage commits by adding them to an index.
         Self::delete_file(&path_to_asset)?;
-        Self::git_add(&repo, ".")?;
-        let commit_id = Self::git_commit(&repo, msg, None)?;
-        debug!("New commit made with ID: {:?}", commit_id);
-        Self::git_push(&repo, &self.repo_url, None, token)?;
-        drop(repo);
-        info!(
-            "Asset {:?} removed and changes synced to Github with message: {message:?}",
-            path.as_ref()
-        );
         debug!("Commit cleanup completed");
         Ok(())
     }
@@ -325,9 +271,10 @@ impl Interface {
     }
 
     /// A code level re-implementation of `git add`.
-    #[tracing::instrument(skip(repo), err)]
-    fn git_add<P: AsRef<Path> + std::fmt::Debug>(repo: &Repository, path: P) -> Result<()> {
+    pub fn git_add<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<()> {
+        let repo = self.repo.lock().unwrap();
         let mut index = repo.index()?;
+
         let callback = &mut |path: &Path, _matched_spec: &[u8]| -> i32 {
             debug!("Processing file: {path:?}");
             let status = repo.status_file(path).unwrap();
@@ -352,6 +299,7 @@ impl Interface {
         info!("Updating the index for {path:?}");
         index.update_all([path.as_ref()], Some(callback))?;
         index.write()?;
+        drop(repo);
         Ok(())
     }
 
@@ -438,7 +386,9 @@ impl Interface {
     /// Writes the current index as a commit, updating HEAD. This means it will only commit changes
     /// tracked by the index. If an author is not specified, the commit will be attributed to `Hyde`. Returns
     /// the id (A full or partial hash associated with a git object) tied to that commit.
-    fn git_commit(repo: &Repository, message: String, author: Option<Signature>) -> Result<Oid> {
+    pub fn git_commit(&self, message: String, author: Option<Signature>) -> Result<Oid> {
+        info!("Made it into git_commit");
+        let repo = self.repo.lock().unwrap();
         let sig = match author {
             Some(sig) => sig,
             None => Signature::now("Hyde", "Hyde")?,
@@ -448,36 +398,39 @@ impl Interface {
             let oid = index.write_tree()?;
             repo.find_tree(oid)?
         };
-        let parent_commit = Self::find_last_commit(repo)?;
+        let parent_commit = Self::find_last_commit(&repo)?;
         Ok(repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?)
     }
 
-    /// Pushes commits to a specified branch on a remote repository, or pushes all branches if no branch name is provided.
+    /// Pushes the specified branch—or the current branch if none is specified—to the remote repository.
     ///
-    /// This function mimics the behavior of `git push`, allowing you to push changes from a local repository to a remote repository.
-    /// You can specify a particular branch to push to, or if no branch name is provided, the current branch will be pushed.
-    ///
-    /// The function authenticates using the provided token and pushes the specified branch (or the current branch) to the remote repository.
+    /// This function behaves like `git push`, sending local commits to the `origin` remote using the
+    /// provided personal access token for authentication.
     ///
     /// # Arguments
-    /// - `repo`: A reference to the local `Repository` object from which to push commits.
-    /// - `repo_url`: The URL of the remote repository to push to. This URL must be in the format `https://<hostname>/<user>/<repo>`.
-    /// - `branch_name`: An optional string specifying the name of the branch to push. If `None`, the current branch will be pushed.
-    /// - `token`: The authentication token to use for pushing to the remote repository. This token will be injected into the URL for authentication.
+    /// - `branch_name`: An optional branch name to push. If `None`, the currently checked-out branch is used.
+    /// - `token`: A GitHub access token used for HTTPS authentication.
     ///
     /// # Returns
-    /// - `Result<()>`: A `Result` indicating success or failure of the push operation. Returns `Ok(())` on success, or an error if something goes wrong.
-    ///   
+    /// Returns `Ok(())` if the push operation succeeds, or an error if it fails.
+    ///
     /// # Errors
-    /// - The function may return errors if the push fails, such as authentication errors, network issues, or problems with the remote repository.
+    /// This function may return an error if:
+    /// - The remote cannot be found or accessed.
+    /// - Authentication fails.
+    /// - The push operation is rejected (e.g., due to branch protection).
+    /// - A Git operation (e.g., resolving the current branch) fails.
+    #[allow(clippy::significant_drop_tightening)]
     pub fn git_push(
-        repo: &Repository,
-        repo_url: &str,
+        &self,
         branch_name: Option<&str>,
         token: &str,
     ) -> Result<()> {
+        let repo_url = &self.repo_url;
         let authenticated_url =
             repo_url.replace("https://", &format!("https://x-access-token:{token}@"));
+            
+        let repo = self.repo.lock().unwrap();
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
 
         let mut remote = repo.find_remote("origin")?;
@@ -485,18 +438,15 @@ impl Interface {
 
         match branch_name {
             Some(branch) => {
-                // Push only the specified branch
                 remote.push(
                     &[&format!("refs/heads/{}:refs/heads/{}", branch, branch)],
                     None,
                 )?;
             }
             None => {
-                // Get the current branch name
-                let head = repo.head()?; // Bind to a variable to avoid temporary value being dropped
+                let head = repo.head()?;
                 let current_branch = head.shorthand().unwrap_or_default();
 
-                // Push only the current branch
                 remote.push(
                     &[&format!(
                         "refs/heads/{}:refs/heads/{}",
@@ -506,10 +456,10 @@ impl Interface {
                 )?;
             }
         }
-
         remote.disconnect()?;
         Ok(())
     }
+
 
     /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
     ///
