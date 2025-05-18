@@ -309,7 +309,7 @@
 				<div>
 					<!-- Checkbox Group -->
 					<ul>
-						{#each openIssues as issue}
+						{#each openIssues as issue (issue.id)}
 							<li>
 								<div class="issues">
 									<!-- Checkbox -->

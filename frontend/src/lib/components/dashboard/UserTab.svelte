@@ -70,7 +70,7 @@
 <div class="container">
 	<ul class="user-menu">
 		<SectionHeader>Users</SectionHeader>
-		{#each users.entries() as [index, user]}
+		{#each users.entries() as [index, user] (index)}
 			<li class={selectedUser == index ? 'selected-user' : ''} id={index.toString()}>
 				<button onclick={userSelectHandler}>
 					<!-- <svg
@@ -91,7 +91,7 @@
 	</ul>
 	<ul class="group-menu">
 		<SectionHeader>Groups</SectionHeader>
-		{#each allGroups as group}
+		{#each allGroups as group (group.name)}
 			<li>
 				<label for={group.name} class="checkbox-label">
 					<input

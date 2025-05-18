@@ -33,7 +33,7 @@
 	</span>
 	<!-- TODO -->
 	<!-- <input type="search" class="search-bar" placeholder="Filter folders..."/> -->
-	{#each assetTree.children as node}
+	{#each assetTree.children as node (node.name)}
 		{#if node.children.length > 0}
 			<button onclick={assetSelectionHandler} class="directory-listing">
 				<svg

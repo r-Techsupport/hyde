@@ -106,13 +106,7 @@
 	// 	}
 	// });
 
-	interface Props {
-		/** The width of the sidebar */
-		sidebarWidth: string;
-	}
-
-	let { sidebarWidth = $bindable('14rem') }: Props = $props();
-
+	let sidebarWidth = $state('14rem');
 	// Log user in and load associated user info
 	onMount(async () => {
 		// Check to see if the username cookie exists, it's got the same expiration time as the auth token but is visible to the frontend
