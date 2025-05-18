@@ -2,13 +2,13 @@ name: Backend CI
 
 on:
   push:
-    paths:
-      - backend
     branches: [ "main" ]
+    paths:
+      - backend/**
   pull_request:
-    paths:
-      - backend
     branches: [ "main" ]
+    paths:
+      - backend/**
 
 env:
   CARGO_TERM_COLOR: always
