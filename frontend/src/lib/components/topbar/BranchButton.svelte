@@ -208,7 +208,7 @@
 				</button>
 			</div>
 			<ul class="branch-list">
-				{#each branchInfo.list as branch}
+				{#each branchInfo.list as branch (branch.name)}
 					<li>
 						<button
 							class="branch-option"

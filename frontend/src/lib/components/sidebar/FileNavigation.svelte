@@ -223,7 +223,7 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 {/if}
 
 {#if open}
-	{#each children as child}
+	{#each children as child (child.name)}
 		{#if child.children.length === 0}
 			<!-- Treat path like file -->
 			<FileNavigation

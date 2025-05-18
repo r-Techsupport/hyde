@@ -7,8 +7,8 @@
 
 	<!-- Dropdown to select a branch -->
 	<select bind:value={branchInfo.current} class="branch-dropdown">
-		{#each branchInfo.list as { name }}
-			<option value={name}>{name}</option>
+		{#each branchInfo.list as branch (branch.name)}
+			<option value={branch.name}>{branch.name}</option>
 		{/each}
 	</select>
 </div>

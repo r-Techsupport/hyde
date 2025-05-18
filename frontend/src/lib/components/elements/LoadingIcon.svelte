@@ -16,7 +16,7 @@
 		position: absolute;
 		left: 0;
 		top: 0;
-		background-color: rgba(0 0 0 / 90%);
+		background-color: rgb(0 0 0 / 90%);
 		backdrop-filter: blur(5px);
 		z-index: 10;
 		width: 100vw;

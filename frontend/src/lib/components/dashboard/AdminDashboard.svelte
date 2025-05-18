@@ -50,7 +50,7 @@
 				/></svg
 			>
 		</li>
-		{#each tabs as tab}
+		{#each tabs as tab (tab.id)}
 			<li class={selectedTab == tab.id ? 'selected-tab' : ''} id={tab.id.toString()}>
 				<button onclick={tabSelectHandler}>{tab.name}</button>
 			</li>
