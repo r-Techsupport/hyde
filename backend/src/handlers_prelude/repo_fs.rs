@@ -13,7 +13,7 @@ use reqwest::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::{AppState, perms::Permission, require_perms};
+use crate::{AppState, perms::Permission, require_perms, handlers_prelude::ApiError};
 
 use super::eyre_to_axum_err;
 
@@ -74,7 +74,7 @@ pub async fn put_doc_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(body): Json<PutDocRequestBody>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, ApiError> {
     let author = require_perms(
         axum::extract::State(&state),
         headers,
@@ -82,29 +82,16 @@ pub async fn put_doc_handler(
     )
     .await?;
 
-    // Generate commit message combining author and default update message
     let default_commit_message = format!("{} updated {}", author.username, body.path);
-    let final_commit_message = format!("{}\n\n{}", default_commit_message, body.commit_message);
-
-    // Use the branch name from the request body
+    let final_commit_message = format!("[Hyde]: {}\n\n{}", default_commit_message, body.commit_message);
     let branch_name = &body.branch_name;
 
-    match state.git.put_doc(
-        &body.path,
-        &body.contents,
-        &final_commit_message,
-        &get_gh_token(&state).await?,
-        branch_name,
-    ) {
-        Ok(_) => Ok(StatusCode::CREATED),
-        Err(e) => {
-            error!("Failed to complete put_doc call with error: {e:?}");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to create document, check server logs for more info".to_string(),
-            ))
-        }
-    }
+    state.git.put_doc(&body.path, &body.contents)?;
+    state.git.git_add(".")?;
+    state.git.git_commit(final_commit_message, None)?;
+    state.git.git_push(Some(branch_name), &get_gh_token(&state).await?)?;
+
+    Ok(StatusCode::CREATED)
 }
 
 /// Deletes the document at the provided path, if the user has perms.
@@ -112,7 +99,7 @@ pub async fn delete_doc_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<GetDocQuery>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, ApiError> {
     let author = require_perms(
         axum::extract::State(&state),
         headers,
@@ -120,14 +107,12 @@ pub async fn delete_doc_handler(
     )
     .await?;
 
-    state
-        .git
-        .delete_doc(
-            &query.path,
-            &format!("{} deleted {}", author.username, query.path),
-            &get_gh_token(&state).await?,
-        )
-        .map_err(eyre_to_axum_err)?;
+    let message = format!("[Hyde]: {} updated {}", author.username, query.path);
+
+    state.git.delete_doc(&query.path)?;
+    state.git.git_add(".")?;
+    state.git.git_commit(message, None)?;
+    state.git.git_push(None, &get_gh_token(&state).await?)?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -201,7 +186,7 @@ pub async fn put_asset_handler(
     headers: HeaderMap,
     Path(path): Path<Vec<String>>,
     body: Bytes,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, ApiError> {
     let path = path.join("/");
     let author = require_perms(
         axum::extract::State(&state),
@@ -210,16 +195,12 @@ pub async fn put_asset_handler(
     )
     .await?;
     // Generate commit message combining author and default update message
-    let message = format!("{} updated {}", author.username, path);
+    let message = format!("[Hyde]: {} updated {}", author.username, path);
 
-    // Call put_asset to update the asset, passing the required parameters
-    state
-        .git
-        .put_asset(&path, &body, &message, &get_gh_token(&state).await?)
-        .map_err(|e| {
-            error!("Failed to update asset: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-        })?;
+    state.git.put_asset(&path, &body)?;
+    state.git.git_add(".")?;
+    state.git.git_commit(message, None)?;
+    state.git.git_push(None, &get_gh_token(&state).await?)?;
 
     Ok(StatusCode::CREATED)
 }
@@ -230,15 +211,16 @@ pub async fn delete_asset_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(path): Path<Vec<String>>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, ApiError> {
     let path = path.join("/");
     let author = require_perms(State(&state), headers, &[Permission::ManageContent]).await?;
     // Generate commit message combining author and default update message
-    let message = format!("{} deleted {}", author.username, path);
-    state
-        .git
-        .delete_asset(&path, &message, &get_gh_token(&state).await?)
-        .map_err(eyre_to_axum_err)?;
+    let message = format!("[Hyde]: {} deleted {}", author.username, path);
+
+    state.git.delete_asset(&path)?;
+    state.git.git_add(".")?;
+    state.git.git_commit(message, None)?;
+    state.git.git_push(None, &get_gh_token(&state).await?)?;
 
     Ok(StatusCode::OK)
 }
