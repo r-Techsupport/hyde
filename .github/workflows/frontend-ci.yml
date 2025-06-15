@@ -1,0 +1,39 @@
+name: Frontend CI
+# TODO: split this into two diffferent files then use
+# a path filter `on.push.paths` so that each workflow
+# is only run when the frontend or backend change
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - frontend/**
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - frontend/**
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install deps
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Check
+        run: npm run check
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm run test
