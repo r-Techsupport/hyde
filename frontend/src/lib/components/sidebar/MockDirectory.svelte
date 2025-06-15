@@ -12,7 +12,7 @@
 	let { label = '', onclick }: Props = $props();
 </script>
 
-<span class={'container'}>
+<span class="container">
 	<button {onclick} class="entry-button">
 		<!-- Rendering if the navigation item is a directory -->
 		<!-- The chevron -->

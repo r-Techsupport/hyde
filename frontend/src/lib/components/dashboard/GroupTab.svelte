@@ -53,7 +53,7 @@
 <div class="container">
 	<ul class="group-menu">
 		<SectionHeader>Groups</SectionHeader>
-		{#each groups.entries() as [index, group]}
+		{#each groups.entries() as [index, group] (index)}
 			<!-- Prevent people from modifying the permissions on the admin group -->
 			{#if group.name !== 'Admin'}
 				<li class={selectedGroup == index ? 'selected-group' : ''} id={index.toString()}>
@@ -133,7 +133,7 @@
 	</ul>
 	<ul class="permission-menu">
 		<SectionHeader>Permissions</SectionHeader>
-		{#each allPermissions as [permission, label]}
+		{#each allPermissions as [permission, label] (permission)}
 			<li>
 				<label for={permission} class="checkbox-label">
 					<input

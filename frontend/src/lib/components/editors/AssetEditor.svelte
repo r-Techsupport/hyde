@@ -198,7 +198,7 @@
 	</div>
 
 	<div class="asset-catalogue">
-		{#each assetTree.children.find((n) => n.name === assetFolderPath)?.children ?? [] as asset}
+		{#each assetTree.children.find((n) => n.name === assetFolderPath)?.children ?? [] as asset (asset.name)}
 			<button
 				onclick={() => {
 					fullScreenImagePath = `${assetFolderPath}/${asset.name}`;
@@ -370,7 +370,7 @@
 		cursor: pointer;
 		fill: var(--red);
 		color: var(--red);
-		background-color: rgba(0 0 0 / 30%);
+		background-color: rgb(0 0 0 / 30%);
 		backdrop-filter: blur(20px);
 		border-radius: 5px;
 		border: 1px solid var(--red);

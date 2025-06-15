@@ -18,15 +18,15 @@
 		<div class="base-branch-container">
 			<label for="base-branch">Destination</label>
 			<select name="base-branch" bind:value={branchInfo.base} class="branch-dropdown">
-				{#each branchInfo.list as { name }}
-					<option value={name}>{name}</option>
+				{#each branchInfo.list as branch (branch.name)}
+					<option value={branch.name}>{branch.name}</option>
 				{/each}
 			</select>
 			<p>All pull requests opened by Hyde will pull into this branch.</p>
 		</div>
 		<ul>
 			<SectionHeader --scale="0.9rem">Enable Branch Protection For:</SectionHeader>
-			{#each sortedBranches as branch}
+			{#each sortedBranches as branch (branch.name)}
 				<li>
 					<!-- <label class="checkbox-label">
 						<input type="checkbox" bind:checked={branch.isProtected} />
