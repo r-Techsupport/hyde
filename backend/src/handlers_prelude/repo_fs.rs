@@ -13,7 +13,7 @@ use reqwest::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::{AppState, perms::Permission, require_perms, handlers_prelude::ApiError};
+use crate::{AppState, handlers_prelude::ApiError, perms::Permission, require_perms};
 
 use super::eyre_to_axum_err;
 
@@ -83,13 +83,18 @@ pub async fn put_doc_handler(
     .await?;
 
     let default_commit_message = format!("{} updated {}", author.username, body.path);
-    let final_commit_message = format!("[Hyde]: {}\n\n{}", default_commit_message, body.commit_message);
+    let final_commit_message = format!(
+        "[Hyde]: {}\n\n{}",
+        default_commit_message, body.commit_message
+    );
     let branch_name = &body.branch_name;
 
     state.git.put_doc(&body.path, &body.contents)?;
     state.git.git_add(".")?;
     state.git.git_commit(final_commit_message, None)?;
-    state.git.git_push(Some(branch_name), &get_gh_token(&state).await?)?;
+    state
+        .git
+        .git_push(Some(branch_name), &get_gh_token(&state).await?)?;
 
     Ok(StatusCode::CREATED)
 }
