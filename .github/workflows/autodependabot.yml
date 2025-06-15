@@ -1,15 +1,14 @@
 name: Dependabot Automerge
 
 on:
-  pull_request:
-    branches: [main]
+   workflow_run:
+    workflows: ["Frontend CI", "Backend CI"]
+    types:
+      - completed
 
 jobs: 
-  close_pr:
-      needs: 
-        - backend-build
-        - frontend-build
-      if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+  close-pr:
+      if: ${{github.event.workflow_run.conclusion == 'success' && github.actor == 'dependabot[bot]' }}
       permissions:
         contents: write
         pull-requests: write
