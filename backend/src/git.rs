@@ -243,14 +243,14 @@ impl Interface {
         // First clone a repo into `repo__tmp`, open that, swap out
         let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
         let tmp_path = Path::new("./repo__tmp");
-        
+
         // if a reclone was attempted but failed, repo__tmp might still exist
         if tmp_path.exists() {
             warn!("A previous re-clone failed, stale data was found");
             remove_dir_all(tmp_path)?;
         }
         let tmp_repo = Repository::clone(&self.repo_url, tmp_path)?;
-    
+
         let mut lock = self.repo.lock().unwrap();
         *lock = tmp_repo;
         info!("Deleting the old repo and replacing it with the new one...");
@@ -515,7 +515,7 @@ impl Interface {
             branch
         );
         // "So the current issue from master is that when you try to commit from multiple files,
-        // it will hard reset the head because it checkouts before commiting. 
+        // it will hard reset the head because it checkouts before commiting.
         // thus not allowing you to making changes to multiple files on the same branch"
         // https://discord.com/channels/749314018837135390/1240828670986162247/1365460447494406302
         self.git_reset(&repo)?;
