@@ -1,10 +1,10 @@
 //! Abstractions and interfaces over the git repository
 
-use color_eyre::eyre::{bail, ContextCompat, Result, WrapErr};
-use fs_err as fs;
+use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail, ensure};
+use fs_err::{self as fs, remove_dir_all};
 use git2::{
-    build::CheckoutBuilder, AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid,
-    Repository, Signature, Status,
+    AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid, Repository, Signature, Status,
+    build::CheckoutBuilder,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -123,11 +123,11 @@ impl Interface {
     /// This function creates or overwrites the file at `path` with the contents of `new_doc`, relative to the
     /// repository's root document path (`self.doc_path`). It does **not** perform any Git operations such as
     /// committing or pushing. Callers are responsible for staging, committing, and pushing separately.
-    /// 
+    ///
     /// # Parameters
     /// - `path`: The relative path (from the document root) where the document should be written.
     /// - `new_doc`: The contents to write into the file.
-    /// 
+    ///
     /// # Errors
     /// Returns an error if the file cannot be written to the filesystem.
     #[allow(clippy::significant_drop_tightening)]
@@ -187,10 +187,7 @@ impl Interface {
     ///
     /// # Errors
     /// Returns an error if the file cannot be deleted from the filesystem.
-    pub fn delete_doc<P: AsRef<Path> + Copy>(
-        &self,
-        path: P,
-    ) -> Result<()> {
+    pub fn delete_doc<P: AsRef<Path> + Copy>(&self, path: P) -> Result<()> {
         let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
         path_to_doc.push(path);
         Self::delete_file(&path_to_doc)?;
@@ -210,10 +207,7 @@ impl Interface {
     ///
     /// # Errors
     /// Returns an error if the file cannot be deleted from the filesystem.
-    pub fn delete_asset<P: AsRef<Path> + Copy>(
-        &self,
-        path: P,
-    ) -> Result<()> {
+    pub fn delete_asset<P: AsRef<Path> + Copy>(&self, path: P) -> Result<()> {
         let mut path_to_asset: PathBuf = PathBuf::from(&self.asset_path);
         path_to_asset.push(path);
         // Standard practice is to stage commits by adding them to an index.
@@ -226,40 +220,43 @@ impl Interface {
     /// If not, clone into the provided path.
     #[tracing::instrument]
     fn load_repository(repo_url: &str, repo_path: &str) -> Result<Repository> {
-        if let Ok(repo) = Repository::open(repo_path) {
-            info!("Existing repository detected, fetching latest changes");
-            Self::git_pull(&repo)?;
-            return Ok(repo);
+        match Repository::open(repo_path) {
+            Ok(repo) => {
+                info!("Existing repository detected, fetching latest changes");
+                Self::git_pull(&repo)?;
+                Ok(repo)
+            }
+            Err(_) => {
+                let output_path = Path::new(repo_path);
+                info!(
+                    "No repo detected, cloning {repo_url:?} into {:?}...",
+                    output_path.display()
+                );
+                Ok(Repository::clone(repo_url, output_path)?)
+            }
         }
-
-        let output_path = Path::new(repo_path);
-        info!(
-            "No repo detected, cloning {repo_url:?} into {:?}...",
-            output_path.display()
-        );
-        let repo = Repository::clone(repo_url, output_path)?;
-        info!("Successfully cloned repo");
-        Ok(repo)
     }
 
     /// Completely clone and open a new repository, deleting the old one.
     #[tracing::instrument(skip_all)]
     pub fn reclone(&self) -> Result<()> {
         // First clone a repo into `repo__tmp`, open that, swap out
-        // TODO: nuke `repo__tmp` if it exists already
         let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
-        let tmp_path = Path::new("./repo__tmp"); // TODO: Same here?
-        info!("Re-cloning repository, temporary repo will be created at {tmp_path:?}");
+        let tmp_path = Path::new("./repo__tmp");
+        
+        // if a reclone was attempted but failed, repo__tmp might still exist
+        if tmp_path.exists() {
+            warn!("A previous re-clone failed, stale data was found");
+            remove_dir_all(tmp_path)?;
+        }
         let tmp_repo = Repository::clone(&self.repo_url, tmp_path)?;
-        info!("Pointing changes to new temp repository");
+    
         let mut lock = self.repo.lock().unwrap();
         *lock = tmp_repo;
-        info!("Deleting the old repo...");
+        info!("Deleting the old repo and replacing it with the new one...");
         fs::remove_dir_all(repo_path)?;
-        info!("Moving the temp repo to take the place of the old one");
         fs::rename(tmp_path, repo_path)?;
         *lock = Repository::open(repo_path)?;
-        info!("Re-clone succeeded");
         drop(lock);
         Ok(())
     }
@@ -352,19 +349,17 @@ impl Interface {
                         "Branch '{}' does not exist. Creating new branch...",
                         branch_name
                     );
-                    let parent_ref = repo.find_reference(&format!("refs/remotes/origin/{}", parent_branch_name))?;
+                    let parent_ref = repo
+                        .find_reference(&format!("refs/remotes/origin/{}", parent_branch_name))?;
                     let parent_commit = parent_ref.peel_to_commit()?;
                     // If the branch does not exist, create it
-                    repo.branch(branch_name, &parent_commit, false).wrap_err_with(|| format!("Failed to create branch {}", branch_name))?;
+                    repo.branch(branch_name, &parent_commit, false)
+                        .wrap_err_with(|| format!("Failed to create branch {}", branch_name))?;
                     info!(
                         "Successfully created new branch '{}' off of '{}'",
                         branch_name, parent_branch_name
                     );
-                    repo.reset(
-                        parent_commit.as_object(),
-                        git2::ResetType::Hard,
-                        None,
-                    )?;
+                    repo.reset(parent_commit.as_object(), git2::ResetType::Hard, None)?;
 
                     // Now check out the newly created branch
                     info!("Checking out newly created branch '{}'", branch_name);
@@ -421,15 +416,11 @@ impl Interface {
     /// - The push operation is rejected (e.g., due to branch protection).
     /// - A Git operation (e.g., resolving the current branch) fails.
     #[allow(clippy::significant_drop_tightening)]
-    pub fn git_push(
-        &self,
-        branch_name: Option<&str>,
-        token: &str,
-    ) -> Result<()> {
+    pub fn git_push(&self, branch_name: Option<&str>, token: &str) -> Result<()> {
         let repo_url = &self.repo_url;
         let authenticated_url =
             repo_url.replace("https://", &format!("https://x-access-token:{token}@"));
-            
+
         let repo = self.repo.lock().unwrap();
         repo.remote_set_pushurl("origin", Some(&authenticated_url))?;
 
@@ -459,7 +450,6 @@ impl Interface {
         remote.disconnect()?;
         Ok(())
     }
-
 
     /// A code level re-implementation of `git pull`, currently only pulls the `master` branch.
     ///
@@ -509,12 +499,13 @@ impl Interface {
         self.git_reset(&repo)?;
 
         // Check if the local branch exists
-        let _branch_reference = {
-            let branch = repo.find_branch(branch, git2::BranchType::Local)?;
-            branch.get().peel_to_commit() // Get the commit for the branch
-        };
+        ensure!(
+            repo.find_branch(branch, git2::BranchType::Local).is_ok(),
+            "no local branch exists by the name {}",
+            branch
+        );
 
-        // Attempt to set upstream for the branch if it isn't already set
+        //  Set upstream for the branch if it isn't already set
         self.set_branch_upstream(&repo, branch)?;
 
         // Fetch changes from the remote for this branch
@@ -523,22 +514,11 @@ impl Interface {
             "Successfully fetched latest changes for branch '{}'.",
             branch
         );
-
-        // Prepare to reset the local branch to match the upstream branch
-        let upstream_ref = format!("refs/remotes/origin/{}", branch);
-
-        // Reset the local branch to match the upstream branch
-        {
-            let upstream_commit = repo.find_reference(&upstream_ref)?.peel_to_commit()?;
-            let upstream_object = upstream_commit.as_object();
-            repo.reset(upstream_object, git2::ResetType::Hard, None)?;
-        } // `repo` will be dropped here after its last use
-
-        info!(
-            "Local branch '{}' has been reset to match upstream branch '{}'.",
-            branch, upstream_ref
-        );
-
+        // "So the current issue from master is that when you try to commit from multiple files,
+        // it will hard reset the head because it checkouts before commiting. 
+        // thus not allowing you to making changes to multiple files on the same branch"
+        // https://discord.com/channels/749314018837135390/1240828670986162247/1365460447494406302
+        self.git_reset(&repo)?;
         Ok(())
     }
 
