@@ -68,7 +68,7 @@ pub async fn list_branches_handler(
         .map(|branch| {
             let name = branch.name.clone();
             if branch.protected {
-                format!("{} (protected)", name)
+                format!("{name} (protected)")
             } else {
                 name
             }
@@ -136,7 +136,7 @@ pub async fn close_pull_request_handler(
     info!("Pull request #{} closed successfully", pr_number);
     Ok((
         StatusCode::OK,
-        Json(format!("Pull request #{} closed.", pr_number)),
+        Json(format!("Pull request #{pr_number} closed.")),
     ))
 }
 
@@ -152,7 +152,7 @@ pub async fn checkout_or_create_branch_handler(
     info!("Successfully checked out/created branch: {}", branch_name);
     Ok((
         StatusCode::OK,
-        format!("Successfully checked out/created branch: {}", branch_name),
+        format!("Successfully checked out/created branch: {branch_name}"),
     ))
 }
 
@@ -167,8 +167,7 @@ pub async fn pull_handler(
     Ok((
         StatusCode::OK,
         Json(format!(
-            "Repository pulled successfully for branch '{}'.",
-            branch
+            "Repository pulled successfully for branch '{branch}'."
         )),
     ))
 }

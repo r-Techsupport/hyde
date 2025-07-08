@@ -154,7 +154,7 @@ impl GitHubClient {
         // If issue numbers are provided, add them to the body
         if let Some(issues) = issue_numbers {
             for issue in issues {
-                pr_body.push_str(&format!("\n\nCloses #{}", issue));
+                pr_body.push_str(&format!("\n\nCloses #{issue}"));
             }
         }
 
@@ -173,7 +173,7 @@ impl GitHubClient {
         // Send the pull request creation request to the GitHub API
         let response = self
             .client
-            .post(format!("{}/repos/{}/pulls", GITHUB_API_URL, repo_name))
+            .post(format!("{GITHUB_API_URL}/repos/{repo_name}/pulls"))
             .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .json(&pr_body_json)
@@ -256,7 +256,7 @@ impl GitHubClient {
         // If issue numbers are provided, add them to the body
         if let Some(issues) = issue_numbers {
             for issue in issues {
-                pr_body.push_str(&format!("\n\nCloses #{}", issue));
+                pr_body.push_str(&format!("\n\nCloses #{issue}"));
             }
         }
 
@@ -276,8 +276,7 @@ impl GitHubClient {
         let response = self
             .client
             .patch(format!(
-                "{}/repos/{}/pulls/{}",
-                GITHUB_API_URL, repo_name, pr_number
+                "{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
             ))
             .bearer_auth(&token)
             .header("User-Agent", "Hyde")
@@ -346,8 +345,7 @@ impl GitHubClient {
         let response = self
             .client
             .patch(format!(
-                "{}/repos/{}/pulls/{}",
-                GITHUB_API_URL, repo_name, pr_number
+                "{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
             ))
             .bearer_auth(&token)
             .header("User-Agent", "Hyde")
@@ -401,7 +399,7 @@ impl GitHubClient {
             // Make a GET request to fetch a page of branches
             let response = self
                 .client
-                .get(format!("{}/repos/{}/branches", GITHUB_API_URL, repo_name))
+                .get(format!("{GITHUB_API_URL}/repos/{repo_name}/branches"))
                 .bearer_auth(&token)
                 .header("User-Agent", "Hyde")
                 .query(&[("per_page", "100"), ("page", &page.to_string())])
@@ -460,7 +458,7 @@ impl GitHubClient {
         // Make the GET request to fetch repository details
         let response = self
             .client
-            .get(format!("{}/repos/{}", GITHUB_API_URL, repo_name))
+            .get(format!("{GITHUB_API_URL}/repos/{repo_name}"))
             .bearer_auth(&token)
             .header("User-Agent", "Hyde")
             .send()
@@ -521,13 +519,12 @@ impl GitHubClient {
         let token = self.get_token().await?;
         let mut query_params = vec![format!("state={}", issue_state), format!("per_page=100")];
         if let Some(labels) = labels {
-            query_params.push(format!("labels={}", labels));
+            query_params.push(format!("labels={labels}"));
         }
         let query_string = format!("?{}", query_params.join("&"));
 
         let url = format!(
-            "{}/repos/{}/issues{}",
-            GITHUB_API_URL, repo_name, query_string
+            "{GITHUB_API_URL}/repos/{repo_name}/issues{query_string}"
         );
 
         let response = self

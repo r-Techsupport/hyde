@@ -86,18 +86,18 @@ impl_validate!(Database, url);
 
 impl ValidateFields for OAuth {
     fn validate(&self, path: &str) -> Result<(), String> {
-        self.discord.validate(&format!("{}.discord", path))?;
-        self.github.validate(&format!("{}.github", path))?;
+        self.discord.validate(&format!("{path}.discord"))?;
+        self.github.validate(&format!("{path}.github"))?;
         Ok(())
     }
 }
 
 impl ValidateFields for AppConf {
     fn validate(&self, path: &str) -> Result<(), String> {
-        self.files.validate(&format!("{}.files", path))?;
-        self.discord.validate(&format!("{}.discord", path))?;
-        self.oauth.validate(&format!("{}.oauth", path))?;
-        self.database.validate(&format!("{}.database", path))?;
+        self.files.validate(&format!("{path}.files"))?;
+        self.discord.validate(&format!("{path}.discord"))?;
+        self.oauth.validate(&format!("{path}.oauth"))?;
+        self.database.validate(&format!("{path}.database"))?;
         Ok(())
     }
 }
