@@ -1,10 +1,10 @@
 //! Abstractions and interfaces over the git repository
 
-use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail, ensure};
+use color_eyre::eyre::{bail, ensure, ContextCompat, Result, WrapErr};
 use fs_err::{self as fs, remove_dir_all};
 use git2::{
-    AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid, Repository, Signature, Status,
-    build::CheckoutBuilder,
+    build::CheckoutBuilder, AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid,
+    Repository, Signature, Status,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
