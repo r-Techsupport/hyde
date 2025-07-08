@@ -1,17 +1,19 @@
 use axum::routing::get;
 use axum::{
-    Router,
     extract::{Query, Request, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
     response::Redirect,
+    Router,
 };
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat};
 use oauth2::{AuthorizationCode, CsrfToken, RedirectUrl, TokenResponse};
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::info;
 
-use crate::{AppState, db::User};
+use crate::{db::User, AppState};
+
+use super::ApiError;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetOAuthQuery {
@@ -32,74 +34,34 @@ pub async fn get_oauth2_handler(
     State(state): State<AppState>,
     Query(query): Query<GetOAuthQuery>,
     req: Request,
-) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
-    match get_oath_processor(&state, query, req).await {
-        Ok(redirect) => Ok(redirect),
-        Err(e) => {
-            error!("An error was encountered during oauth processing: {:#?}", e);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!(
-                    "An error was encountered during oauth processing: {:?}",
-                    e.to_string()
-                ),
-            ))
-        }
-    }
-}
-
-pub async fn get_oauth2_url(State(state): State<AppState>) -> String {
-    // TODO: actually validate CSRF token
-    // <https://discord.com/developers/docs/topics/oauth2#state-and-security>
-    let (url, _token) = state.oauth.authorize_url(CsrfToken::new_random).url();
-    url.to_string()
-}
-
-/// This is pretty stupid, but I want to be able to use `color_eyre::Result` and `?` for error handling, but
-/// that doesn't directly implement axum's `IntoResponse`, but that just requires calling `.to_string()` on the error.
-/// Async closures are unstable <https://github.com/rust-lang/rust/issues/62290> as of 2024-05-26
-async fn get_oath_processor(
-    state: &AppState,
-    query: GetOAuthQuery,
-    req: Request,
-) -> color_eyre::Result<(HeaderMap, Redirect)> {
+) -> Result<(HeaderMap, Redirect), ApiError> {
     // Support for dev and local environments, where discord sends the user
     // after the first step of the handshake.
     // HTTPS is required in production for full functionality so it's ok to hardcode that in
     let redirect_url = if cfg!(debug_assertions) {
         format!(
             "http://{}/api/oauth",
-            req.headers().get("host").unwrap().to_str()?
+            req.headers().get("host").unwrap().to_str().unwrap()
         )
     } else {
         format!(
             "https://{}/api/oauth",
-            req.headers().get("host").unwrap().to_str()?
+            req.headers().get("host").unwrap().to_str().unwrap()
         )
     };
     // The obtained token after they authenticate
     let token_data: oauth2::StandardTokenResponse<_, _> = state
         .oauth
         .exchange_code(AuthorizationCode::new(query.code))
-        .set_redirect_uri(std::borrow::Cow::Owned(RedirectUrl::new(redirect_url)?))
+        .set_redirect_uri(std::borrow::Cow::Owned(
+            RedirectUrl::new(redirect_url).unwrap(),
+        ))
         .request_async(&state.reqwest_client)
         .await
         .wrap_err("OAuth token request failed")?;
 
-    let token = token_data.access_token().secret();
-    // Use that token to request user data
-    let response = state
-        .reqwest_client
-        .get("https://discord.com/api/v10/users/@me")
-        .bearer_auth(token_data.access_token().secret())
-        .header(
-            "User-Agent",
-            "DiscordBot (https://github.com/r-Techsupport/hyde, 0)",
-        )
-        .send()
-        .await?;
-    // https://discord.com/developers/docs/resources/user#user-object
-    let discord_user_info: DiscordUserObject = serde_json::from_slice(&response.bytes().await?)?;
+    let auth_token = token_data.access_token().secret();
+    let discord_user_info = fetch_discord_user(&state, auth_token).await?;
     let avatar_url = if let Some(hash) = discord_user_info.avatar {
         format!(
             "https://cdn.discordapp.com/avatars/{}/{hash}.png",
@@ -124,7 +86,7 @@ async fn get_oath_processor(
             .update_user(&User {
                 id: existing_user.id,
                 username: existing_user.username.clone(),
-                token: token.to_string(),
+                token: auth_token.to_string(),
                 expiration_date: expiration_date.to_rfc3339(),
                 avatar_url,
             })
@@ -135,7 +97,7 @@ async fn get_oath_processor(
             .db
             .create_user(
                 discord_user_info.username.to_string(),
-                token.to_string(),
+                auth_token.to_string(),
                 expiration_date.to_rfc3339(),
                 avatar_url,
             )
@@ -145,6 +107,78 @@ async fn get_oath_processor(
             discord_user_info.username
         );
     }
+
+    // Now's a good time to check if they're an admin
+    authorize_config_admin(state).await?;
+
+    // After authenticating, send them back to the homepage
+    let redirect = if cfg!(debug_assertions) {
+        Redirect::to("http://localhost:5173/")
+    } else {
+        Redirect::to("/")
+    };
+
+    let mut headers = HeaderMap::new();
+    headers.append(
+        "Set-Cookie",
+        format!(
+            "access-token={auth_token}; Secure; HttpOnly; Path=/; Max-Age={}",
+            token_data.expires_in().unwrap().as_secs()
+        )
+        .parse()
+        .wrap_err("Failed to create access token cookie")?,
+    );
+    headers.append(
+        "Set-Cookie",
+        format!(
+            "username={}; Path=/; Max-Age={}",
+            discord_user_info.username,
+            token_data.expires_in().unwrap().as_secs()
+        )
+        .parse()
+        .wrap_err("Failed to create auth cookie")?,
+    );
+    Ok((headers, redirect))
+}
+
+pub async fn get_oauth2_url(State(state): State<AppState>) -> String {
+    // TODO: actually validate CSRF token
+    // <https://discord.com/developers/docs/topics/oauth2#state-and-security>
+    let (url, _token) = state.oauth.authorize_url(CsrfToken::new_random).url();
+    url.to_string()
+}
+
+/// Fetches a list of information about a user using a valid oauth access token
+async fn fetch_discord_user(
+    state: &AppState,
+    access_token: &str,
+) -> color_eyre::Result<DiscordUserObject> {
+    // Use that token to request user data
+    let response = state
+        .reqwest_client
+        .get("https://discord.com/api/v10/users/@me")
+        .bearer_auth(access_token)
+        .header(
+            "User-Agent",
+            "DiscordBot (https://github.com/r-Techsupport/hyde, 0)",
+        )
+        .send()
+        .await
+        .wrap_err("Failed to fetch user data from Discord API")?;
+    // https://discord.com/developers/docs/resources/user#user-object
+    let discord_user_info: DiscordUserObject = serde_json::from_slice(
+        &response
+            .bytes()
+            .await
+            .expect("Discord API responds completely"),
+    )
+    .wrap_err("Discord API returned an invalid user info object")?;
+
+    Ok(discord_user_info)
+}
+
+/// Ensures that the user defined as Admin within Hyde's config has the Admin role
+async fn authorize_config_admin(state: AppState) -> color_eyre::Result<()> {
     // If the user is the admin specified in the config, give them the admin role
     let admin_username = &state.config.discord.admin_username;
     let all_users = state.db.get_all_users().await?;
@@ -167,33 +201,7 @@ async fn get_oath_processor(
             );
         }
     }
-
-    // After authenticating, send them back to the homepage
-    let redirect = if cfg!(debug_assertions) {
-        Redirect::to("http://localhost:5173/")
-    } else {
-        Redirect::to("/")
-    };
-
-    let mut headers = HeaderMap::new();
-    headers.append(
-        "Set-Cookie",
-        format!(
-            "access-token={token}; Secure; HttpOnly; Path=/; Max-Age={}",
-            token_data.expires_in().unwrap().as_secs()
-        )
-        .parse()?,
-    );
-    headers.append(
-        "Set-Cookie",
-        format!(
-            "username={}; Path=/; Max-Age={}",
-            discord_user_info.username,
-            token_data.expires_in().unwrap().as_secs()
-        )
-        .parse()?,
-    );
-    Ok((headers, redirect))
+    Ok(())
 }
 
 pub async fn create_oauth_route() -> Router<AppState> {

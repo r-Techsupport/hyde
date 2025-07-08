@@ -339,9 +339,7 @@ impl Interface {
                     );
                     // If the branch exists, check it out
                     repo.set_head(&format!("refs/heads/{branch_name}"))
-                        .wrap_err_with(|| {
-                            format!("Failed to set head to branch {branch_name}")
-                        })?;
+                        .wrap_err_with(|| format!("Failed to set head to branch {branch_name}"))?;
                     info!("Checked out to existing branch '{}'", branch_name);
                 }
                 Err(_) => {
@@ -349,8 +347,8 @@ impl Interface {
                         "Branch '{}' does not exist. Creating new branch...",
                         branch_name
                     );
-                    let parent_ref = repo
-                        .find_reference(&format!("refs/remotes/origin/{parent_branch_name}"))?;
+                    let parent_ref =
+                        repo.find_reference(&format!("refs/remotes/origin/{parent_branch_name}"))?;
                     let parent_commit = parent_ref.peel_to_commit()?;
                     // If the branch does not exist, create it
                     repo.branch(branch_name, &parent_commit, false)
@@ -429,10 +427,7 @@ impl Interface {
 
         match branch_name {
             Some(branch) => {
-                remote.push(
-                    &[&format!("refs/heads/{branch}:refs/heads/{branch}")],
-                    None,
-                )?;
+                remote.push(&[&format!("refs/heads/{branch}:refs/heads/{branch}")], None)?;
             }
             None => {
                 let head = repo.head()?;
@@ -803,7 +798,7 @@ impl Interface {
     /// Returns the latest commit from `HEAD`.
     ///
     /// <https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html>
-    pub fn find_last_commit(repo: &Repository) -> Result<git2::Commit, git2::Error> {
+    pub fn find_last_commit(repo: &Repository) -> Result<git2::Commit<'_>, git2::Error> {
         let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
         obj.into_commit()
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))

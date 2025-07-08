@@ -1,10 +1,10 @@
-use crate::AppState;
 use crate::handlers_prelude::ApiError;
+use crate::AppState;
 use axum::routing::{get, post, put};
 use axum::{
-    Json, Router,
     extract::{Path, State},
     http::StatusCode,
+    Json, Router,
 };
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -36,14 +36,6 @@ pub struct CreatePRRequest {
 #[derive(Serialize, Debug)]
 pub struct IssuesData {
     pub issues: Vec<Value>,
-}
-
-#[derive(Serialize)]
-pub struct Issue {
-    pub id: u64,
-    pub title: String,
-    pub state: String,
-    pub labels: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
