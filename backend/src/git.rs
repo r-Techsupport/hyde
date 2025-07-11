@@ -1,10 +1,10 @@
 //! Abstractions and interfaces over the git repository
 
-use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail, ensure};
+use color_eyre::eyre::{bail, ensure, ContextCompat, Result, WrapErr};
 use fs_err::{self as fs, remove_dir_all};
 use git2::{
-    AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid, Repository, Signature, Status,
-    build::CheckoutBuilder,
+    build::CheckoutBuilder, AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid,
+    Repository, Signature, Status,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -338,10 +338,8 @@ impl Interface {
                         branch_name
                     );
                     // If the branch exists, check it out
-                    repo.set_head(&format!("refs/heads/{}", branch_name))
-                        .wrap_err_with(|| {
-                            format!("Failed to set head to branch {}", branch_name)
-                        })?;
+                    repo.set_head(&format!("refs/heads/{branch_name}"))
+                        .wrap_err_with(|| format!("Failed to set head to branch {branch_name}"))?;
                     info!("Checked out to existing branch '{}'", branch_name);
                 }
                 Err(_) => {
@@ -349,12 +347,12 @@ impl Interface {
                         "Branch '{}' does not exist. Creating new branch...",
                         branch_name
                     );
-                    let parent_ref = repo
-                        .find_reference(&format!("refs/remotes/origin/{}", parent_branch_name))?;
+                    let parent_ref =
+                        repo.find_reference(&format!("refs/remotes/origin/{parent_branch_name}"))?;
                     let parent_commit = parent_ref.peel_to_commit()?;
                     // If the branch does not exist, create it
                     repo.branch(branch_name, &parent_commit, false)
-                        .wrap_err_with(|| format!("Failed to create branch {}", branch_name))?;
+                        .wrap_err_with(|| format!("Failed to create branch {branch_name}"))?;
                     info!(
                         "Successfully created new branch '{}' off of '{}'",
                         branch_name, parent_branch_name
@@ -363,9 +361,9 @@ impl Interface {
 
                     // Now check out the newly created branch
                     info!("Checking out newly created branch '{}'", branch_name);
-                    repo.set_head(&format!("refs/heads/{}", branch_name))
+                    repo.set_head(&format!("refs/heads/{branch_name}"))
                         .wrap_err_with(|| {
-                            format!("Failed to set HEAD to new branch {}", branch_name)
+                            format!("Failed to set HEAD to new branch {branch_name}")
                         })?;
                     repo.checkout_head(None)?;
                 }
@@ -429,10 +427,7 @@ impl Interface {
 
         match branch_name {
             Some(branch) => {
-                remote.push(
-                    &[&format!("refs/heads/{}:refs/heads/{}", branch, branch)],
-                    None,
-                )?;
+                remote.push(&[&format!("refs/heads/{branch}:refs/heads/{branch}")], None)?;
             }
             None => {
                 let head = repo.head()?;
@@ -440,8 +435,7 @@ impl Interface {
 
                 remote.push(
                     &[&format!(
-                        "refs/heads/{}:refs/heads/{}",
-                        current_branch, current_branch
+                        "refs/heads/{current_branch}:refs/heads/{current_branch}"
                     )],
                     None,
                 )?;
@@ -593,12 +587,12 @@ impl Interface {
         branch_name: &str,
         remote_name: &str,
     ) -> Result<()> {
-        let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch_name);
+        let remote_ref = format!("refs/remotes/{remote_name}/{branch_name}");
 
         // Check if the remote branch exists
         let remote_branch = repo
             .find_reference(&remote_ref)
-            .context(format!("Remote branch '{}' not found", remote_ref))?;
+            .context(format!("Remote branch '{remote_ref}' not found"))?;
 
         // Get the shorthand branch name
         let remote_branch_name = remote_branch.shorthand().ok_or_else(|| {
@@ -706,7 +700,7 @@ impl Interface {
                 "Performing fast forward merge from branch '{}'",
                 remote_branch
             );
-            let refname = format!("refs/heads/{}", remote_branch);
+            let refname = format!("refs/heads/{remote_branch}");
             // This code will return early with an error if pulling into an empty repository.
             // That *should* never happen, so that handling was omitted, but if it's needed,
             // an example can be found at:
@@ -804,7 +798,7 @@ impl Interface {
     /// Returns the latest commit from `HEAD`.
     ///
     /// <https://zsiciarz.github.io/24daysofrust/book/vol2/day16.html>
-    pub fn find_last_commit(repo: &Repository) -> Result<git2::Commit, git2::Error> {
+    pub fn find_last_commit(repo: &Repository) -> Result<git2::Commit<'_>, git2::Error> {
         let obj = repo.head()?.resolve()?.peel(git2::ObjectType::Commit)?;
         obj.into_commit()
             .map_err(|_| git2::Error::from_str("Couldn't find commit"))

@@ -1,10 +1,10 @@
-use crate::AppState;
 use crate::handlers_prelude::ApiError;
+use crate::AppState;
 use axum::routing::{get, post, put};
 use axum::{
-    Json, Router,
     extract::{Path, State},
     http::StatusCode,
+    Json, Router,
 };
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -38,14 +38,6 @@ pub struct IssuesData {
     pub issues: Vec<Value>,
 }
 
-#[derive(Serialize)]
-pub struct Issue {
-    pub id: u64,
-    pub title: String,
-    pub state: String,
-    pub labels: Vec<String>,
-}
-
 #[derive(Deserialize, Debug)]
 pub struct UpdatePRRequest {
     pub pr_number: u64,
@@ -68,7 +60,7 @@ pub async fn list_branches_handler(
         .map(|branch| {
             let name = branch.name.clone();
             if branch.protected {
-                format!("{} (protected)", name)
+                format!("{name} (protected)")
             } else {
                 name
             }
@@ -136,7 +128,7 @@ pub async fn close_pull_request_handler(
     info!("Pull request #{} closed successfully", pr_number);
     Ok((
         StatusCode::OK,
-        Json(format!("Pull request #{} closed.", pr_number)),
+        Json(format!("Pull request #{pr_number} closed.")),
     ))
 }
 
@@ -152,7 +144,7 @@ pub async fn checkout_or_create_branch_handler(
     info!("Successfully checked out/created branch: {}", branch_name);
     Ok((
         StatusCode::OK,
-        format!("Successfully checked out/created branch: {}", branch_name),
+        format!("Successfully checked out/created branch: {branch_name}"),
     ))
 }
 
@@ -167,8 +159,7 @@ pub async fn pull_handler(
     Ok((
         StatusCode::OK,
         Json(format!(
-            "Repository pulled successfully for branch '{}'.",
-            branch
+            "Repository pulled successfully for branch '{branch}'."
         )),
     ))
 }

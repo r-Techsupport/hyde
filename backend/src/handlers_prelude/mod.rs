@@ -23,13 +23,13 @@ mod github_handlers;
 pub use github_handlers::*;
 
 use color_eyre::{
-    Report,
     eyre::{self, Context, ContextCompat},
+    Report,
 };
 use reqwest::StatusCode;
-use tracing::{debug, error, trace};
+use tracing::{debug, error};
 
-use crate::{AppState, db::User, perms::Permission};
+use crate::{db::User, perms::Permission, AppState};
 
 pub struct ApiError(eyre::Error);
 
@@ -91,32 +91,28 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
             cookies.insert(name, value);
         }
     }
-    if let Some(token) = cookies.get("access-token") {
-        trace!("Request was made that contains an access-token cookie");
-        if let Some(user) = state.db.get_user_from_token(token.to_string()).await? {
-            let expiration_date = DateTime::parse_from_rfc3339(&user.expiration_date)
-                .wrap_err("Expiration time in database is not a valid time")?;
-            if expiration_date < Utc::now() {
-                debug!(
+
+    let mut located_user: Option<FoundUser> = None;
+    let token = cookies.get("access-token").unwrap();
+    if let Some(user) = state.db.get_user_from_token(token.to_string()).await? {
+        let expiration_date = DateTime::parse_from_rfc3339(&user.expiration_date)
+            .wrap_err("Expiration time in database is not a valid time")?;
+        if expiration_date < Utc::now() {
+            debug!(
                     "User {:?} made a request that requires a valid access token but their access token expired",
                     user.username
                 );
-                return Ok(Some(FoundUser::ExpiredUser(user)));
-            } else {
-                debug!(
+            located_user = Some(FoundUser::ExpiredUser(user));
+        } else {
+            debug!(
                     "User {:?} made a request that requires a valid access token and they have a valid access token",
                     user.username
                 );
-                return Ok(Some(FoundUser::User(user)));
-            }
-        } else {
-            trace!("No user was found in the database with the request's access token");
+            located_user = Some(FoundUser::User(user));
         }
-    } else {
-        trace!("Request was made that lacked an access-token cookie");
     }
 
-    Ok(None)
+    Ok(located_user)
 }
 
 /// This function is used to add permissions to endpoints.

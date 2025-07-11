@@ -168,7 +168,7 @@ pub async fn get_asset_handler(
     // https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
     let file = match state.git.get_asset(&path).map_err(eyre_to_axum_err)? {
         Some(file) => file,
-        None => return Err((StatusCode::NOT_FOUND, format!("File not found: {}", path))),
+        None => return Err((StatusCode::NOT_FOUND, format!("File not found: {path}"))),
     };
     let mut headers = HeaderMap::new();
     headers.insert(
