@@ -29,7 +29,7 @@
 		"jsdom": "^26.1.0",
 		"prettier": "^3.6.2",
 		"prettier-plugin-svelte": "^3.2.7",
-		"stylelint": "^16.20.0",
+		"stylelint": "^16.21.1",
 		"stylelint-config-html": "^1.1.0",
 		"stylelint-config-standard": "^38.0.0",
 		"svelte": "^5.34.8",
