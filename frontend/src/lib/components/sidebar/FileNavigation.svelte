@@ -141,11 +141,13 @@
 						path + newFileInput!.value,
 						`---
 layout: default
-title: Your Document Title Here
-nav_exclude: false
+title: Title of Page
+sidebar:
+    hidden: false
 has_children: false
-parent: Parent Folder Name Here
-search_exclude: false
+parent: General Guides
+description: Description of Page
+pagefind: true
 last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 ---\n\n`
 					);
