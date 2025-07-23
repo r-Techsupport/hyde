@@ -1,105 +1,71 @@
-import { assert, describe, test, vi } from 'vitest';
-import { stripFrontMatter } from './render';
-import { marked, type TokensList } from 'marked';
+import { describe, test, expect, vi } from 'vitest';
+import { renderMarkdown } from './render';
+import { addToast } from './toast';
 
-const mocks = vi.hoisted(() => {
-	return {
-		addToast: vi.fn()
-	};
-});
-
+// Mock the addToast function
 vi.mock('./toast', async (importOriginal) => {
 	const mod = await importOriginal<typeof import('./toast')>();
 	return {
 		...mod,
-		addToast: mocks.addToast
+		addToast: vi.fn()
 	};
 });
 
-// The error toast is only displayed when there's a file selected, and we check for issues based on that file selection
-vi.mock('./main', async (importOriginal) => {
-	const mod = await importOriginal<typeof import('./main')>();
-	// A mock writeable store
-	const currentFile = {
-		subscribe: (func: (m: string) => undefined) => {
-			func('foo/bar');
-			// The code that accesses this usually uses `get()`, which calls subscribe, then calls `unsubscribe`,
-			// which is the function returned by a `subscribe` call
-			// https://svelte.dev/docs/svelte-store#writable
-			return () => {};
-		}
-	};
-	return {
-		...mod,
-		currentFile
-	};
-});
+// Mock dompurify
+vi.mock('dompurify', () => ({
+	default: {
+		sanitize: vi.fn((dirty: string) => dirty),
+		removed: []
+	}
+}));
 
-describe('Frontmatter removal robustness', () => {
-	test.concurrent('Basic (av-removal header)', async () => {
-		const leftover = stripFrontMatterFromString(
-			String.raw`---
-title: List of AV removers
-description: A list of links for downloading (or usage guides of) dedicated uninstallers for 3rd party AVs. 
-sidebar:
-    hidden: false
-has_children: false
-parent: Factoids
-pagefind: true
-last_modified_date: 2024-01-02
+describe('renderMarkdown', () => {
+	test('renders title and description correctly', async () => {
+		const input = `---
+title: My Title
 ---
-Below is...`
-		);
-		assert(leftover === 'Below is...');
+# Heading
+Content here.`;
+
+		const mockOutput = { innerHTML: '' } as HTMLElement;
+
+		await renderMarkdown(input, mockOutput);
+
+		expect(mockOutput.innerHTML).toContain('<h1 class="doc-title">My Title</h1>');
+		expect(mockOutput.innerHTML).toContain('<h1>Heading</h1>');
+		expect(mockOutput.innerHTML).toContain('Content here.');
 	});
 
-	test.concurrent('Basic newline (force-updating-windows header)', async () => {
-		const leftover = stripFrontMatterFromString(
-			String.raw`---
-title: Force updating Windows
-sidebar:
-    hidden: false
-parent: Factoids
-has_children: false
-pagefind: true
-last_modified_date: 2024-03-09
----
-# Force updating Windows
-`
-		);
-		assert(leftover === '# Force updating Windows\n');
-	});
-
-	test.concurrent('Leaves extra line break alone (mock header)', async () => {
-		const leftover = stripFrontMatterFromString(
-			String.raw`---
+	test('displays error toast when frontmatter header is missing', () => {
+		const input = `---
 layout
 ---
----
-`
+---`;
+
+		const mockOutput = { innerHTML: '' } as HTMLElement;
+
+		renderMarkdown(input, mockOutput);
+
+		// Check that addToast was called at least once with the error message
+		expect(addToast).toHaveBeenCalled();
+		expect(addToast).toHaveBeenCalledWith(
+			'Missing front matter: Ensure the title is defined.',
+			expect.anything(),
+			false
 		);
-		assert(leftover === '---\n');
 	});
 
-	test.concurrent('Fails on missing header', async () => {
-		// This test ensures the addToast method is called
-		stripFrontMatterFromString(
-			String.raw`---
-    layout
-    ---
-    ---
-    `
-		);
-		assert(
-			mocks.addToast.mock.calls.length === 1,
-			`Expected 'addToast.mock.calls.length' to be 1, was instead ${mocks.addToast.mock.calls.length}`
-		);
+	test('preserves title and description when frontmatter is malformed', async () => {
+		const input = `---
+title: My Title
+description: My Description
+---`;
+
+		const mockOutput = { innerHTML: '' } as HTMLElement;
+
+		await renderMarkdown(input, mockOutput);
+
+		expect(mockOutput.innerHTML).toContain('<h1 class="doc-title">My Title</h1>');
+		expect(mockOutput.innerHTML).toContain('<p class="doc-description">My Description</p>');
 	});
 });
-
-/** Run the provided string through the frontmatter removal tooling and then re-serialize it into a string for convenience*/
-function stripFrontMatterFromString(input: string): string {
-	const mockMarkDown: TokensList = marked.lexer(input);
-	stripFrontMatter(mockMarkDown);
-	return mockMarkDown.map((m) => m.raw).join('');
-}

@@ -2,11 +2,11 @@
  * @file
  * Utilities for rendering text into markdown
  */
+import fm from 'front-matter';
 import { Renderer, marked, type TokensList } from 'marked';
 import DOMPurify from 'dompurify';
 import { ToastType, addToast, dismissToast } from './toast';
-import { get } from 'svelte/store';
-import { currentFile, apiAddress } from './main';
+import { apiAddress } from './main';
 
 /**
  * When the rendered file is missing a valid frontmatter header, then an error toast is displayed.
@@ -14,66 +14,98 @@ import { currentFile, apiAddress } from './main';
  */
 let toastId = -1;
 
+interface FrontMatter {
+	title?: string;
+	description?: string;
+	[key: string]: unknown;
+}
+
 /**
  * Compile the provided input string into markdown and render it,
  * editing the provided html element
  * @param input The raw markdown to be rendered
  * @param output The element to insert the markdown into
  */
-export async function renderMarkdown(input: string, output: HTMLElement): Promise<undefined> {
-	// https://marked.js.org/#demo
-	// This whole pipeline needs to be manually defined otherwise everything breaks
+export async function renderMarkdown(input: string, output: HTMLElement): Promise<void> {
+	// Parse front matter and get title, description, and markdown content
+	getFrontMatterType(input);
+	const parsed = fm(input);
+	const frontMatter = parsed.attributes as FrontMatter;
+	const title = frontMatter.title;
+	const description = frontMatter.description;
+	const content = parsed.body;
+
+	checkFrontMatter(title);
+
+	// Convert content to tokens and process images
 	marked.use({ renderer: new Renderer() });
-	const rawTokens: TokensList = marked.lexer(input);
-	stripFrontMatter(rawTokens);
-	// rewrite image urls to point to the correct location
+	const rawTokens: TokensList = marked.lexer(content);
 	marked.walkTokens(rawTokens, (t) => {
-		if (t.type !== 'image') {
-			return;
-		}
-		t.href = t.href.replace(/^(?:\.\.\/)+/, '/');
-		if (t.href.startsWith('/')) {
-			t.href = apiAddress + t.href;
+		if (t.type === 'image') {
+			t.href = t.href.replace(/^(?:\.\.\/)+/, '/');
+			if (t.href.startsWith('/')) {
+				t.href = apiAddress + t.href;
+			}
 		}
 	});
-	const cleanedOutput: string = DOMPurify.sanitize(await marked.parser(rawTokens));
+
+	// Generate sanitized HTML body
+	const bodyHtml = DOMPurify.sanitize(await marked.parser(rawTokens));
 	if (DOMPurify.removed.length > 0) {
-		console.warn('Possible XSS detected, modified output: ', DOMPurify.removed);
+		console.warn('Possible XSS detected, modified output:', DOMPurify.removed);
 	}
 
-	output.innerHTML = cleanedOutput;
+	// Prepend title and description as <h1> and <p> if defined
+	let outputHtml = '';
+	if (title) {
+		outputHtml += `<h1 class="doc-title">${DOMPurify.sanitize(title)}</h1>\n`;
+	}
+	if (description) {
+		outputHtml += `<p class="doc-description">${DOMPurify.sanitize(description)}</p>\n`;
+	}
+	outputHtml += bodyHtml;
+
+	output.innerHTML = outputHtml;
 }
 
-/**
- * Strip the Frontmatter header from the provided list of tokens, returning the modified tree.
- *
- * exported for tests
- */
-export function stripFrontMatter(input: TokensList) {
-	// Remove the first line break
-	input.shift();
-	const frontMatterNode = input.shift();
-	if (
-		frontMatterNode !== undefined &&
-		frontMatterNode.type === 'paragraph' &&
-		frontMatterNode.raw.includes('title: ')
-	) {
-		input.shift();
-		// Hide the toast if a header was detected and it's being displayed
+export function checkFrontMatter(title?: string): void {
+	if (!title) {
+		// Display a toast notification if title is missing
+		if (toastId === -1) {
+			toastId = addToast(
+				'Missing front matter: Ensure the title is defined.',
+				ToastType.Error,
+				false
+			);
+		}
+	} else {
+		// Hide the toast if title is present
 		if (toastId !== -1) {
 			dismissToast(toastId);
 			toastId = -1;
 		}
-	} else {
-		if (get(currentFile) !== '') {
-			// -1 means the toast isn't displayed
-			if (toastId === -1) {
-				toastId = addToast(
-					'No valid frontmatter header was found, please ensure all documents have a frontmatter header',
-					ToastType.Error,
-					false
-				);
-			}
-		}
 	}
+}
+
+export function getFrontMatterType(input: string): 'yaml' | 'toml' | 'json' | 'unknown' {
+	const trimmed = input.trim();
+
+	if (trimmed.startsWith('---') && trimmed.endsWith('---')) {
+		return 'yaml';
+	} else if (trimmed.startsWith('+++') && trimmed.endsWith('+++')) {
+		return 'toml';
+	} else if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+		return 'json';
+	}
+
+	// Display a toast notification if front matter is not YAML
+	if (toastId === -1) {
+		toastId = addToast(
+			'Warning: Front matter is not in YAML format. YAML is recommended.',
+			ToastType.Warning,
+			false
+		);
+	}
+
+	return 'unknown';
 }
