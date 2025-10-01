@@ -1,10 +1,10 @@
-use crate::handlers_prelude::ApiError;
 use crate::AppState;
+use crate::handlers_prelude::ApiError;
 use axum::routing::{get, post, put};
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
-    Json, Router,
 };
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};

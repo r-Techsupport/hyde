@@ -1,10 +1,11 @@
 name: Build image and push to ACA
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+# disabled because nonfunctional as of October 1st, 2025
+# on:
+#   push:
+#     branches:
+#       - main
+#   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io

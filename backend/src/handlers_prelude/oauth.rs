@@ -1,9 +1,9 @@
 use axum::routing::get;
 use axum::{
+    Router,
     extract::{Query, Request, State},
     http::HeaderMap,
     response::Redirect,
-    Router,
 };
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat};
@@ -11,7 +11,7 @@ use oauth2::{AuthorizationCode, CsrfToken, RedirectUrl, TokenResponse};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::{db::User, AppState};
+use crate::{AppState, db::User};
 
 use super::ApiError;
 

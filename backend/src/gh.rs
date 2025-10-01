@@ -523,9 +523,7 @@ impl GitHubClient {
         }
         let query_string = format!("?{}", query_params.join("&"));
 
-        let url = format!(
-            "{GITHUB_API_URL}/repos/{repo_name}/issues{query_string}"
-        );
+        let url = format!("{GITHUB_API_URL}/repos/{repo_name}/issues{query_string}");
 
         let response = self
             .client
