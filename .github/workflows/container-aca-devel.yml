@@ -1,6 +1,5 @@
 name: Build image and push to ACA
 
-# disabled because nonfunctional as of October 1st, 2025
 on:
   push:
     branches:
