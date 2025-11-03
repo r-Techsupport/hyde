@@ -48,6 +48,6 @@
 		"marked-base-url": "^1.1.7"
 	},
 	"optionalDependencies": {
-		"@rollup/rollup-linux-x64-gnu": "^4.52.3"
+		"@rollup/rollup-linux-x64-gnu": "^4.52.5"
 	}
 }
