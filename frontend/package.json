@@ -45,7 +45,7 @@
 		"dompurify": "^3.3.0",
 		"front-matter": "^4.0.2",
 		"marked": "^17.0.0",
-		"marked-base-url": "^1.1.7"
+		"marked-base-url": "^1.1.8"
 	},
 	"optionalDependencies": {
 		"@rollup/rollup-linux-x64-gnu": "^4.53.2"
