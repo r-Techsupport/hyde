@@ -1,4 +1,5 @@
 # Hyde
+![logo](./graphics/logo-dark.svg)
 This project is intended as a Content Management System (CMS) for Jekyll
 and Astro static sites. It is meant to enable users to edit a markdown site
 hosted with Github Pages from a web browser. Hyde also provides a
@@ -11,6 +12,7 @@ Rust.
 For more documentation, please check the `docs/` folder at the root of
 the repo.
 
+![demo](./graphics/demo.png)
 ## Running
 The Hyde executable requires the `hyde-data` folder to be present in the
 same directory. See: [Populating hyde-data](#populating-hyde-data).
