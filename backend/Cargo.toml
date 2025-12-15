@@ -20,7 +20,7 @@ fs-err = { version = "3.2.0", features = ["tokio"] }
 git2 = "0.20.2"
 jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
 oauth2 = "5.0.0"
-reqwest = { version = "0.12.24", features = ["stream", "json"] }
+reqwest = { version = "0.12.25", features = ["stream", "json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
