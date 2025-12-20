@@ -23,7 +23,7 @@ pub struct Interface {
     /// The path to the documents folder, relative to the server executable.
     ///
     /// EG: `./repo/docs`
-    doc_path: PathBuf,
+    doc_path: Vec<PathBuf>,
     /// The path to the assets folder, relative to the server executable.
     ///
     /// EG: `./repo/assets`
@@ -52,10 +52,10 @@ impl Interface {
     pub fn new(
         repo_url: String,
         repo_path: String,
-        docs_path: String,
+        docs_path: Vec<PathBuf>,
         assets_path: String,
     ) -> Result<Self> {
-        let doc_path = PathBuf::from(docs_path);
+        let doc_path: Vec<PathBuf> = docs_path.into_iter().collect();
         let asset_path = PathBuf::from(assets_path);
         let repo = Self::load_repository(&repo_url, &repo_path)?;
         Ok(Self {
@@ -76,10 +76,39 @@ impl Interface {
     /// This function will return an error if filesystem operations fail.
     #[tracing::instrument(skip(self))]
     pub fn get_doc<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<Option<String>> {
-        let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
-        path_to_doc.push(path);
-        let doc = Self::get_file(&path_to_doc)?.map(|v| String::from_utf8(v).unwrap());
-        Ok(doc)
+        let path = path.as_ref();
+
+        // Convert once to string
+        let path_str = match path.to_str() {
+            Some(s) => s.trim_start_matches(['/', '\\']),
+            None => return Ok(None),
+        };
+
+        for doc_root in &self.doc_path {
+            let root_str = match doc_root.to_str() {
+                Some(s) => s,
+                None => continue,
+            };
+
+            // Use map_or_else instead of if let/else
+            let candidate_rel = path_str
+                .strip_prefix(root_str)
+                .map_or_else(
+                    || PathBuf::from(path_str),
+                    |rest| PathBuf::from(rest.trim_start_matches(['/', '\\'])),
+                );
+
+            let candidate = doc_root.join(candidate_rel);
+
+            tracing::debug!("Trying candidate path: {:?}", candidate.display());
+
+            if let Some(bytes) = Self::get_file(&candidate)? {
+                let doc = String::from_utf8(bytes).unwrap(); // assuming valid UTF-8 files
+                return Ok(Some(doc));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Return the asset from the provided `path`, where `path` is the
@@ -104,9 +133,22 @@ impl Interface {
     /// # Errors
     /// This function fails if filesystem ops fail (reading file, reading directory)
     #[tracing::instrument(skip(self))]
-    pub fn get_doc_tree(&self) -> Result<INode> {
-        let doc_tree = Self::get_file_tree(&self.doc_path)?;
-        Ok(doc_tree)
+    pub fn get_doc_tree(&self) -> Result<INode, String> {
+        let mut children = vec![];
+        for doc_root in &self.doc_path {
+            if let Ok(tree) = Self::get_file_tree(doc_root) {
+                children.push(tree);
+            }
+        }
+        if children.is_empty() {
+            Err("No doc tree found in any doc root".to_owned())
+        } else {
+            // Synthetic merged root node
+            Ok(INode {
+                name: "root".to_string(),
+                children
+            })
+        }
     }
 
     /// Read the assets folder into a tree-style structure.
@@ -137,10 +179,12 @@ impl Interface {
         path: P,
         new_doc: &str,
     ) -> Result<()> {
-        // TODO: refactoring hopefully means that all paths can just assume that it's relative to
-        // the root of the repo
-        let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
+        let mut path_to_doc = PathBuf::new();
+        for part in &self.doc_path {
+            path_to_doc.push(part);
+        }
         path_to_doc.push(path.as_ref());
+
         Self::put_file(&path_to_doc, new_doc.as_bytes())?;
 
         Ok(())
@@ -187,11 +231,15 @@ impl Interface {
     ///
     /// # Errors
     /// Returns an error if the file cannot be deleted from the filesystem.
-    pub fn delete_doc<P: AsRef<Path> + Copy>(&self, path: P) -> Result<()> {
-        let mut path_to_doc: PathBuf = PathBuf::from(&self.doc_path);
-        path_to_doc.push(path);
-        Self::delete_file(&path_to_doc)?;
-        Ok(())
+    pub fn delete_doc<P: AsRef<Path> + Copy>(&self, path: P) -> Result<(), String> {
+        for doc_root in &self.doc_path {
+            let mut candidate = doc_root.clone();
+            candidate.push(path.as_ref());
+            if Self::delete_file(&candidate).is_ok() {
+                return Ok(());
+            }
+        }
+        Err(format!("Document {:?} not found in any doc root", path.as_ref()))
     }
 
     /// Deletes the asset at the specified `path` within the repository's asset directory.
