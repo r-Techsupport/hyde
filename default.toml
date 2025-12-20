@@ -1,7 +1,10 @@
 # Files is related to any URL or internal files Hyde will use
 [files]
 # The location of the markdown files relative to the root of the repo
-docs_path = "docs/"
+docs_path = [
+  "docs/",
+  "_includes/"
+]
 # The location of the assets files relative to the root of the repo
 asset_path = "assets/"
 # The path where the repository will be pulled and used
