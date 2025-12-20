@@ -36,6 +36,7 @@ use std::env::current_exe;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
+use std::path::PathBuf;
 use tracing::{Level, Span};
 use tracing::{debug, info, info_span, warn};
 
@@ -141,7 +142,12 @@ async fn main() -> Result<()> {
 async fn init_state(cli_args: &Args) -> Result<AppState> {
     let repo_url = CONFIG.files.repo_url.clone();
     let repo_path = CONFIG.files.repo_path.clone();
-    let docs_path = CONFIG.files.docs_path.clone();
+    let docs_path: Vec<PathBuf> = CONFIG
+    .files
+    .docs_path
+    .iter()
+    .map(PathBuf::from)
+    .collect();
     let asset_path = CONFIG.files.asset_path.clone();
 
     let git =
