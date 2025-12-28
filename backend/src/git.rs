@@ -39,7 +39,7 @@ pub struct Interface {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct INode {
     name: String,
-    children: Vec<INode>,
+    children: Vec<Self>,
 }
 
 impl Interface {
