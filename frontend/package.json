@@ -44,7 +44,7 @@
 	"dependencies": {
 		"dompurify": "^3.3.1",
 		"front-matter": "^4.0.2",
-		"marked": "^17.0.0",
+		"marked": "^17.0.1",
 		"marked-base-url": "^1.1.8"
 	},
 	"optionalDependencies": {
