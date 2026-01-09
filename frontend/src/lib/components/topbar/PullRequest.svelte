@@ -329,7 +329,7 @@
 													href={issue.html_url}
 													aria-label="Issue SVG"
 													target="_blank"
-													rel="noopener noreferrer"
+													rel="external"
 													class="issue-svg"
 												>
 													<svg viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
