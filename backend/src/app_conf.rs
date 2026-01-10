@@ -19,7 +19,7 @@ pub struct AppConf {
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Files {
     pub asset_path: String,
-    pub docs_path: String,
+    pub docs_path: Vec<PathBuf>,
     pub repo_path: String,
     pub repo_url: String,
 }
