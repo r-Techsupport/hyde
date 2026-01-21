@@ -28,4 +28,4 @@ tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "signal",
 tower-http = { version = "0.6.8", features = ["normalize-path", "fs", "cors", "tracing", "trace"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.22"
-toml = "0.9.10"
+toml = "0.9.11"
