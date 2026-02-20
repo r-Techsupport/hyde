@@ -16,7 +16,7 @@ chrono = "0.4.43"
 clap = { version = "4.5.58", features = ["derive"] }
 color-eyre = "0.6.5"
 dotenvy = "0.15.7"
-fs-err = { version = "3.2.2", features = ["tokio"] }
+fs-err = { version = "3.3.0", features = ["tokio"] }
 git2 = "0.20.4"
 jsonwebtoken = { version = "10.2.0", features = ["rust_crypto"] }
 oauth2 = "5.0.0"
