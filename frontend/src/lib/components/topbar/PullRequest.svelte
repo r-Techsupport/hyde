@@ -409,8 +409,13 @@
 		white-space: nowrap;
 	}
 
-	.pull-request > span:hover {
+	.pull-request button {
+		padding: 0.5rem 1rem;
+	}
+
+	.pull-request button:hover {
 		background-color: var(--background-1);
+		cursor: pointer;
 		transition: background-color 0.3s ease;
 	}
 
