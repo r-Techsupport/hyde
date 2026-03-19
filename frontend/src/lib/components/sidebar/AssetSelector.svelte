@@ -2,6 +2,8 @@
 <script lang="ts">
 	import { SelectedMode } from '$lib/main';
 	import { assetTree } from '$lib/state/sidebar.svelte';
+	// `mode` and `assetFolderPath` are only written to, not read from
+	// eslint-disable-next-line no-useless-assignment
 	let { mode = $bindable(), assetFolderPath = $bindable() } = $props();
 
 	function assetSelectionHandler(e: MouseEvent) {

@@ -21,6 +21,8 @@
 		cancelHandler = () => {},
 		confirmText = 'Confirm',
 		cancelText = 'Cancel',
+		// This value is written to, but visibility is controlled externally, so it is not read from.
+		// eslint-disable-next-line no-useless-assignment
 		visible = $bindable(),
 		children
 	}: Props = $props();
