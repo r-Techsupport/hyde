@@ -5,6 +5,8 @@
 		children?: import('svelte').Snippet;
 	}
 
+	// We write to `sidebarWidth`, it is assigned to a css variable, then that css variable is used.
+	// eslint-disable-next-line no-useless-assignment
 	let { sidebarWidth = $bindable(), children }: Props = $props();
 	// const MOCK_DIRECTORY = {
 	//     name: "Root",
