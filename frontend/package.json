@@ -14,7 +14,7 @@
 		"test:watch": "vitest watch"
 	},
 	"devDependencies": {
-		"@eslint/eslintrc": "^3.3.1",
+		"@eslint/eslintrc": "^3.3.5",
 		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.49.2",
