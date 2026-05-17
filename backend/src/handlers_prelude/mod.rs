@@ -93,7 +93,12 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
     }
 
     let mut located_user: Option<FoundUser> = None;
-    let token = cookies.get("access-token").unwrap();
+
+    // Access token cookie can be absent if the user is new
+    let Some(token) = cookies.get("access-token") else {
+        return Ok(None);
+    };
+
     if let Some(user) = state.db.get_user_from_token(token.to_string()).await? {
         let expiration_date = DateTime::parse_from_rfc3339(&user.expiration_date)
             .wrap_err("Expiration time in database is not a valid time")?;
