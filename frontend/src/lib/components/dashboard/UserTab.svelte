@@ -125,7 +125,7 @@
 	.user-menu {
 		margin-top: 0;
 		margin-bottom: 0;
-		padding: 0 0.2rem 0 0.2rem;
+		padding: 0 0.2rem;
 		height: 100%;
 		border-right: 1.5px solid var(--background-3);
 		list-style-type: none;
@@ -136,7 +136,7 @@
 	.group-menu {
 		margin-top: 0;
 		margin-bottom: 0;
-		padding: 0 0.2rem 0 0.2rem;
+		padding: 0 0.2rem;
 		list-style-type: none;
 		width: 50%;
 		height: 100%;
