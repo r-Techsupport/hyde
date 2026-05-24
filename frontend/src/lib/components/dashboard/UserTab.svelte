@@ -54,11 +54,15 @@
 	}
 
 	let searchQuery = $state('');
-	let displayedUsers: User[] = $state([]);
+	let displayedUsers: User[] = $derived(users);
 	function searchUserHandler(e: Event) {
 		const target = e.target as HTMLInputElement;
 		searchQuery = target.value.toLowerCase().trim();
-		displayedUsers = users.filter((user) => user.username.includes(searchQuery));
+		if (searchQuery) {
+			displayedUsers = users.filter((user) => user.username.includes(searchQuery));
+		} else {
+			displayedUsers = users;
+		}
 	}
 
 	onMount(async () => {
@@ -80,7 +84,7 @@
 		<SectionHeader>Users</SectionHeader>
 		<input class="search" type="text" placeholder="Search users" oninput={searchUserHandler} />
 		{#each users.entries() as [index, user] (index)}
-			{#if displayedUsers.includes(user) || !searchQuery}
+			{#if displayedUsers.includes(user)}
 				<li class={selectedUser == index ? 'selected-user' : ''} id={index.toString()}>
 					<button onclick={userSelectHandler}>
 						<img src={user.avatar_url} alt="User avatar" width="25rem" height="25rem" />
@@ -89,6 +93,9 @@
 				</li>
 			{/if}
 		{/each}
+		{#if displayedUsers.length == 0}
+			<span>No users found.</span>
+		{/if}
 	</ul>
 	<ul class="group-menu">
 		<SectionHeader>Groups</SectionHeader>
