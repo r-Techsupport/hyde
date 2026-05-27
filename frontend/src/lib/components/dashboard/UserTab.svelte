@@ -58,11 +58,7 @@
 	function searchUserHandler(e: Event) {
 		const target = e.target as HTMLInputElement;
 		searchQuery = target.value.toLowerCase().trim();
-		if (searchQuery) {
-			displayedUsers = users.filter((user) => user.username.includes(searchQuery));
-		} else {
-			displayedUsers = users;
-		}
+		displayedUsers = users.filter((user) => user.username.includes(searchQuery));
 	}
 
 	onMount(async () => {
