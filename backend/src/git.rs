@@ -253,7 +253,7 @@ impl Interface {
         Repository::clone(&self.repo_url, tmp_repo_path)?;
 
         // Make a dummy repo and replace the old repo in the mutex with it
-        let dummy_repo = Repository::init("./dummy")?;
+        let dummy_repo = Repository::init("./dummy__tmp")?;
         let mut lock = self.repo.lock().unwrap();
         *lock = dummy_repo;
 
@@ -264,7 +264,7 @@ impl Interface {
         // Now, replace the dummy in the mutex with the new clone and cleanup
         let new_repo = Repository::open(repo_path)?;
         *lock = new_repo;
-        fs::remove_dir_all("./dummy")?;
+        fs::remove_dir_all("./dummy__tmp")?;
         drop(lock);
 
         info!("Reclone completed successfully");
