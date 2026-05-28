@@ -240,24 +240,34 @@ impl Interface {
     /// Completely clone and open a new repository, deleting the old one.
     #[tracing::instrument(skip_all)]
     pub fn reclone(&self) -> Result<()> {
-        // First clone a repo into `repo__tmp`, open that, swap out
         let repo_path = Path::new("./repo"); // TODO: Possibly implement this path into new config?
-        let tmp_path = Path::new("./repo__tmp");
+        let tmp_repo_path = Path::new("./repo__tmp");
 
-        // if a reclone was attempted but failed, repo__tmp might still exist
-        if tmp_path.exists() {
-            warn!("A previous re-clone failed, stale data was found");
-            remove_dir_all(tmp_path)?;
+        // If a reclone was attempted but failed, repo__tmp might still exist
+        if tmp_repo_path.exists() {
+            warn!("A previous re-clone failed, removing stale data...");
+            remove_dir_all(tmp_repo_path)?;
         }
-        let tmp_repo = Repository::clone(&self.repo_url, tmp_path)?;
 
+        // Clone the repo into tmp directory
+        Repository::clone(&self.repo_url, tmp_repo_path)?;
+
+        // Make a dummy repo and replace the old repo in the mutex with it
+        let dummy_repo = Repository::init("./dummy__tmp")?;
         let mut lock = self.repo.lock().unwrap();
-        *lock = tmp_repo;
-        info!("Deleting the old repo and replacing it with the new one...");
+        *lock = dummy_repo;
+
+        debug!("Deleting the old repo and replacing it with the new one...");
         fs::remove_dir_all(repo_path)?;
-        fs::rename(tmp_path, repo_path)?;
-        *lock = Repository::open(repo_path)?;
+        fs::rename(tmp_repo_path, repo_path)?;
+
+        // Now, replace the dummy in the mutex with the new clone and cleanup
+        let new_repo = Repository::open(repo_path)?;
+        *lock = new_repo;
+        fs::remove_dir_all("./dummy__tmp")?;
         drop(lock);
+
+        info!("Reclone completed successfully");
         Ok(())
     }
 
