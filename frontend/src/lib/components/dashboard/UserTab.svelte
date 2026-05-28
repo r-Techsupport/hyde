@@ -54,12 +54,9 @@
 	}
 
 	let searchQuery = $state('');
-	let displayedUsers: User[] = $derived(users);
-	function searchUserHandler(e: Event) {
-		const target = e.target as HTMLInputElement;
-		searchQuery = target.value.toLowerCase().trim();
-		displayedUsers = users.filter((user) => user.username.includes(searchQuery));
-	}
+	let displayedUsers: User[] = $derived(
+		users.filter((user) => user.username.includes(searchQuery.trim().toLowerCase()))
+	);
 
 	onMount(async () => {
 		allGroups = await (await fetch(`${apiAddress}/api/groups`, { credentials: 'include' })).json();
@@ -78,7 +75,7 @@
 <div class="container">
 	<ul class="user-menu">
 		<SectionHeader>Users</SectionHeader>
-		<input class="search" type="text" placeholder="Search users" oninput={searchUserHandler} />
+		<input class="search" type="text" placeholder="Search users" bind:value={searchQuery} />
 		{#each users.entries() as [index, user] (index)}
 			{#if displayedUsers.includes(user)}
 				<li class={selectedUser == index ? 'selected-user' : ''} id={index.toString()}>
