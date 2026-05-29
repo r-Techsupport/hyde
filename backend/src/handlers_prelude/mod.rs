@@ -24,47 +24,45 @@ pub use github_handlers::*;
 
 use color_eyre::{
     Report,
-    eyre::{self, Context, ContextCompat},
+    eyre::{Context, ContextCompat},
 };
 use reqwest::StatusCode;
 use tracing::{debug, error};
 
 use crate::{AppState, db::User, perms::Permission};
 
-pub struct ApiError(eyre::Error);
+pub struct ApiError(StatusCode, String);
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
+        (self.0, self.1).into_response()
     }
 }
 
-impl From<eyre::Error> for ApiError {
-    fn from(err: eyre::Error) -> Self {
-        Self(err)
+impl From<Report> for ApiError {
+    fn from(err: Report) -> Self {
+        error!(error = ?err, "An error was encountered in an axum handler:");
+        Self(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
     }
 }
 
 impl From<String> for ApiError {
     fn from(err: String) -> Self {
-        Self(eyre::eyre!(err))
+        error!("An error was encountered in an axum handler: {err}");
+        Self(StatusCode::INTERNAL_SERVER_ERROR, err)
     }
 }
 
 impl From<(StatusCode, String)> for ApiError {
-    fn from((_, msg): (StatusCode, String)) -> Self {
-        Self(eyre::eyre!(msg))
+    fn from((status_code, msg): (StatusCode, String)) -> Self {
+        Self(status_code, msg)
     }
 }
 
 /// Quick and dirty way to convert an eyre error to a (StatusCode, message) response, meant for use with `map_err`, so that errors can be propagated out of
 /// axum handlers with `?`.
 pub fn eyre_to_axum_err(e: Report) -> (StatusCode, String) {
-    error!("An error was encountered in an axum handler: {e:?}");
+    error!(error = ?e, "An error was encountered in an axum handler:");
     (
         StatusCode::INTERNAL_SERVER_ERROR,
         format!("An error was encountered, check server logs for more info: {e}"),
