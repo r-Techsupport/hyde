@@ -1,6 +1,6 @@
 //! Abstractions and interfaces over the git repository
 
-use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail, ensure};
+use color_eyre::eyre::{Result, WrapErr, bail, ensure};
 use fs_err::{self as fs, remove_dir_all};
 use git2::{
     AnnotatedCommit, BranchType, FetchOptions, IndexAddOption, Oid, Repository, Signature, Status,
@@ -595,12 +595,7 @@ impl Interface {
             .context(format!("Remote branch '{remote_ref}' not found"))?;
 
         // Get the shorthand branch name
-        let remote_branch_name = remote_branch.shorthand().ok_or_else(|| {
-            color_eyre::eyre::eyre!(
-                "Failed to get shorthand name for remote branch '{}'",
-                remote_ref
-            )
-        })?;
+        let remote_branch_name = remote_branch.shorthand()?;
 
         info!(
             "Setting upstream for local branch '{}' to remote '{}'",
@@ -675,9 +670,7 @@ impl Interface {
         drop(remote);
 
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
-        let fetch_head_name = fetch_head
-            .name()
-            .ok_or_else(|| color_eyre::eyre::eyre!("FETCH_HEAD reference name is missing"))?;
+        let fetch_head_name = fetch_head.name()?;
         debug!("Fetched HEAD: {}", fetch_head_name);
         // Return the annotated commit
         Ok(repo.reference_to_annotated_commit(&fetch_head)?)
@@ -853,12 +846,10 @@ impl Interface {
     /// # Errors
     /// - If the repository is unavailable or the `head()` operation fails, an error is returned with a description of the failure.
     #[allow(clippy::significant_drop_tightening)]
-    pub async fn get_current_branch(&self) -> Result<String, String> {
+    pub async fn get_current_branch(&self) -> Result<String> {
         let repo = self.repo.lock().unwrap();
-        let head = repo.head().map_err(|e| e.to_string())?;
-        let branch_name = head
-            .shorthand()
-            .ok_or_else(|| "Could not determine current branch".to_string())?;
+        let head = repo.head()?;
+        let branch_name = head.shorthand()?;
         Ok(branch_name.to_string())
     }
 }
