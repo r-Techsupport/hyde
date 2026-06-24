@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use axum::response::{IntoResponse, Response};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Utc};
 mod repo_fs;
+use jiff::Timestamp;
 pub use repo_fs::*;
 mod oauth;
 pub use oauth::*;
@@ -98,9 +98,11 @@ async fn find_user(state: &AppState, headers: HeaderMap) -> color_eyre::Result<O
     };
 
     if let Some(user) = state.db.get_user_from_token(token.to_string()).await? {
-        let expiration_date = DateTime::parse_from_rfc3339(&user.expiration_date)
+        let expiration_date: Timestamp = user
+            .expiration_date
+            .parse()
             .wrap_err("Expiration time in database is not a valid time")?;
-        if expiration_date < Utc::now() {
+        if expiration_date < Timestamp::now() {
             debug!(
                 "User {:?} made a request that requires a valid access token but their access token expired",
                 user.username
