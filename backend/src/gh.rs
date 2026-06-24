@@ -1,9 +1,9 @@
 //! Code for interacting with GitHub (authentication, prs, et cetera)
 
-use chrono::DateTime;
 use color_eyre::Result;
 use color_eyre::eyre::{Context, bail};
 use fs_err as fs;
+use jiff::Timestamp;
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -571,7 +571,10 @@ impl GitHubClient {
             serde_json::from_slice(&response.bytes().await?)?;
         Ok((
             deserialized_response.token,
-            DateTime::parse_from_rfc3339(&deserialized_response.expires_at)?.into(),
+            deserialized_response
+                .expires_at
+                .parse::<Timestamp>()?
+                .into(),
         ))
     }
 

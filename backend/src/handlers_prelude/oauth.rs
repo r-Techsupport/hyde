@@ -5,8 +5,8 @@ use axum::{
     http::HeaderMap,
     response::Redirect,
 };
-use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat};
+use jiff::Timestamp;
 use oauth2::{AuthorizationCode, CsrfToken, RedirectUrl, TokenResponse};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -72,7 +72,7 @@ pub async fn get_oauth2_handler(
     };
     // https://discord.com/developers/docs/reference#image-formatting
     let all_users = state.db.get_all_users().await?;
-    let expiration_date = Utc::now()
+    let expiration_date = Timestamp::now()
         + token_data
             .expires_in()
             .wrap_err("Discord OAuth2 response didn't include an expiration date")?;
@@ -87,7 +87,7 @@ pub async fn get_oauth2_handler(
                 id: existing_user.id,
                 username: existing_user.username.clone(),
                 token: auth_token.to_string(),
-                expiration_date: expiration_date.to_rfc3339(),
+                expiration_date: expiration_date.to_string(),
                 avatar_url,
             })
             .await?;
@@ -98,7 +98,7 @@ pub async fn get_oauth2_handler(
             .create_user(
                 discord_user_info.username.to_string(),
                 auth_token.to_string(),
-                expiration_date.to_rfc3339(),
+                expiration_date.to_string(),
                 avatar_url,
             )
             .await?;
