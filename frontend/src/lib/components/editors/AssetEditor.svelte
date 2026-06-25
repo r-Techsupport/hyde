@@ -13,29 +13,42 @@
 	let { assetFolderPath = $bindable('') }: Props = $props();
 	let uploadedFiles: FileList | undefined = $state();
 
+	async function putFile(file: File) {
+		const r = await fetch(`${apiAddress}/api/asset/${assetFolderPath}/${file.name}`, {
+			method: 'PUT',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/octet-stream' },
+			body: await file.arrayBuffer()
+		});
+		const reportedTree = await (await fetch(`${apiAddress}/api/tree/asset`)).json();
+		assetTree.name = reportedTree.name;
+
+		if (r.ok) {
+			addToast(`"${file.name}" was uploaded successfully`, ToastType.Info, true, 1500);
+		} else {
+			addToast(
+				`Failed to upload file, please report issue to the developer`,
+				ToastType.Error,
+				true,
+				1500
+			);
+		}
+	}
+
 	async function fileUploadHandler() {
 		if (uploadedFiles && uploadedFiles.length > 0) {
 			loadingIconVisible = true;
 			const file = uploadedFiles.item(0)!;
-			const r = await fetch(`${apiAddress}/api/asset/${assetFolderPath}/${file.name}`, {
-				method: 'PUT',
-				credentials: 'include',
-				headers: { 'Content-Type': 'application/octet-stream' },
-				body: await file.arrayBuffer()
-			});
-			const reportedTree = await (await fetch(`${apiAddress}/api/tree/asset`)).json();
-			assetTree.name = reportedTree.name;
-
-			loadingIconVisible = false;
-			if (r.ok) {
-				addToast(`"${file.name}" was uploaded successfully`, ToastType.Info, true, 1500);
+			if (
+				assetTree.children
+					.find((n) => n.name === assetFolderPath)
+					?.children.find((f) => f.name === file.name)
+			) {
+				loadingIconVisible = false;
+				replaceConfirmationVisible = true;
 			} else {
-				addToast(
-					`Failed to upload file, please report issue to the developer`,
-					ToastType.Error,
-					true,
-					1500
-				);
+				await putFile(file);
+				loadingIconVisible = false;
 			}
 		}
 	}
@@ -67,6 +80,7 @@
 	});
 
 	let deletionConfirmationVisible = $state(false);
+	let replaceConfirmationVisible = $state(false);
 	let loadingIconVisible = $state(false);
 	// Whenever the list of uploaded files changes, call the handler to write new changes
 	// to the git repo
@@ -221,6 +235,23 @@
 			<code>Upload new asset</code>
 		</label>
 	</div>
+	{#if replaceConfirmationVisible}
+		<ConfirmationDialogue
+			bind:visible={replaceConfirmationVisible}
+			confirmText="Replace"
+			confirmHandler={() => {
+				putFile(uploadedFiles!.item(0)!);
+			}}
+			cancelText="Cancel"
+			cancelHandler={() => {
+				uploadedFiles;
+				replaceConfirmationVisible = false;
+			}}
+		>
+			File <strong><code>{uploadedFiles!.item(0)!.name}</code></strong> already exists. <br />
+			Do you want to replace it with the uploaded file?
+		</ConfirmationDialogue>
+	{/if}
 {:else}
 	<p class="noasset-placeholder">
 		No folder selected, please select a folder to start managing assets.
