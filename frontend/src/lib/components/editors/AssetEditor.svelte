@@ -11,6 +11,7 @@
 	}
 
 	let { assetFolderPath = $bindable('') }: Props = $props();
+	let fileInput: HTMLInputElement | undefined = $state();
 	let uploadedFiles: FileList | undefined = $state();
 
 	async function putFile(file: File) {
@@ -82,13 +83,6 @@
 	let deletionConfirmationVisible = $state(false);
 	let replaceConfirmationVisible = $state(false);
 	let loadingIconVisible = $state(false);
-	// Whenever the list of uploaded files changes, call the handler to write new changes
-	// to the git repo
-	$effect(() => {
-		// eslint-disable-next-line
-		uploadedFiles;
-		fileUploadHandler();
-	});
 	$effect(() => {
 		if (fullScreenImagePath !== '') {
 			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
@@ -227,7 +221,18 @@
 				<code>{asset.name}</code>
 			</button>
 		{/each}
-		<input bind:files={uploadedFiles} type="file" id="upload-new" style="display: none" />
+		<input
+			bind:this={fileInput}
+			bind:files={uploadedFiles}
+			onchange={fileUploadHandler}
+			onclick={() => {
+				fileInput!.value = '';
+				uploadedFiles = undefined;
+			}}
+			type="file"
+			id="upload-new"
+			style="display: none"
+		/>
 		<label for="upload-new" class="asset upload-new" title="Upload new asset">
 			<svg xmlns="http://www.w3.org/2000/svg" height="80%" viewBox="0 -960 960 960" width="80%"
 				><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
@@ -244,7 +249,6 @@
 			}}
 			cancelText="Cancel"
 			cancelHandler={() => {
-				uploadedFiles;
 				replaceConfirmationVisible = false;
 			}}
 		>
