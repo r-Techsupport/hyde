@@ -23,6 +23,7 @@
 		});
 		const reportedTree = await (await fetch(`${apiAddress}/api/tree/asset`)).json();
 		assetTree.name = reportedTree.name;
+		assetTree.children = reportedTree.children;
 
 		if (r.ok) {
 			addToast(`"${file.name}" was uploaded successfully`, ToastType.Info, true, 1500);
