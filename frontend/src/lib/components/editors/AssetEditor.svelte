@@ -15,6 +15,7 @@
 	let uploadedFiles: FileList | undefined = $state();
 
 	async function putFile(file: File) {
+		loadingIconVisible = true;
 		const r = await fetch(`${apiAddress}/api/asset/${assetFolderPath}/${file.name}`, {
 			method: 'PUT',
 			credentials: 'include',
@@ -25,6 +26,7 @@
 		assetTree.name = reportedTree.name;
 		assetTree.children = reportedTree.children;
 
+		loadingIconVisible = false;
 		if (r.ok) {
 			addToast(`"${file.name}" was uploaded successfully`, ToastType.Info, true, 1500);
 		} else {
