@@ -54,7 +54,7 @@
 			return;
 		}
 
-		commitMessageInput = "";
+		commitMessageInput = '';
 		showCommitModal = false;
 		await saveChangesHandler(commitMessage);
 	}
