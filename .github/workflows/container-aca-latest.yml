@@ -94,7 +94,7 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Copy revision
-        uses: azure/CLI@v1
+        uses: azure/CLI@v3
         with:
           azcliversion: 2.77.0
           inlineScript: |
