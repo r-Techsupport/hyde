@@ -13,3 +13,11 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "docker" # Contains support for "Containerfile" naming scheme
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
