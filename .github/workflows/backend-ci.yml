@@ -21,11 +21,11 @@ jobs:
         working-directory: ./backend
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Cache
       id: cache-cargo
       uses: actions/cache@v6
