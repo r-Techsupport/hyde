@@ -1,4 +1,3 @@
-import typescriptEslint from '@typescript-eslint/eslint-plugin';
 import globals from 'globals';
 import tsParser from '@typescript-eslint/parser';
 import parser from 'svelte-eslint-parser';
@@ -26,9 +25,7 @@ export default ts.config(
 		]
 	},
 	{
-		plugins: {
-			'@typescript-eslint': typescriptEslint
-		},
+		plugins: {},
 
 		languageOptions: {
 			globals: {
