@@ -1,5 +1,5 @@
 # builder base image
-FROM rust:1.96-alpine3.24 AS builder
+FROM rust:1.97-alpine3.24 AS builder
 
 # add required packages
 RUN apk add --no-cache \
