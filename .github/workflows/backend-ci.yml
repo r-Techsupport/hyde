@@ -5,10 +5,12 @@ on:
     branches: [ "main" ]
     paths:
       - backend/**
+      - .github/**
   pull_request:
     branches: [ "main" ]
     paths:
       - backend/**
+      - .github/**
 
 env:
   CARGO_TERM_COLOR: always
