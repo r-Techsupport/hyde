@@ -5,10 +5,13 @@ use axum::{
     http::HeaderMap,
     response::Redirect,
 };
-use color_eyre::eyre::{Context, ContextCompat};
+use base64::Engine;
+use base64::prelude::BASE64_URL_SAFE_NO_PAD;
+use color_eyre::eyre::Context;
 use jiff::Timestamp;
-use oauth2::{AuthorizationCode, CsrfToken, RedirectUrl, TokenResponse};
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tracing::info;
 
 use crate::{AppState, db::User};
@@ -26,6 +29,24 @@ pub struct DiscordUserObject {
     username: String,
     id: String,
     avatar: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct ExchangeCodeData {
+    client_id: String,
+    client_secret: String,
+    grant_type: String,
+    code: String,
+    redirect_uri: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct TokenResponse {
+    access_token: String,
+    token_type: String,
+    expires_in: u64,
+    refresh_token: String,
+    scope: String,
 }
 
 /// This endpoint is used for authentication, and it's required to implement oauth2. Users
@@ -49,19 +70,40 @@ pub async fn get_oauth2_handler(
             req.headers().get("host").unwrap().to_str().unwrap()
         )
     };
-    // The obtained token after they authenticate
-    let token_data: oauth2::StandardTokenResponse<_, _> = state
-        .oauth
-        .exchange_code(AuthorizationCode::new(query.code))
-        .set_redirect_uri(std::borrow::Cow::Owned(
-            RedirectUrl::new(redirect_url).unwrap(),
-        ))
-        .request_async(&state.reqwest_client)
-        .await
-        .wrap_err("OAuth token request failed")?;
 
-    let auth_token = token_data.access_token().secret();
-    let discord_user_info = fetch_discord_user(&state, auth_token).await?;
+    // "In accordance with the relevant RFCs, the token and token revocation URLs will only
+    // accept a content type of `application/x-www-form-urlencoded`. JSON content is not
+    // permitted and will return an error."
+    let mut headers = HeaderMap::new();
+    headers.append(
+        "Content-Type",
+        "application/x-www-form-urlencoded".parse().unwrap(),
+    );
+
+    let data = ExchangeCodeData {
+        client_id: state.config.oauth.discord.client_id.clone(),
+        client_secret: state.config.oauth.discord.secret.clone(),
+        grant_type: "authorization_code".to_string(),
+        code: query.code,
+        redirect_uri: redirect_url,
+    };
+
+    // The obtained token after they authenticate
+    let token_data: TokenResponse = state
+        .reqwest_client
+        .post(&state.config.oauth.discord.token_url)
+        .headers(headers)
+        .form(&data)
+        .send()
+        .await
+        .wrap_err("OAuth token request failed")?
+        .json()
+        .await
+        .wrap_err("Failed to parse token response")?;
+
+    let auth_token = token_data.access_token;
+    let discord_user_info = fetch_discord_user(&state, &auth_token).await?;
+    // https://discord.com/developers/docs/reference#image-formatting
     let avatar_url = if let Some(hash) = discord_user_info.avatar {
         format!(
             "https://cdn.discordapp.com/avatars/{}/{hash}.png",
@@ -70,12 +112,9 @@ pub async fn get_oauth2_handler(
     } else {
         "https://cdn.discordapp.com/embed/avatars/0.png".to_string()
     };
-    // https://discord.com/developers/docs/reference#image-formatting
     let all_users = state.db.get_all_users().await?;
-    let expiration_date = Timestamp::now()
-        + token_data
-            .expires_in()
-            .wrap_err("Discord OAuth2 response didn't include an expiration date")?;
+    let expiration_date = Timestamp::now() + Duration::from_secs(token_data.expires_in);
+
     // Update the user entry if one is already there, otherwise create a user
     if let Some(existing_user) = all_users
         .iter()
@@ -123,7 +162,7 @@ pub async fn get_oauth2_handler(
         "Set-Cookie",
         format!(
             "access-token={auth_token}; Secure; HttpOnly; Path=/; Max-Age={}",
-            token_data.expires_in().unwrap().as_secs()
+            token_data.expires_in
         )
         .parse()
         .wrap_err("Failed to create access token cookie")?,
@@ -132,8 +171,7 @@ pub async fn get_oauth2_handler(
         "Set-Cookie",
         format!(
             "username={}; Path=/; Max-Age={}",
-            discord_user_info.username,
-            token_data.expires_in().unwrap().as_secs()
+            discord_user_info.username, token_data.expires_in
         )
         .parse()
         .wrap_err("Failed to create auth cookie")?,
@@ -144,8 +182,15 @@ pub async fn get_oauth2_handler(
 pub async fn get_oauth2_url(State(state): State<AppState>) -> String {
     // TODO: actually validate CSRF token
     // <https://discord.com/developers/docs/topics/oauth2#state-and-security>
-    let (url, _token) = state.oauth.authorize_url(CsrfToken::new_random).url();
-    url.to_string()
+    let mut csrf_token = String::with_capacity(16);
+    let bytes: [u8; 16] = rand::rng().random();
+    BASE64_URL_SAFE_NO_PAD.encode_string(bytes, &mut csrf_token);
+
+    format!(
+        "{}&state={}",
+        state.config.oauth.discord.url.clone(),
+        csrf_token
+    )
 }
 
 /// Fetches a list of information about a user using a valid oauth access token
