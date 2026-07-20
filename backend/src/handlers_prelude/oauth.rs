@@ -91,7 +91,7 @@ pub async fn get_oauth2_handler(
     // The obtained token after they authenticate
     let token_data: TokenResponse = state
         .reqwest_client
-        .post("https://discord.com/api/v10/oauth2/token")
+        .post(&state.config.oauth.discord.token_url)
         .headers(headers)
         .form(&data)
         .send()
@@ -185,7 +185,7 @@ pub async fn get_oauth2_url(State(state): State<AppState>) -> String {
     let mut csrf_token = String::with_capacity(16);
     let bytes: [u8; 16] = rand::rng().random();
     BASE64_URL_SAFE_NO_PAD.encode_string(bytes, &mut csrf_token);
-    info!("csrf token: {}", csrf_token);
+
     format!(
         "{}&state={}",
         state.config.oauth.discord.url.clone(),
