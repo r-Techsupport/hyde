@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
     if cli_args.include_timings {
         subscriber.with_span_events(FmtSpan::CLOSE).init();
     } else {
-        subscriber.init();
+        subscriber.without_time().init();
     }
     debug!("Initialized logging");
 
