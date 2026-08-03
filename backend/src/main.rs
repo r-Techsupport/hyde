@@ -35,6 +35,7 @@ use std::sync::LazyLock;
 use std::time::Duration;
 use tracing::{Level, Span};
 use tracing::{debug, info, info_span, warn};
+use tracing_subscriber::fmt::format::FmtSpan;
 
 use crate::app_conf::AppConf;
 use tokio::task;
@@ -70,6 +71,8 @@ struct Args {
             .map(|s| s.to_lowercase().parse::<Level>().unwrap())
     )]
     logging_level: Level,
+    #[arg(long = "include-timings", help = "Whether or not to log span duration")]
+    include_timings: bool,
     #[arg(
         short = 'c',
         long = "config",
@@ -85,10 +88,12 @@ async fn main() -> Result<()> {
     // Parse command line arguments
     let cli_args = Args::parse();
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_max_level(cli_args.logging_level)
-        .without_time()
-        .init();
+    let subscriber = tracing_subscriber::fmt().with_max_level(cli_args.logging_level);
+    if cli_args.include_timings {
+        subscriber.with_span_events(FmtSpan::CLOSE).init();
+    } else {
+        subscriber.without_time().init();
+    }
     debug!("Initialized logging");
 
     if cfg!(debug_assertions) {
