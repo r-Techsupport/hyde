@@ -12,7 +12,7 @@ rust-version = "1.88.0"
 
 [dependencies]
 axum = { version = "0.8.9", features = ["http2", "macros"] }
-base64 = "0.22.1"
+base64 = "0.23.0"
 clap = { version = "4.6.1", features = ["derive"] }
 color-eyre = "0.6.5"
 dotenvy = "0.15.7"
