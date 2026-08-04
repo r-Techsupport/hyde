@@ -178,7 +178,7 @@ impl Database {
             bail!(
                 "Update user impacted unexpected number of rows, impacted {} rows",
                 query_result.rows_affected()
-            )
+            );
         }
 
         Ok(())
@@ -195,7 +195,7 @@ impl Database {
             bail!(
                 "Delete user impacted unexpected number of rows, impacted {} rows",
                 query_result.rows_affected()
-            )
+            );
         }
 
         Ok(())
@@ -324,7 +324,7 @@ impl Database {
             bail!(
                 "Update user impacted unexpected number of rows, impacted {} rows",
                 query_result.rows_affected()
-            )
+            );
         }
 
         Ok(())
@@ -341,7 +341,7 @@ impl Database {
             bail!(
                 "Delete user impacted unexpected number of rows, impacted {} rows",
                 query_result.rows_affected()
-            )
+            );
         }
 
         Ok(())
