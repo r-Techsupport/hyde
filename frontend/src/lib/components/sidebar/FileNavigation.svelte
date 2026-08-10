@@ -233,7 +233,7 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 				children={child.children}
 				siblings={children}
 				indent={indent + 1.5}
-				path={path + child.name}
+				path={path === 'docs' ? child.name : path + child.name}
 				{fileSelectHandler}
 			/>
 		{:else}
@@ -243,7 +243,7 @@ last_modified_date: ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}
 				children={child.children}
 				siblings={children}
 				indent={indent + 1}
-				path={path + child.name + '/'}
+				path={path === 'docs' ? child.name + '/' : path + child.name + '/'}
 				{fileSelectHandler}
 			/>
 		{/if}
