@@ -1,6 +1,6 @@
 {
 	"name": "hyde-frontend",
-	"version": "2.1.7",
+	"version": "2.2.0",
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
