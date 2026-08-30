@@ -1,4 +1,3 @@
-//! Endpoints for interacting with the repository's filesystem (create doc/asset, read doc/asset, et cetera)
 use crate::git::INode;
 use axum::{
     Json, Router,
@@ -38,16 +37,18 @@ async fn get_gh_token(state: &AppState) -> Result<String, (StatusCode, String)> 
 /// TODO: refactor to pass it in directly as a url path instead of doing the whole url arguments thing
 pub async fn get_doc_handler(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(query): Query<GetDocQuery>,
-) -> Result<Json<GetDocResponse>, (StatusCode, &'static str)> {
+) -> Result<Json<GetDocResponse>, ApiError> {
+    require_perms(State(&state), headers, &[Permission::GetDoc]).await?;
+
     match state.git.get_doc(&query.path) {
-        Ok(maybe_doc) => maybe_doc.map_or(
-            Err((
-                StatusCode::NOT_FOUND,
-                "The file at the provided path was not found.",
-            )),
-            |doc| Ok(Json(GetDocResponse { contents: doc })),
-        ),
+        Ok(Some(doc)) => Ok(Json(GetDocResponse { contents: doc })),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            "The file at the provided path was not found.".to_string(),
+        )
+            .into()),
         Err(e) => {
             warn!(
                 "Failed to fetch doc with path: {:?}; error: {:?}",
@@ -55,8 +56,9 @@ pub async fn get_doc_handler(
             );
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "Fetch failed, check server logs for more info",
-            ))
+                "Fetch failed, check server logs for more info".to_string(),
+            )
+                .into())
         }
     }
 }
@@ -78,7 +80,12 @@ pub async fn put_doc_handler(
     let author = require_perms(
         axum::extract::State(&state),
         headers,
-        &[Permission::ManageContent],
+        &[
+            Permission::PutDoc,
+            Permission::GitAdd,
+            Permission::GitCommit,
+            Permission::GitPush,
+        ],
     )
     .await?;
 
@@ -108,7 +115,12 @@ pub async fn delete_doc_handler(
     let author = require_perms(
         axum::extract::State(&state),
         headers,
-        &[Permission::ManageContent],
+        &[
+            Permission::DeleteDoc,
+            Permission::GitAdd,
+            Permission::GitCommit,
+            Permission::GitPush,
+        ],
     )
     .await?;
 
@@ -126,7 +138,10 @@ pub async fn delete_doc_handler(
 /// representing the state of the tree. This is used in the viewer for directory navigation.
 pub async fn get_doc_tree_handler(
     State(state): State<AppState>,
-) -> Result<Json<INode>, (StatusCode, &'static str)> {
+    headers: HeaderMap,
+) -> Result<Json<INode>, ApiError> {
+    require_perms(State(&state), headers, &[Permission::GetDocTree]).await?;
+
     match state.git.get_doc_tree() {
         Ok(t) => Ok(Json(t)),
         Err(e) => {
@@ -134,8 +149,10 @@ pub async fn get_doc_tree_handler(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An internal error was encountered fetching the doc tree, \
-                    check server logs for more info",
-            ))
+                    check server logs for more info"
+                    .to_string(),
+            )
+                .into())
         }
     }
 }
@@ -144,7 +161,10 @@ pub async fn get_doc_tree_handler(
 /// representing the state of the tree. This is used in the viewer for directory navigation.
 pub async fn get_asset_tree_handler(
     State(state): State<AppState>,
-) -> Result<Json<INode>, (StatusCode, &'static str)> {
+    headers: HeaderMap,
+) -> Result<Json<INode>, ApiError> {
+    require_perms(State(&state), headers, &[Permission::GetAssetTree]).await?;
+
     match state.git.get_asset_tree() {
         Ok(t) => Ok(Json(t)),
         Err(e) => {
@@ -152,8 +172,10 @@ pub async fn get_asset_tree_handler(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An internal error was encountered fetching the asset tree, \
-                    check server logs for more info",
-            ))
+                    check server logs for more info"
+                    .to_string(),
+            )
+                .into())
         }
     }
 }
@@ -161,8 +183,16 @@ pub async fn get_asset_tree_handler(
 /// This handler fetches an asset from the repo's asset folder
 pub async fn get_asset_handler(
     State(state): State<AppState>,
+    req_headers: HeaderMap,
     Path(path): Path<Vec<String>>,
 ) -> impl IntoResponse {
+    require_perms(
+        State(&state),
+        req_headers,
+        &[Permission::GetAsset],
+    )
+    .await?;
+
     let file_name = path.last().unwrap().clone();
     let path = path.join("/");
     // https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
@@ -196,7 +226,12 @@ pub async fn put_asset_handler(
     let author = require_perms(
         axum::extract::State(&state),
         headers,
-        &[Permission::ManageContent],
+        &[
+            Permission::PutAsset,
+            Permission::GitAdd,
+            Permission::GitCommit,
+            Permission::GitPush,
+        ],
     )
     .await?;
     // Generate commit message combining author and default update message
@@ -218,7 +253,17 @@ pub async fn delete_asset_handler(
     Path(path): Path<Vec<String>>,
 ) -> Result<StatusCode, ApiError> {
     let path = path.join("/");
-    let author = require_perms(State(&state), headers, &[Permission::ManageContent]).await?;
+    let author = require_perms(
+        State(&state),
+        headers,
+        &[
+            Permission::DeleteAsset,
+            Permission::GitAdd,
+            Permission::GitCommit,
+            Permission::GitPush,
+        ],
+    )
+    .await?;
     // Generate commit message combining author and default update message
     let message = format!("[Hyde]: {} deleted {}", author.username, path);
 

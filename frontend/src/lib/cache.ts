@@ -33,7 +33,9 @@ class DocumentCache {
 		}
 
 		// Try to fetch it from the API if the value isn't found in memory
-		const response = await fetch(`${apiAddress}/api/doc?path=${encodeURIComponent(path)}`);
+		const response = await fetch(`${apiAddress}/api/doc?path=${encodeURIComponent(path)}`, {
+			credentials: 'include'
+		});
 		if (response.status === 200) {
 			const value = (await response.json()).contents;
 			this.set(path, value);

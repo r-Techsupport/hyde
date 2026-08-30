@@ -10,7 +10,7 @@ pub async fn post_reclone_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<(), (StatusCode, String)> {
-    require_perms(State(&state), headers, &[Permission::ManageUsers]).await?;
+    require_perms(State(&state), headers, &[Permission::Reclone]).await?;
     state.git.reclone().map_err(eyre_to_axum_err)?;
     Ok(())
 }

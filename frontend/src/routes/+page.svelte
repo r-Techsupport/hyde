@@ -145,7 +145,12 @@
 			if (me.id === -1) {
 				return;
 			}
-			if (me.permissions.includes(Permission.ManageContent)) {
+			const canEditContent =
+				me.permissions.includes(Permission.PutDoc) &&
+				me.permissions.includes(Permission.GitAdd) &&
+				me.permissions.includes(Permission.GitCommit) &&
+				me.permissions.includes(Permission.GitPush);
+			if (canEditContent) {
 				visible.editor = true;
 			}
 		});

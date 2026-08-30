@@ -85,7 +85,9 @@ async function fetchDefaultBranch() {
 
 async function fetchCurrentBranch() {
 	try {
-		const response = await fetch(`${apiAddress}/api/current-branch`);
+		const response = await fetch(`${apiAddress}/api/current-branch`, {
+			credentials: 'include'
+		});
 
 		if (response.ok) {
 			const currentBranch = await response.json();

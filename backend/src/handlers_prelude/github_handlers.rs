@@ -1,10 +1,11 @@
 use crate::AppState;
 use crate::handlers_prelude::ApiError;
+use crate::{perms::Permission, require_perms};
 use axum::routing::{get, post, put};
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
 };
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -135,8 +136,16 @@ pub async fn close_pull_request_handler(
 /// Handler to check out or create a Git branch.
 pub async fn checkout_or_create_branch_handler(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(branch_name): Path<String>,
 ) -> Result<(StatusCode, String), ApiError> {
+    require_perms(
+        axum::extract::State(&state),
+        headers,
+        &[Permission::CheckoutOrCreateBranch],
+    )
+    .await?;
+
     state
         .git
         .checkout_or_create_branch("master", &branch_name)?;
@@ -151,8 +160,16 @@ pub async fn checkout_or_create_branch_handler(
 /// Handler to pull the latest changes for a specified branch.
 pub async fn pull_handler(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(branch): Path<String>,
 ) -> Result<(StatusCode, Json<String>), ApiError> {
+    require_perms(
+        axum::extract::State(&state),
+        headers,
+        &[Permission::GitPullBranch],
+    )
+    .await?;
+
     state.git.git_pull_branch(&branch)?;
 
     info!("Repository pulled successfully for branch '{}'.", branch);
@@ -167,7 +184,15 @@ pub async fn pull_handler(
 /// Handler for fetching the current branch of the repository.
 pub async fn get_current_branch_handler(
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<(StatusCode, Json<String>), ApiError> {
+    require_perms(
+        axum::extract::State(&state),
+        headers,
+        &[Permission::GetCurrentBranch],
+    )
+    .await?;
+
     // Use the git::Interface from AppState to get the current branch
     let branch_name = state.git.get_current_branch().await?;
 
