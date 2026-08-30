@@ -22,7 +22,9 @@
 			headers: { 'Content-Type': 'application/octet-stream' },
 			body: await file.arrayBuffer()
 		});
-		const reportedTree = await (await fetch(`${apiAddress}/api/tree/asset`)).json();
+		const reportedTree = await (
+			await fetch(`${apiAddress}/api/tree/asset`, { credentials: 'include' })
+		).json();
 		assetTree.name = reportedTree.name;
 		assetTree.children = reportedTree.children;
 
@@ -88,13 +90,15 @@
 	let loadingIconVisible = $state(false);
 	$effect(() => {
 		if (fullScreenImagePath !== '') {
-			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`).then(async (r) => {
-				fullScreenHttpInfo = r;
-				const objectUrl = URL.createObjectURL(await r.blob());
-				// non-null assertion: Once the full screen image path is set, then a full screen image element is
-				// defined
-				fullScreenImage!.src = objectUrl;
-			});
+			fetch(`${apiAddress}/api/asset/${fullScreenImagePath}`, { credentials: 'include' }).then(
+				async (r) => {
+					fullScreenHttpInfo = r;
+					const objectUrl = URL.createObjectURL(await r.blob());
+					// non-null assertion: Once the full screen image path is set, then a full screen image element is
+					// defined
+					fullScreenImage!.src = objectUrl;
+				}
+			);
 		}
 		cb();
 	});
@@ -188,7 +192,9 @@
 									1500
 								);
 							}
-							const reportedTree = await (await fetch(`${apiAddress}/api/tree/asset`)).json();
+							const reportedTree = await (
+								await fetch(`${apiAddress}/api/tree/asset`, { credentials: 'include' })
+							).json();
 							assetTree.name = reportedTree.name;
 							assetTree.children = reportedTree.children;
 							fullScreenImagePath = '';

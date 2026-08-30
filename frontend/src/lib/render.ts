@@ -28,7 +28,7 @@ interface FrontMatter {
  */
 export async function renderMarkdown(input: string, output: HTMLElement): Promise<void> {
 	// Parse front matter and get title, description, and markdown content
-	getFrontMatterType(input);
+	//getFrontMatterType(input);
 	const parsed = fm(input);
 	const frontMatter = parsed.attributes as FrontMatter;
 	const title = frontMatter.title;
