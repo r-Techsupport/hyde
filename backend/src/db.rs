@@ -738,21 +738,21 @@ mod tests {
             0,
             "get_group_permissions: returns 0 when no permissions are added"
         );
-        let has_manage_content1 = mock_db
-            .group_has_permission(group1.id, Permission::ManageContent)
+        let has_put_doc1 = mock_db
+            .group_has_permission(group1.id, Permission::PutDoc)
             .await
             .unwrap();
         assert!(
-            !has_manage_content1,
+            !has_put_doc1,
             "group_has_permission: should return false if the group does not have the permission"
         );
 
         let permission_added = mock_db
-            .add_group_permission(group1.id, Permission::ManageContent)
+            .add_group_permission(group1.id, Permission::PutDoc)
             .await
             .unwrap();
-        let has_manage_content2 = mock_db
-            .group_has_permission(group1.id, Permission::ManageContent)
+        let has_put_doc2 = mock_db
+            .group_has_permission(group1.id, Permission::PutDoc)
             .await
             .unwrap();
         assert!(
@@ -760,17 +760,17 @@ mod tests {
             "add_group_permission: returns true when the permission has been added"
         );
         assert!(
-            has_manage_content2,
+            has_put_doc2,
             "add_group_permission: works, group_has_permission: should return true if the group does have the permission"
         );
         let permissions2 = mock_db.get_group_permissions(group1.id).await.unwrap();
         assert_eq!(
             permissions2,
-            vec![Permission::ManageContent],
+            vec![Permission::PutDoc],
             "get_group_permissions: returns the right thing"
         );
         let already_added = mock_db
-            .add_group_permission(group1.id, Permission::ManageContent)
+            .add_group_permission(group1.id, Permission::PutDoc)
             .await
             .unwrap();
         assert!(
@@ -779,7 +779,7 @@ mod tests {
         );
 
         let permission_removed = mock_db
-            .remove_group_permission(group1.id, Permission::ManageContent)
+            .remove_group_permission(group1.id, Permission::PutDoc)
             .await
             .unwrap();
         assert!(
@@ -787,18 +787,18 @@ mod tests {
             "remove_group_permission: returns true when permission has been removed"
         );
         let already_removed = mock_db
-            .remove_group_permission(group1.id, Permission::ManageContent)
+            .remove_group_permission(group1.id, Permission::PutDoc)
             .await
             .unwrap();
         assert!(
             !already_removed,
             "remove_group_permission: returns false when the group didn't have the permission"
         );
-        let has_manage_content3 = mock_db
-            .group_has_permission(group1.id, Permission::ManageContent)
+        let has_put_doc3 = mock_db
+            .group_has_permission(group1.id, Permission::PutDoc)
             .await
             .unwrap();
-        assert!(!has_manage_content3, "remove_group_permission: works");
+        assert!(!has_put_doc3, "remove_group_permission: works");
         let permissions3 = mock_db.get_group_permissions(group1.id).await.unwrap();
         assert_eq!(
             permissions3.len(),
@@ -810,9 +810,27 @@ mod tests {
         assert_eq!(
             admin_permissions,
             vec![
-                Permission::ManageContent,
+                // Survives from the original admin-group migration; ManageContent and
+                // ManageBranches were deleted by the git-granular-permissions migration.
                 Permission::ManageUsers,
-                Permission::ManageBranches
+                // Everything below was added by the git-granular-permissions migration,
+                // in insertion order.
+                Permission::GetDoc,
+                Permission::GetAsset,
+                Permission::GetDocTree,
+                Permission::GetAssetTree,
+                Permission::GetCurrentBranch,
+                Permission::PutDoc,
+                Permission::PutAsset,
+                Permission::DeleteDoc,
+                Permission::DeleteAsset,
+                Permission::GitAdd,
+                Permission::GitCommit,
+                Permission::GitPush,
+                Permission::Pull,
+                Permission::GitPullBranch,
+                Permission::CheckoutOrCreateBranch,
+                Permission::Reclone,
             ],
             "admin group should have the right permissions"
         );

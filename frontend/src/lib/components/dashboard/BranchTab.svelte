@@ -5,8 +5,15 @@
 	import SectionHeader from '../elements/SectionHeader.svelte';
 	import ToggleSwitch from '../elements/ToggleSwitch.svelte';
 
-	// Check if the user has the ManageBranches permission
-	const canAccess = $me.permissions?.includes(Permission.ManageBranches);
+	// Check if the user has the Branches permission
+	const branchPermissions = [
+		Permission.CheckoutOrCreateBranch,
+		Permission.GitPullBranch,
+		Permission.Pull,
+		Permission.Reclone,
+		Permission.GetCurrentBranch
+	];
+	const canAccess = branchPermissions.some((p) => $me.permissions?.includes(p));
 	const sortedBranches = $state(
 		branchInfo.list.slice().sort((a, b) => a.name.localeCompare(b.name))
 	);
