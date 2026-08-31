@@ -1,10 +1,10 @@
 //! Database specific interfaces and abstractions
 
 use crate::perms::Permission;
-use color_eyre::{Result, eyre::bail};
+use color_eyre::{eyre::bail, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use tracing::debug;
+use tracing::{debug, info};
 
 pub const DATABASE_URL: &str = "file:hyde-data/data.db?mode=rwc";
 
@@ -65,10 +65,10 @@ impl Database {
     pub async fn from_url(url: &str) -> Result<Self> {
         let pool = SqlitePool::connect(url).await?;
 
-        debug!("Running SQL migrations...");
+        info!("Running SQL migrations...");
         // this should embed the migrations into the executable itself
         sqlx::migrate!("./migrations").run(&pool).await?;
-        debug!("SQL migrations complete");
+        info!("SQL migrations complete");
 
         Ok(Self { pool })
     }
