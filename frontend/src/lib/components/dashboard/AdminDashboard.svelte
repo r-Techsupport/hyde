@@ -64,6 +64,7 @@
 		position: absolute;
 		top: 10%;
 		width: 40%;
+		min-width: 40rem;
 		height: 60%;
 		background-color: var(--background-1);
 		color: var(--foreground-3);

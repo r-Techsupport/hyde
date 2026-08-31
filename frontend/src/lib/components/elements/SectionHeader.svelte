@@ -22,7 +22,7 @@
 		margin-top: calc(var(--scale, 0.7rem) / 2.25);
 		margin-bottom: 0;
 		padding-left: calc(var(--scale, 0.7rem) / 2.25);
-		font-size: var(--scale, 0.7rem);
+		font-size: var(--scale, 0.9rem);
 		color: var(--text-color, --foreground-3);
 	}
 

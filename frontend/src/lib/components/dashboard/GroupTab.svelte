@@ -10,12 +10,12 @@
 	import SectionHeader from '../elements/SectionHeader.svelte';
 
 	let groups: GroupListEntry[] = $state([]);
-	let selectedGroup = $state(1);
+	let selectedGroup = $state(-1);
 
 	let showNewGroupInput = $state(false);
 	let newGroupInput: HTMLInputElement | undefined = $state();
 
-	function userSelectHandler(e: MouseEvent) {
+	function groupSelectHandler(e: MouseEvent) {
 		const target = e.target as HTMLElement;
 		selectedGroup = Number(target.parentElement!.id);
 		for (const permission of allPermissions.keys()) {
@@ -48,6 +48,20 @@
 			}
 		}
 	});
+
+	$effect(() => {
+		selectedGroup; // eslint-disable-line
+		tick().then(() => {
+			for (const permission of allPermissions.keys()) {
+				const element = document.getElementById(permission) as HTMLInputElement;
+				if (groups[selectedGroup].permissions.includes(permission)) {
+					element.checked = true;
+				} else {
+					element.checked = false;
+				}
+			}
+		});
+	});
 </script>
 
 <div class="container">
@@ -57,7 +71,7 @@
 			<!-- Prevent people from modifying the permissions on the admin group -->
 			{#if group.name !== 'Admin'}
 				<li class={selectedGroup == index ? 'selected-group' : ''} id={index.toString()}>
-					<button onclick={userSelectHandler}>
+					<button onclick={groupSelectHandler}>
 						<!-- TODO: trashcan on right, label on center -->
 						<span>{group.name}</span>
 						<svg
@@ -133,19 +147,23 @@
 	</ul>
 	<ul class="permission-menu">
 		<SectionHeader>Permissions</SectionHeader>
-		{#each allPermissions as [permission, label] (permission)}
-			<li>
-				<label for={permission} class="checkbox-label">
-					<input
-						onchange={checkboxToggleHandler}
-						id={permission}
-						type="checkbox"
-						name={permission}
-					/>
-					{label}
-				</label>
-			</li>
-		{/each}
+		{#if selectedGroup !== -1}
+			{#each allPermissions as [permission, label] (permission)}
+				<li>
+					<label for={permission} class="checkbox-label">
+						<input
+							onchange={checkboxToggleHandler}
+							id={permission}
+							type="checkbox"
+							name={permission}
+						/>
+						{label}
+					</label>
+				</li>
+			{/each}
+		{:else}
+			<p>Please select a group to modify permissions for that group.</p>
+		{/if}
 	</ul>
 </div>
 
@@ -175,6 +193,12 @@
 		width: 50%;
 		height: 100%;
 		overflow-y: scroll;
+	}
+
+	.permission-menu p {
+		padding: 0.3rem;
+		font-size: 0.8rem;
+		color: var(--foreground-5);
 	}
 
 	.group-menu span {
