@@ -1,6 +1,7 @@
 <!-- BranchButton.svelte -->
 <script lang="ts">
-	import { currentFile, editorText, apiAddress } from '$lib/main';
+	import { currentFile, editorText, apiAddress, me } from '$lib/main';
+	import { Permission } from '$lib/types';
 	import { ToastType, addToast, dismissToast } from '$lib/toast';
 	import { cache } from '$lib/cache';
 	import { branchInfo } from '$lib/state/branch.svelte';
@@ -8,6 +9,8 @@
 	import { documentTree } from '$lib/state/sidebar.svelte';
 
 	let showMenu = $state(false);
+	// Without this permission a user is pinned to their own branch and can't switch
+	let canSwitchBranch = $derived($me.permissions.includes(Permission.CheckoutOrCreateBranch));
 	let newBranchName: string = $state('');
 	let showInput = $state(false);
 	let showLoadingIcon: boolean = $state(false);
@@ -171,7 +174,12 @@
 </script>
 
 <div class="branch-dropdown">
-	<button onclick={toggleMenu} class="branch-button">
+	<button
+		onclick={toggleMenu}
+		class="branch-button"
+		disabled={!canSwitchBranch}
+		title={canSwitchBranch ? undefined : 'You can only edit on your own branch'}
+	>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			fill="currentColor"

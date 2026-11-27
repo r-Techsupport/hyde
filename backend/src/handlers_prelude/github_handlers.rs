@@ -1,5 +1,5 @@
 use crate::AppState;
-use crate::handlers_prelude::ApiError;
+use crate::handlers_prelude::{ApiError, pinned_branch};
 use crate::{perms::Permission, require_perms};
 use axum::routing::{get, post, put};
 use axum::{
@@ -186,15 +186,18 @@ pub async fn get_current_branch_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<(StatusCode, Json<String>), ApiError> {
-    require_perms(
+    let user = require_perms(
         axum::extract::State(&state),
         headers,
         &[Permission::GetCurrentBranch],
     )
     .await?;
 
-    // Use the git::Interface from AppState to get the current branch
-    let branch_name = state.git.get_current_branch().await?;
+    // Users confined to their own branch always see that branch, regardless of what's checked out
+    let branch_name = match pinned_branch(&state, &user).await? {
+        Some(branch) => branch,
+        None => state.git.get_current_branch().await?,
+    };
 
     info!("Current branch is: {}", branch_name);
     Ok((StatusCode::OK, Json(branch_name)))

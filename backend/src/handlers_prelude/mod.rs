@@ -168,3 +168,24 @@ pub async fn require_perms(
         )),
     }
 }
+
+/// The branch a user is confined to, or `None` if they're free to work on any branch.
+///
+/// Only users holding [`Permission::CheckoutOrCreateBranch`] may choose their own branch.
+/// Everyone else works on a branch named after them, which is created for them the first
+/// time they save something. Granting that permission lifts the restriction.
+pub async fn pinned_branch(
+    state: &AppState,
+    user: &User,
+) -> Result<Option<String>, (StatusCode, String)> {
+    let user_perms = state
+        .db
+        .get_user_permissions(user.id)
+        .await
+        .map_err(eyre_to_axum_err)?;
+    if user_perms.contains(&Permission::CheckoutOrCreateBranch) {
+        Ok(None)
+    } else {
+        Ok(Some(crate::git::user_branch_name(&user.username)))
+    }
+}

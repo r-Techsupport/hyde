@@ -18,6 +18,9 @@ use crate::{AppState, db::User};
 
 use super::ApiError;
 
+/// Brand new users are added to this group when they first log in
+const DEFAULT_GROUP_NAME: &str = "Contributor";
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetOAuthQuery {
     pub code: String,
@@ -132,7 +135,7 @@ pub async fn get_oauth2_handler(
             .await?;
         info!("User {:?} re-authenticated", existing_user.username);
     } else {
-        state
+        let new_user = state
             .db
             .create_user(
                 discord_user_info.username.to_string(),
@@ -141,6 +144,19 @@ pub async fn get_oauth2_handler(
                 avatar_url,
             )
             .await?;
+        // Put them in the default group so they can start contributing right away
+        if let Some(default_group) = state
+            .db
+            .get_all_groups()
+            .await?
+            .into_iter()
+            .find(|g| g.name == DEFAULT_GROUP_NAME)
+        {
+            state
+                .db
+                .add_group_membership(default_group.id, new_user.id)
+                .await?;
+        }
         info!(
             "New user {:?} authenticated, entry added to database",
             discord_user_info.username

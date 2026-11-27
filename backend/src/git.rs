@@ -42,6 +42,34 @@ pub struct INode {
     children: Vec<Self>,
 }
 
+/// The branch new work is based on when a user's own branch doesn't exist yet.
+pub const BASE_BRANCH: &str = "master";
+
+/// The name of the branch a restricted user is pinned to, derived from their username.
+///
+/// The `user/` prefix guarantees this can never collide with a protected branch such as
+/// `master`, even if someone registers a Discord username that matches one.
+#[must_use]
+pub fn user_branch_name(username: &str) -> String {
+    let cleaned: String = username
+        .to_lowercase()
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let cleaned = cleaned.trim_matches('-');
+    if cleaned.is_empty() {
+        "user/unnamed".to_string()
+    } else {
+        format!("user/{cleaned}")
+    }
+}
+
 impl Interface {
     /// Clone the repository into `./repo`, or run `fetch` if an existing repo
     /// was detected
@@ -462,9 +490,18 @@ impl Interface {
     fn git_pull(repo: &Repository) -> Result<()> {
         // https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs
         // TODO: configure branch via environment variables
-        let fetch_head = Self::git_fetch(repo, None)?;
+        //
+        // Fetching every branch updates `refs/remotes/origin/*`, but `FETCH_HEAD` then lists
+        // all of them, and the first entry is not necessarily `master`. Merging "whatever
+        // FETCH_HEAD resolves to" could therefore merge an unrelated branch into master, so
+        // merge the remote `master` explicitly instead.
+        Self::git_fetch(repo, None)?;
         info!("Successfully fetched latest changes, merging...");
-        Self::git_merge(repo, "master", fetch_head)?;
+        let remote_master = repo
+            .find_reference("refs/remotes/origin/master")
+            .wrap_err("The remote has no `master` branch to pull")?;
+        let fetch_commit = repo.reference_to_annotated_commit(&remote_master)?;
+        Self::git_merge(repo, "master", fetch_commit)?;
         info!("Successfully merged latest changes");
         Ok(())
     }
@@ -861,6 +898,168 @@ impl Interface {
         let head = repo.head()?;
         let branch_name = head.shorthand()?;
         Ok(branch_name.to_string())
+    }
+
+    // ------------------------------------------------------------------------------------
+    // Branch-scoped operations
+    //
+    // The functions above all act on the single shared checkout in `./repo`, so they can only
+    // ever see one branch at a time. The functions below read and write a *specific* branch
+    // straight through git's object database. They never touch the working tree, the index,
+    // or HEAD, so a user confined to their own branch can't disturb anyone else's view.
+    // ------------------------------------------------------------------------------------
+
+    /// Build a `/`-separated path inside the repo. Git object paths always use `/`,
+    /// even on Windows, so a `PathBuf` can't be handed to libgit2 directly.
+    fn to_git_path(base: &Path, rel: &str) -> Result<String> {
+        let mut parts: Vec<String> = base
+            .components()
+            .filter_map(|c| match c {
+                std::path::Component::Normal(s) => Some(s.to_string_lossy().to_string()),
+                _ => None,
+            })
+            .collect();
+        for segment in rel.split(['/', '\\']) {
+            match segment {
+                "" | "." => {}
+                ".." => bail!("Path {rel:?} is not allowed to contain `..`"),
+                s => parts.push(s.to_string()),
+            }
+        }
+        Ok(parts.join("/"))
+    }
+
+    /// The commit `branch` currently points at: the local branch if there is one, otherwise
+    /// the remote-tracking branch of the same name, otherwise the tip of `base`.
+    fn resolve_branch_commit<'r>(
+        repo: &'r Repository,
+        branch: &str,
+        base: &str,
+    ) -> Result<git2::Commit<'r>> {
+        if let Ok(found) = repo.find_branch(branch, BranchType::Local) {
+            return Ok(found.get().peel_to_commit()?);
+        }
+        if let Ok(found) = repo.find_branch(&format!("origin/{branch}"), BranchType::Remote) {
+            return Ok(found.get().peel_to_commit()?);
+        }
+        let found = repo
+            .find_branch(&format!("origin/{base}"), BranchType::Remote)
+            .wrap_err_with(|| format!("Base branch origin/{base} was not found"))?;
+        Ok(found.get().peel_to_commit()?)
+    }
+
+    /// Read a document as it exists on `branch`, falling back to `base` if `branch` doesn't
+    /// exist yet. Returns `Ok(None)` if the document isn't there.
+    ///
+    /// # Errors
+    /// Fails if the path is invalid, or if git can't read the branch or the document.
+    #[allow(clippy::significant_drop_tightening)]
+    pub fn get_doc_on_branch(&self, branch: &str, base: &str, path: &str) -> Result<Option<String>> {
+        let git_path = Self::to_git_path(&self.doc_path, path)?;
+        let repo = self.repo.lock().unwrap();
+        let commit = Self::resolve_branch_commit(&repo, branch, base)?;
+        let tree = commit.tree()?;
+        match tree.get_path(Path::new(&git_path)) {
+            Ok(entry) => {
+                let blob = repo.find_blob(entry.id())?;
+                Ok(Some(String::from_utf8(blob.content().to_vec())?))
+            }
+            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Read the document tree as it exists on `branch`, falling back to `base` if `branch`
+    /// doesn't exist yet.
+    ///
+    /// # Errors
+    /// Fails if git can't read the branch or its trees.
+    #[allow(clippy::significant_drop_tightening)]
+    pub fn get_doc_tree_on_branch(&self, branch: &str, base: &str) -> Result<INode> {
+        fn walk(repo: &Repository, tree: &git2::Tree, node: &mut INode) -> Result<()> {
+            for entry in tree.iter() {
+                let name = entry.name().unwrap_or_default().to_string();
+                match entry.kind() {
+                    Some(git2::ObjectType::Tree) => {
+                        let mut child = INode {
+                            name,
+                            children: Vec::new(),
+                        };
+                        walk(repo, &repo.find_tree(entry.id())?, &mut child)?;
+                        node.children.push(child);
+                    }
+                    Some(git2::ObjectType::Blob) => node.children.push(INode {
+                        name,
+                        children: Vec::new(),
+                    }),
+                    _ => {}
+                }
+            }
+            node.children.sort_by_cached_key(|e| e.name.clone());
+            Ok(())
+        }
+
+        let docs_git_path = Self::to_git_path(&self.doc_path, "")?;
+        let repo = self.repo.lock().unwrap();
+        let commit = Self::resolve_branch_commit(&repo, branch, base)?;
+        let root_tree = commit.tree()?;
+        let mut root = INode {
+            name: self
+                .doc_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+            children: Vec::new(),
+        };
+        if let Ok(entry) = root_tree.get_path(Path::new(&docs_git_path)) {
+            walk(&repo, &repo.find_tree(entry.id())?, &mut root)?;
+        }
+        Ok(root)
+    }
+
+    /// Commit `contents` to the document at `path` on `branch`, creating the branch from
+    /// `base` if it doesn't exist yet. The commit is made directly in the object database, so
+    /// the shared checkout is untouched. Remember to push afterwards.
+    ///
+    /// # Errors
+    /// Fails if the path is invalid, or if git can't build the tree or write the commit.
+    #[allow(clippy::significant_drop_tightening)]
+    pub fn commit_doc_on_branch(
+        &self,
+        branch: &str,
+        base: &str,
+        path: &str,
+        contents: &str,
+        message: &str,
+    ) -> Result<Oid> {
+        let git_path = Self::to_git_path(&self.doc_path, path)?;
+        let repo = self.repo.lock().unwrap();
+        let parent = Self::resolve_branch_commit(&repo, branch, base)?;
+
+        // Start from the parent's tree, in memory, and swap in the new blob
+        let blob_id = repo.blob(contents.as_bytes())?;
+        let mut index = git2::Index::new()?;
+        index.read_tree(&parent.tree()?)?;
+        index.add(&git2::IndexEntry {
+            ctime: git2::IndexTime::new(0, 0),
+            mtime: git2::IndexTime::new(0, 0),
+            dev: 0,
+            ino: 0,
+            mode: 0o100_644,
+            uid: 0,
+            gid: 0,
+            file_size: u32::try_from(contents.len()).unwrap_or(u32::MAX),
+            id: blob_id,
+            flags: 0,
+            flags_extended: 0,
+            path: git_path.into_bytes(),
+        })?;
+        let tree = repo.find_tree(index.write_tree_to(&repo)?)?;
+
+        let sig = Signature::now("Hyde", "Hyde")?;
+        let branch_ref = format!("refs/heads/{branch}");
+        Ok(repo.commit(Some(&branch_ref), &sig, &sig, message, &tree, &[&parent])?)
     }
 }
 

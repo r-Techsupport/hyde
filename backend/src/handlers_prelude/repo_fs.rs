@@ -1,4 +1,5 @@
-use crate::git::INode;
+//! Endpoints for interacting with the repository's filesystem (create doc/asset, read doc/asset, et cetera)
+use crate::git::{BASE_BRANCH, INode};
 use axum::{
     Json, Router,
     body::Bytes,
@@ -14,7 +15,7 @@ use tracing::{error, warn};
 
 use crate::{AppState, handlers_prelude::ApiError, perms::Permission, require_perms};
 
-use super::eyre_to_axum_err;
+use super::{eyre_to_axum_err, pinned_branch};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetDocQuery {
@@ -40,9 +41,20 @@ pub async fn get_doc_handler(
     headers: HeaderMap,
     Query(query): Query<GetDocQuery>,
 ) -> Result<Json<GetDocResponse>, ApiError> {
-    require_perms(State(&state), headers, &[Permission::GetDoc]).await?;
+    let user = require_perms(State(&state), headers, &[Permission::GetDoc]).await?;
 
-    match state.git.get_doc(&query.path) {
+    // Users confined to their own branch read that branch (or the base branch, if theirs
+    // doesn't exist yet) instead of whatever happens to be checked out on the server
+    let doc = pinned_branch(&state, &user).await?.map_or_else(
+        || state.git.get_doc(&query.path),
+        |branch| {
+            state
+                .git
+                .get_doc_on_branch(&branch, BASE_BRANCH, &query.path)
+        },
+    );
+
+    match doc {
         Ok(Some(doc)) => Ok(Json(GetDocResponse { contents: doc })),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
@@ -94,14 +106,29 @@ pub async fn put_doc_handler(
         "[Hyde]: {}\n\n{}",
         default_commit_message, body.commit_message
     );
-    let branch_name = &body.branch_name;
 
-    state.git.put_doc(&body.path, &body.contents)?;
-    state.git.git_add(".")?;
-    state.git.git_commit(final_commit_message, None)?;
-    state
-        .git
-        .git_push(Some(branch_name), &get_gh_token(&state).await?)?;
+    if let Some(branch) = pinned_branch(&state, &author).await? {
+        // The client-supplied branch name is ignored: this user may only touch their own branch
+        state.git.commit_doc_on_branch(
+            &branch,
+            BASE_BRANCH,
+            &body.path,
+            &body.contents,
+            &final_commit_message,
+        )?;
+        state
+            .git
+            .git_push(Some(&branch), &get_gh_token(&state).await?)?;
+    } else {
+        let branch_name = &body.branch_name;
+
+        state.git.put_doc(&body.path, &body.contents)?;
+        state.git.git_add(".")?;
+        state.git.git_commit(final_commit_message, None)?;
+        state
+            .git
+            .git_push(Some(branch_name), &get_gh_token(&state).await?)?;
+    }
 
     Ok(StatusCode::CREATED)
 }
@@ -140,9 +167,14 @@ pub async fn get_doc_tree_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<INode>, ApiError> {
-    require_perms(State(&state), headers, &[Permission::GetDocTree]).await?;
+    let user = require_perms(State(&state), headers, &[Permission::GetDocTree]).await?;
 
-    match state.git.get_doc_tree() {
+    let tree = pinned_branch(&state, &user).await?.map_or_else(
+        || state.git.get_doc_tree(),
+        |branch| state.git.get_doc_tree_on_branch(&branch, BASE_BRANCH),
+    );
+
+    match tree {
         Ok(t) => Ok(Json(t)),
         Err(e) => {
             error!("An error was encountered fetching the document tree: {e:?}");

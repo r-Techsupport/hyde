@@ -4,7 +4,7 @@ use crate::perms::Permission;
 use color_eyre::{Result, eyre::bail};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use tracing::{debug, info};
+use tracing::debug;
 
 pub const DATABASE_URL: &str = "file:hyde-data/data.db?mode=rwc";
 
@@ -65,10 +65,10 @@ impl Database {
     pub async fn from_url(url: &str) -> Result<Self> {
         let pool = SqlitePool::connect(url).await?;
 
-        info!("Running SQL migrations...");
+        debug!("Running SQL migrations...");
         // this should embed the migrations into the executable itself
         sqlx::migrate!("./migrations").run(&pool).await?;
-        info!("SQL migrations complete");
+        debug!("SQL migrations complete");
 
         Ok(Self { pool })
     }
@@ -178,7 +178,7 @@ impl Database {
             bail!(
                 "Update user impacted unexpected number of rows, impacted {} rows",
                 query_result.rows_affected()
-            );
+            )
         }
 
         Ok(())
@@ -195,7 +195,7 @@ impl Database {
             bail!(
                 "Delete user impacted unexpected number of rows, impacted {} rows",
                 query_result.rows_affected()
-            );
+            )
         }
 
         Ok(())
@@ -324,7 +324,7 @@ impl Database {
             bail!(
                 "Update user impacted unexpected number of rows, impacted {} rows",
                 query_result.rows_affected()
-            );
+            )
         }
 
         Ok(())
@@ -341,7 +341,7 @@ impl Database {
             bail!(
                 "Delete user impacted unexpected number of rows, impacted {} rows",
                 query_result.rows_affected()
-            );
+            )
         }
 
         Ok(())
@@ -572,15 +572,15 @@ mod tests {
         let all_groups = mock_db.get_all_groups().await.unwrap();
         assert_eq!(
             all_groups.len(),
-            3, // includes admin
+            4, // includes the admin and contributor groups from migrations
             "get_all_groups: should return the right number of groups"
         );
         assert_eq!(
-            all_groups[1], group1,
+            all_groups[2], group1,
             "get_all_groups: should return the right groups in the right order"
         );
         assert_eq!(
-            all_groups[2], group2,
+            all_groups[3], group2,
             "get_all_groups: should return the right groups in the right order"
         );
 
@@ -591,7 +591,7 @@ mod tests {
         let all_groups2 = mock_db.get_all_groups().await.unwrap();
         assert_eq!(
             all_groups2.len(),
-            3, // includes admin group
+            4, // includes the admin and contributor groups
             "update_group: should not create or delete any groups"
         );
 
@@ -700,11 +700,11 @@ mod tests {
         let all_groups3 = mock_db.get_all_groups().await.unwrap();
         assert_eq!(
             all_groups3.len(),
-            2, // includes admin group
+            3, // includes the admin and contributor groups
             "delete_group: should work"
         );
         assert_eq!(
-            all_groups3[1], group2,
+            all_groups3[2], group2,
             "delete_group: should delete the right group"
         );
         let fetched_group_fail = mock_db.get_group(group1.id).await.unwrap();
